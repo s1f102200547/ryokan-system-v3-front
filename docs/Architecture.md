@@ -6,7 +6,7 @@
 1. Layered Architecture
 2. Repository Pattern
 3. Strategy Pattern
-4. Command Pattern
+4. Command Pattern（状態変更） / UseCase（読み取り）
 
 ```
 ----
@@ -30,7 +30,7 @@ src/
 │   └── api/        # その他 Route Handlers
 ├── components/     # UI層: 表示と操作の伝達のみ
 ├── hooks/          # UI層: Application層の薄いラッパー（Domain層を直接呼ばない）
-├── application/    # Application層: Command, UseCase
+├── application/    # Application層: Command（状態変更操作）, UseCase（読み取り系オーケストレーション）
 ├── domain/         # Domain層: 純粋TS、ビジネスルール
 │   ├── ports/      # インターフェース定義（Repository等）
 │   └── tax/        # Strategy Pattern（税計算等）
