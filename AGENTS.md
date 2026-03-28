@@ -6,12 +6,12 @@
 ## Stack
 
 - Next.js 16 (App Router) + React 19 + TypeScript 5
-- MUI for UI components（未導入。導入時は `@mui/material` + Emotion）
-- Firebase Auth + Firestore（未導入。導入時は `firebase`, `firebase-admin`）
+- MUI (`@mui/material` + Emotion)
+- Firebase Auth + Firestore (`firebase`, `firebase-admin`)
 - Cloud Run + Docker でデプロイ（未構成）
-- Zod for validation（未導入）
-- Playwright for E2E（未導入）
-- Vitest for unit test（未導入）
+- Zod for validation
+- Playwright for E2E
+- Vitest for unit test
 
 
 ## Commands
@@ -45,3 +45,4 @@ E2E test（Playwright） ← 「重要フローのみ」
 - `docs/Architecture.md` - レイヤー構造・設計パターン・ファイル構造
 - `docs/Auth.md` - 認証・認可・セッション管理の設計
 - `docs/Deploy.md` - Docker / Cloud Run デプロイ手順
+- `docs/KnownIssues.md` - 既知の問題・対応不要と判断した脆弱性の記録
