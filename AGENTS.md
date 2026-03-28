@@ -1,8 +1,7 @@
 # Ryokan System V3 - Frontend
 
-小規模旅館（7部屋）のオペレーション統合ダッシュボード。
-予約管理・OTA・シフト・POS・メール通知を横断する管理画面。
-API なしの SaaS を GUI 自動化で統合する研究プロジェクトでもある。
+## Project 概要
+小規模旅館（7部屋）の業務効率化webアプリ。
 
 ## Stack
 
@@ -45,4 +44,3 @@ E2E test（Playwright） ← 「重要フローのみ」
 - `docs/architecture.md` - レイヤー構造とデータフローの詳細
 - `docs/auth.md` - 認証・認可・セッション管理の設計
 - `docs/deploy.md` - Docker / Cloud Run デプロイ手順
-- `docs/conventions.md` - 詳細なコーディング規約(未実装)
