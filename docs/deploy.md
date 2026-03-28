@@ -30,8 +30,8 @@
 
 | Environment | Trigger    | 用途 | 特徴                         |
 | ----------- | ---------- | ---- | ---------------------------- |
-| production  | main merge | 本番 | 実 DB・フル認証               |
-| staging     | PR 作成    | 検証 | 本番相当・一時環境・自動削除  |
+| production  | main merge | 本番 | 本番用 Firestore プロジェクト・フル認証 |
+| staging     | PR 作成    | 検証 | staging 用 Firestore プロジェクト（本番と分離）・一時環境・自動削除 |
 | local       | 手動起動   | 開発 | ローカル DB・高速開発・モック可 |
 
 ## Staging Lifecycle
