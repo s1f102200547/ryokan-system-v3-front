@@ -13,6 +13,9 @@
 - Playwright for E2E
 - Vitest for unit test
 
+## 実装方針
+
+ 機能ごとに E2E → domain → infra → application → hooks → UI の順で縦断実装
 
 ## Commands
 
@@ -22,7 +25,6 @@ npm run build     # Production build
 npm run lint      # ESLint
 ```
 
-
 ## テスト戦略
 
 ```
@@ -30,7 +32,6 @@ Unit test（Domain層）  ← 「最も多く書く」
 Integration test       ← 「Route Handler（API）の"入口->出口"を検証」
 E2E test（Playwright） ← 「重要フローのみ」
 ```
-
 
 ## Rules
 
