@@ -30,7 +30,7 @@ src/
 │   ├── api/auth/   # 認証エンドポイント（サーバーサイド）
 │   └── api/        # その他 Route Handlers
 ├── components/     # UI層: 表示と操作の伝達のみ
-├── hooks/          # UI層: Domain層の薄いラッパー
+├── hooks/          # UI層: Application層の薄いラッパー（Domain層を直接呼ばない）
 ├── application/    # Application層: Command, UseCase
 ├── domain/         # Domain層: 純粋TS、ビジネスルール
 │   ├── ports/      # インターフェース定義（Repository等）
