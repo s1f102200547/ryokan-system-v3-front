@@ -14,7 +14,7 @@ Cookie 設定: `httpOnly: true, secure: true, sameSite: 'strict'`
 ## middleware.ts のチェック順序
 
 1. セッション Cookie 検証（なければ /login にリダイレクト）
-2. 地域制限: 日本国外からのアクセスをブロック（本番のみ）
+2. 地域制限: 日本国外からのアクセスをブロック（本番のみ）。`X-Forwarded-For` から IP を取得し MaxMind GeoLite2 で国判定する自前実装
 3. 時間帯制限: 6:00-23:00 JST 以外をブロック（本番のみ）
 4. レート制限: IP あたりのリクエスト数制限(不正アクセス防止)
 
