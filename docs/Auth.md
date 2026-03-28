@@ -29,7 +29,7 @@ Cookie 設定: `httpOnly: true, secure: true, sameSite: 'strict'`
 ## ログイン保護
 
 - ログイン失敗5回でアカウントロック
-- ロック時に Slack 通知
+- ロック時に Slack `#ryokan-alerts` へ通知
 
 
 ## レート制限

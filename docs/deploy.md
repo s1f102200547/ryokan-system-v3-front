@@ -17,11 +17,12 @@
    - E2E test
    - npm audit
    - OWASP ZAP
+   - いずれか失敗時に Slack `#ryokan-alerts` へ通知
 4. すべて成功した場合のみ merge 可能
 5. main に merge すると以下が自動実行
    - Docker build
    - Cloud Run へデプロイ（production）
-   - Slack 通知
+   - Slack `#ryokan-ops` へデプロイ完了通知
 
 ## Environments
 
