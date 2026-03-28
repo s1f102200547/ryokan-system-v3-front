@@ -30,7 +30,6 @@ Cookie 設定: `httpOnly: true, secure: true, sameSite: 'strict'`
 
 - ログイン失敗5回でアカウントロック
 - ロック時に Slack 通知
-- パスワードローテーション: 90日ごとに変更強制（`last_password_change` を Firestore に保存）
 
 
 ## レート制限
