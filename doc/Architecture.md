@@ -22,9 +22,7 @@ Shared (lib/, types/)
 ```
 
 
-## ファイル構造
-
-Layered Architecture。Domain層は React / Firebase を import しない純粋TS。
+## ファイル構造(変更可能性あり)
 
 ```
 src/

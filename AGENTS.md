@@ -44,5 +44,5 @@ E2E test（Playwright） ← 「重要フローのみ」
 
 - `docs/architecture.md` - レイヤー構造とデータフローの詳細
 - `docs/auth.md` - 認証・認可・セッション管理の設計
-- `docs/deploy.md` - Docker / Cloud Run デプロイ手順(未実装)
+- `docs/deploy.md` - Docker / Cloud Run デプロイ手順
 - `docs/conventions.md` - 詳細なコーディング規約(未実装)
