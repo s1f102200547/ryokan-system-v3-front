@@ -2,12 +2,11 @@
 
 ## デザインパターン
 
-採用する設計パターン（5つ）
+採用する設計パターン（4つ）
 1. Layered Architecture
 2. Repository Pattern
 3. Strategy Pattern
 4. Command Pattern
-5. Observer Pattern
 
 ```
 ----
