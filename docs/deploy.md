@@ -16,7 +16,7 @@
    - unit test
    - E2E test
    - npm audit
-   - OWASP ZAP
+   - OWASP ZAP Baseline Scan（パッシブスキャンのみ、約1〜2分）
    - いずれか失敗時に Slack `#ryokan-alerts` へ通知
 4. すべて成功した場合のみ merge 可能
 5. main に merge すると以下が自動実行
@@ -46,6 +46,15 @@
 ```bash
 npm run dev
 ```
+
+## OWASP ZAP スキャン
+
+| スキャン種別 | タイミング | 方式 | 対象 |
+|---|---|---|---|
+| Baseline Scan（パッシブ） | PR ごとの CI | 自動 | ログイン画面・主要 API エンドポイント |
+| フルスキャン | 週次 cron | 別ジョブ | 同上 |
+
+PR CI にフルスキャンを含めると 10〜30 分かかるため分離する。
 
 ## Branch Protection
 
