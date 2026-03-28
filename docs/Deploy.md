@@ -1,7 +1,5 @@
 # Deploy Guide
 
-> 設計途中：local / staging / production の切り替え方法は検討中
-
 ## Overview
 
 完全自動デプロイ（merge 駆動）を前提とした構成。

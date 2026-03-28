@@ -34,6 +34,7 @@ E2E test（Playwright） ← 「重要フローのみ」
 
 ## Rules
 
+- コミットメッセージは日本語
 - コンポーネントは named export を使う
 - `any` 型を使わない。必要なら `unknown` + type guard
 - Import alias: `@/*` → `./src/*`
@@ -41,6 +42,6 @@ E2E test（Playwright） ← 「重要フローのみ」
 
 ## Docs（必要に応じて参照）
 
-- `docs/architecture.md` - レイヤー構造とデータフローの詳細
-- `docs/auth.md` - 認証・認可・セッション管理の設計
-- `docs/deploy.md` - Docker / Cloud Run デプロイ手順
+- `docs/Architecture.md` - レイヤー構造・設計パターン・ファイル構造
+- `docs/Auth.md` - 認証・認可・セッション管理の設計
+- `docs/Deploy.md` - Docker / Cloud Run デプロイ手順

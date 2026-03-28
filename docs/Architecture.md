@@ -21,7 +21,17 @@ Shared (lib/, types/)
 ```
 
 
-## ファイル構造(変更可能性あり)
+## 層ごとのルール
+
+| 層 | import してよいもの | import してはいけないもの |
+|---|---|---|
+| domain/ | 純粋 TS のみ | React, Next.js, Firebase, infra/ |
+| application/ | domain/, infra/ | React, Next.js |
+| infra/ | domain/ports/, 外部ライブラリ | application/, components/ |
+| components/ | hooks/, types/ | application/, domain/, infra/ |
+| hooks/ | application/ | domain/, infra/ を直接呼ばない |
+
+## ファイル構造
 
 ```
 src/
