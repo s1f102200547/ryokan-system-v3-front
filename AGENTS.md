@@ -15,7 +15,7 @@
 
 ## 実装方針
 
- 機能ごとに E2E → domain unit test -> domain 実装 → infra → application → hooks → UI の順で縦断実装
+ 機能ごとに E2E → domainの unit test -> domain → infra → application → hooks → integration test -> UI の順で縦断実装
 
 ## Commands
 
