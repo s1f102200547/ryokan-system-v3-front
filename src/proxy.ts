@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 // すべてのリクエスト(自身のurlへのアクセス)に対する処理の最初に実行される
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const session = request.cookies.get('session')
   if (!session) { //クッキーにセッションが無かったら(未ログイン状態)
     return NextResponse.redirect(new URL('/login', request.url)) // /login へ強制遷移
