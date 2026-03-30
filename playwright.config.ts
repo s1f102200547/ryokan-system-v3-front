@@ -1,4 +1,15 @@
 import { defineConfig, devices } from '@playwright/test'
+import { readFileSync } from 'fs'
+
+// .env.test.local から TEST_EMAIL / TEST_PASSWORD を読み込む
+try {
+  readFileSync('.env.test.local', 'utf8')
+    .split('\n')
+    .forEach((line) => {
+      const [key, ...rest] = line.split('=')
+      if (key?.trim()) process.env[key.trim()] = rest.join('=').trim()
+    })
+} catch { /* ファイルがなければスキップ */ }
 
 export default defineConfig({
   testDir: './e2e',
