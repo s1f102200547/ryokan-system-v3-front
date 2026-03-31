@@ -32,89 +32,69 @@ const QUERY_RANGE_DAYS = 30;
 
 ## 部屋の状態分類
 
-指定日（`targetDate`）の朝時点における各部屋の状態を以下の3つに分類する。
+状態変数の定義・有効な組み合わせ一覧は @RoomStateDomain.md を参照。  
+以下では RoomStateDomain の変数名のみを使って CleaningBoard の各列を記述する。
 
-| 状態 | 判定条件 | スタッフ作業 |
+### 連泊（isConsecutive）
+
+| 条件 | isConsecutive | 注 |
 |---|---|---|
-| **チェックアウト済み** | `check_in_date < targetDate` かつ `check_out_date === targetDate` | 次ゲスト情報をもとにセットアップ（布団・アメニティ配置） |
-| **滞在中** | `check_in_date <= targetDate` かつ `check_out_date > targetDate` | アメニティ補充のみ |
-| **空室** | targetDate に該当予約なし | 原則作業不要（セットアップ済みのため） |
+| `isStayingContinued` | ✓ | パターン A（**簡略化しないこと**） |
+| `isLastNight` | ✗ | パターン A |
+| `stayingReservation === null` かつ `isConsecutiveCheckIn` | ✓ | パターン B |
+| `stayingReservation === null` かつ `!isConsecutiveCheckIn` | ✗ | パターン B |
 
----
+### C/I 列
 
-## 連泊フラグ（isConsecutive）の判定
+| 条件 | 表示 |
+|---|---|
+| `isTodayCheckIn` | `{adult_count}({child_count})` |
+| `isFutureCheckIn` | `({adult_count}({child_count}))` ※括弧付き |
+| どちらでもない | 空欄 |
 
-過去/当日予約と指定日の新規CI予約でロジックが異なる。**簡略化しないこと。**
+子供が0人の場合は `({child_count})` 部分を省略してよい（実装判断）。
 
-### パターン A: 過去・当日CI予約（`check_in_date <= targetDate`）
+### 状態 × 出力 一覧
 
-```
-check_out_date > targetDate + 1  →  isConsecutive = true（「連」）
-check_out_date === targetDate + 1 →  isConsecutive = false（最終夜）
-```
+| 滞在状況 | 次の予約 | isConsecutive | C/I列 | autoNotes ※1 |
+|---|---|---|---|---|
+| `isStayingContinued` | なし | ✓ | 空欄 | `isLateCheckout` → レイトアウト |
+| `isLastNight` | なし | ✗ | 空欄 | `isLateCheckout` → レイトアウト |
+| `isLastNight` | `isFutureCheckIn && !isConsecutiveCheckIn` | ✗ | (人数) | `isLateCheckout` → レイトアウト |
+| `isLastNight` | `isFutureCheckIn && isConsecutiveCheckIn` | ✗ | (人数) | `isLateCheckout` → レイトアウト |
+| `isCheckedOutToday` | `isTodayCheckIn && !isConsecutiveCheckIn` | ✗ | 人数 | - |
+| `isCheckedOutToday` | `isTodayCheckIn && isConsecutiveCheckIn` | ✓ | 人数 | - |
+| `isCheckedOutToday` | `isFutureCheckIn && !isConsecutiveCheckIn` | ✗ | (人数) | - |
+| `isCheckedOutToday` | `isFutureCheckIn && isConsecutiveCheckIn` | ✓ | (人数) | - |
+| `isCheckedOutToday` | なし | ✗ | 空欄 | - |
+| `!isCheckedOutToday && stayingReservation === null` | `isTodayCheckIn && !isConsecutiveCheckIn` | ✗ | 人数 | `isPreviousDayVacant` or `isTodayVacant` |
+| `!isCheckedOutToday && stayingReservation === null` | `isTodayCheckIn && isConsecutiveCheckIn` | ✓ | 人数 | `isPreviousDayVacant` or `isTodayVacant` |
+| `!isCheckedOutToday && stayingReservation === null` | `isFutureCheckIn && !isConsecutiveCheckIn` | ✗ | (人数) | `isPreviousDayVacant` or `isTodayVacant` |
+| `!isCheckedOutToday && stayingReservation === null` | `isFutureCheckIn && isConsecutiveCheckIn` | ✓ | (人数) | `isPreviousDayVacant` or `isTodayVacant` |
+| `!isCheckedOutToday && stayingReservation === null` | なし | ✗ | 空欄 | `isPreviousDayVacant` or `isTodayVacant` |
 
-「連泊」の意味: 翌日以降も継続して滞在する予定があること。
-
-### パターン B: 未来CI予約（`check_in_date > targetDate`）
-
-```
-nights >= 2  →  isConsecutive = true（「連」）
-nights === 1 →  isConsecutive = false
-```
-
-`nights = check_out_date - check_in_date`（日数）
+※1 autoNotes の詳細条件は「備考欄（autoNotes）の自動生成ロジック」を参照。
 
 ---
 
 ## C/I 列の表示ロジック
 
-各部屋行の「C/I」列に表示するゲスト人数。
-
-| 条件 | 表示 |
-|---|---|
-| `check_in_date === targetDate` の予約あり（当日CI） | `{adult_count}({child_count})` |
-| 当日CI予約なし・未来CI予約あり | `({adult_count}({child_count}))` ※括弧付き |
-| CI予約なし | 空欄 |
-
-- `checkInReservation` が当日CIなら `isToday = true`
-- 子供が0人の場合は `({child_count})` 部分を省略してよい（実装判断）
+`checkInReservation` が当日CIなら `isToday = true`。
 
 ---
 
 ## 備考欄（autoNotes）の自動生成ロジック
 
-優先度順に評価する。複数条件が当てはまる場合は先に一致したものを採用する。
+優先度順に評価し、最初に一致した出力を使用する。
 
-### 1. レイトアウト
+| 優先度 | 条件 | 出力 |
+|---|---|---|
+| 1 | `isLateCheckout` | `"レイトアウト11:00"` |
+| 2 | `isPreviousDayVacant` | `"{room}号室: 前日空室のためセットアップ済み"` |
+| 3 | `isTodayVacant` | `"{room}号室: 本日空室のため次回の予約情報をもとにセットアップ"` |
+| 4 | どれにも当てはまらない | `""` |
 
-```
-条件: late_out === true  かつ  check_out_date === targetDate + 1
-出力: "レイトアウト11:00"
-```
-
-滞在中の部屋で、翌日COかつレイトアウト設定がある場合に表示。
-
-### 2. 前日空室
-
-```
-条件: targetDate - 1 にその部屋の有効予約（cancel !== 1）が存在しない
-出力: "{room}号室: 前日空室のためセットアップ済み"
-```
-
-スタッフへの案内: 前日すでにセットアップ済みなので追加作業不要。
-
-### 3. 当日空室
-
-```
-条件: targetDate にその部屋に滞在・CIするゲストがいない
-出力: "{room}号室: 本日空室のため次回の予約情報をもとにセットアップ"
-```
-
-スタッフへの案内: 次回CI予約のゲスト情報を参照してセットアップする。
-
-### 4. 何も当てはまらない場合
-
-`autoNotes = ""`（空文字）
+各変数の定義は @RoomStateDomain.md を参照。
 
 ---
 
@@ -122,7 +102,8 @@ nights === 1 →  isConsecutive = false
 
 - `autoNotes` の下にテキストボックスを設置し、スタッフが印刷前に追記できる
 - `userNotes` は **Firestore の `daily` コレクションに保存する**（スキーマは @Schema.md 参照）
-- パス: `daily/{targetDate}` ドキュメントの `cleaningBoardNotes` フィールド（map）に部屋番号をキーとして格納
+- パス: `daily/{targetDate}` ドキュメントの `CleaningBoardUserNotes` フィールド（string）に格納
+- テーブル全体で1つのテキストボックス
 - 日付を変えた際は対応する `daily/{targetDate}` ドキュメントを読み込む
 
 ---
@@ -155,7 +136,7 @@ Firestore(reservations)
                       ├─ checkInReservation（次CI）を特定
                       ├─ isConsecutive を判定（パターンA/B）
                       ├─ autoNotes を生成
-                      └─ userNotes を Firestore(daily/{targetDate}.cleaningBoardNotes) から読み込み
+                      └─ userNotes を Firestore(daily/{targetDate}.CleaningBoardUserNotes) から読み込み
 ```
 
 ---
