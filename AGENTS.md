@@ -41,9 +41,17 @@ E2E test（Playwright） ← 「重要フローのみ」
 - Import alias: `@/*` → `./src/*`
 
 
+## 部屋状態のカプセル化方針
+
+部屋の状態判定（「今夜も滞在継続か」「前日空室か」など）は条件式が複雑で複数機能にまたがる。  
+`docs/domain/RoomStateDomain.md` にすべての状態を `{変数名（自然言語）}` の形で定義し、  
+`src/domain/room/` に共通関数・変数としてカプセル化する。  
+各機能（CleaningBoard / Atax / Timetable など）は **内部条件を見ずに変数名の組み合わせだけでロジックを記述する**。
+
 ## Docs（必要に応じて参照）
 
 - `docs/Architecture.md` - レイヤー構造・設計パターン・ファイル構造
 - `docs/Auth.md` - 認証・認可・セッション管理の設計
 - `docs/Deploy.md` - Docker / Cloud Run デプロイ手順
 - `docs/KnownIssues.md` - 既知の問題・対応不要と判断した脆弱性の記録
+- `docs/domain/RoomStateDomain.md` - 部屋状態の共通変数定義（全機能共通）
