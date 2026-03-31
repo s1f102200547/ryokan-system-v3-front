@@ -133,7 +133,7 @@ nights = check_out_date - check_in_date（日数）
 型:   boolean
 ```
 
-昨日も誰もいなかった。`isCheckedOutToday` のときは前日に在室ゲストがいるため必ず `false`。
+昨日も誰もいなかった。
 
 ---
 
@@ -148,5 +148,23 @@ nights = check_out_date - check_in_date（日数）
 
 明朝チェックアウト予定かつレイトアウト設定あり（11:00 まで延長）。
 
+---
+
+## 変数間の含意ルール(自分の目では未確認)
+
+ある変数が `true` のとき、他の変数が必ず `true` / `false` になる関係をまとめる。  
+実装時に「この変数が true なら〇〇の確認は不要」という判断に使う。
+
+| 条件（true のとき） | 必ず `false` になる変数 | 必ず `true` になる変数 |
+|---|---|---|
+| `isStayingContinued` | `isLastNight` / `isCheckedOutToday` / `isTodayVacant` | `stayingReservation !== null` |
+| `isLastNight` | `isStayingContinued` / `isCheckedOutToday` / `isTodayVacant` | `stayingReservation !== null` |
+| `isStayingContinued \|\| isLastNight` | `checkInReservation !== null`（= `isTodayCheckIn` / `isFutureCheckIn` / `isConsecutiveCheckIn`） | — |
+| `isCheckedOutToday` | `stayingReservation !== null` / `isPreviousDayVacant` | — |
+| `isTodayCheckIn` | `isFutureCheckIn` | — |
+| `isFutureCheckIn` | `isTodayCheckIn` | — |
+| `isTodayVacant` | `isTodayCheckIn` | — |
+| `isPreviousDayVacant` | `isCheckedOutToday` | — |
+| `isLateCheckout` | — | `isLastNight` |
 
 ---
