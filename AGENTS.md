@@ -54,4 +54,5 @@ E2E test（Playwright） ← 「重要フローのみ」
 - `docs/Auth.md` - 認証・認可・セッション管理の設計
 - `docs/Deploy.md` - Docker / Cloud Run デプロイ手順
 - `docs/KnownIssues.md` - 既知の問題・対応不要と判断した脆弱性の記録
-- `docs/domain/RoomStateDomain.md` - 部屋状態の共通変数定義（全機能共通）
+- `docs/domain/RoomStateDomain.md` - 部屋状態の共通変数定義（全機能共通）← Domain層
+- `docs/features/CleaningBoard.md` - 清掃ボードのフィーチャー仕様（表示ロジック・列定義）← Application/UI層
