@@ -37,49 +37,53 @@ const QUERY_RANGE_DAYS = 30;
 
 ### 連泊（isConsecutive）
 
-| 条件 | isConsecutive | 注 |
-|---|---|---|
-| `isStayingContinued` | ✓ | パターン A（**簡略化しないこと**） |
-| `isLastNight` | ✗ | パターン A |
-| `stayingReservation === null` かつ `isConsecutiveCheckIn` | ✓ | パターン B |
-| `stayingReservation === null` かつ `!isConsecutiveCheckIn` | ✗ | パターン B |
+「連泊カードを部屋に置くか否か」を示すフラグ。判定対象の予約が異なるため 2 つのパターンに分かれる。**簡略化しないこと。**
+
+- **パターン A**（`stayingReservation` が対象）  
+  昨夜から在室中のゲストに適用。「明日以降もまだ滞在するか？」を判定する。  
+  含意ルールより `isStayingContinued` と `isLastNight` は排他かつ `stayingReservation !== null` の全ケースを網羅するため、**`isConsecutive = isStayingContinued`** と等価。
+
+- **パターン B**（`checkInReservation` が対象）  
+  これから来るゲストに適用。「何泊するか？」を `nights` で判定する。  
+  **`isConsecutive = isConsecutiveCheckIn`** と等価。
+
+```
+isConsecutive =
+  stayingReservation !== null
+    ? isStayingContinued   // パターン A
+    : isConsecutiveCheckIn // パターン B
+```
 
 ### C/I 列
 
-| 条件 | 表示 |
-|---|---|
-| `isTodayCheckIn` | `{adult_count}({child_count})` |
-| `isFutureCheckIn` | `({adult_count}({child_count}))` ※括弧付き |
-| どちらでもない | 空欄 |
+| 条件                         | 表示                               |
+| -------------------------- | -------------------------------- |
+| `isTodayCheckIn === true`  | `{adult_count}({child_count})`   |
+| `isFutureCheckIn === true` | `({adult_count}({child_count}))` |
+| 上記以外                       | `""`（空文字）                        |
 
-子供が0人の場合は `({child_count})` 部分を省略してよい（実装判断）。
+子供が0人の場合は `({child_count})` 部分を省略。
 
-### 状態 × 出力 一覧
+### 状態 × 出力 一覧(変更必須)
 
-| 滞在状況 | 次の予約 | isConsecutive | C/I列 | autoNotes ※1 |
+`autoNotes` は優先度順評価（詳細は「備考欄の自動生成ロジック」を参照）。  
+
+| 滞在状況 | 次の予約 | isConsecutive | C/I列 | autoNotes |
 |---|---|---|---|---|
-| `isStayingContinued` | なし | ✓ | 空欄 | `isLateCheckout` → レイトアウト |
-| `isLastNight` | なし | ✗ | 空欄 | `isLateCheckout` → レイトアウト |
-| `isLastNight` | `isFutureCheckIn && !isConsecutiveCheckIn` | ✗ | (人数) | `isLateCheckout` → レイトアウト |
-| `isLastNight` | `isFutureCheckIn && isConsecutiveCheckIn` | ✗ | (人数) | `isLateCheckout` → レイトアウト |
-| `isCheckedOutToday` | `isTodayCheckIn && !isConsecutiveCheckIn` | ✗ | 人数 | - |
-| `isCheckedOutToday` | `isTodayCheckIn && isConsecutiveCheckIn` | ✓ | 人数 | - |
-| `isCheckedOutToday` | `isFutureCheckIn && !isConsecutiveCheckIn` | ✗ | (人数) | - |
-| `isCheckedOutToday` | `isFutureCheckIn && isConsecutiveCheckIn` | ✓ | (人数) | - |
-| `isCheckedOutToday` | なし | ✗ | 空欄 | - |
-| `!isCheckedOutToday && stayingReservation === null` | `isTodayCheckIn && !isConsecutiveCheckIn` | ✗ | 人数 | `isPreviousDayVacant` or `isTodayVacant` |
-| `!isCheckedOutToday && stayingReservation === null` | `isTodayCheckIn && isConsecutiveCheckIn` | ✓ | 人数 | `isPreviousDayVacant` or `isTodayVacant` |
+| `isStayingContinued` | なし | ✓ | 空欄 | `""` |
+| `isLastNight` | なし | ✗ | 空欄 | `isLateCheckout` |
+| `isLastNight` | `isFutureCheckIn && !isConsecutiveCheckIn` | ✗ | (人数) | `isLateCheckout` |
+| `isLastNight` | `isFutureCheckIn && isConsecutiveCheckIn` | ✗ | (人数) | `isLateCheckout` |
+| `isCheckedOutToday` | `isTodayCheckIn && !isConsecutiveCheckIn` | ✗ | 人数 | `""` |
+| `isCheckedOutToday` | `isTodayCheckIn && isConsecutiveCheckIn` | ✓ | 人数 | `""` |
+| `isCheckedOutToday` | `isFutureCheckIn && !isConsecutiveCheckIn` | ✗ | (人数) | `isTodayVacant` |
+| `isCheckedOutToday` | `isFutureCheckIn && isConsecutiveCheckIn` | ✓ | (人数) | `isTodayVacant` |
+| `isCheckedOutToday` | なし | ✗ | 空欄 | `isTodayVacant` |
+| `!isCheckedOutToday && stayingReservation === null` | `isTodayCheckIn && !isConsecutiveCheckIn` | ✗ | 人数 | `isPreviousDayVacant` |
+| `!isCheckedOutToday && stayingReservation === null` | `isTodayCheckIn && isConsecutiveCheckIn` | ✓ | 人数 | `isPreviousDayVacant` |
 | `!isCheckedOutToday && stayingReservation === null` | `isFutureCheckIn && !isConsecutiveCheckIn` | ✗ | (人数) | `isPreviousDayVacant` or `isTodayVacant` |
 | `!isCheckedOutToday && stayingReservation === null` | `isFutureCheckIn && isConsecutiveCheckIn` | ✓ | (人数) | `isPreviousDayVacant` or `isTodayVacant` |
 | `!isCheckedOutToday && stayingReservation === null` | なし | ✗ | 空欄 | `isPreviousDayVacant` or `isTodayVacant` |
-
-※1 autoNotes の詳細条件は「備考欄（autoNotes）の自動生成ロジック」を参照。
-
----
-
-## C/I 列の表示ロジック
-
-`checkInReservation` が当日CIなら `isToday = true`。
 
 ---
 
@@ -90,8 +94,8 @@ const QUERY_RANGE_DAYS = 30;
 | 優先度 | 条件 | 出力 |
 |---|---|---|
 | 1 | `isLateCheckout` | `"レイトアウト11:00"` |
-| 2 | `isPreviousDayVacant` | `"{room}号室: 前日空室のためセットアップ済み"` |
-| 3 | `isTodayVacant` | `"{room}号室: 本日空室のため次回の予約情報をもとにセットアップ"` |
+| 2 | `isPreviousDayVacant` | `"{room}: 前日空室のためセットアップ済み"` |
+| 3 | `isTodayVacant` | `"{room}: 本日空室のため次回の予約情報をもとにセットアップ"` |
 | 4 | どれにも当てはまらない | `""` |
 
 各変数の定義は @RoomStateDomain.md を参照。
@@ -102,9 +106,6 @@ const QUERY_RANGE_DAYS = 30;
 
 - `autoNotes` の下にテキストボックスを設置し、スタッフが印刷前に追記できる
 - `userNotes` は **Firestore の `daily` コレクションに保存する**（スキーマは @Schema.md 参照）
-- パス: `daily/{targetDate}` ドキュメントの `CleaningBoardUserNotes` フィールド（string）に格納
-- テーブル全体で1つのテキストボックス
-- 日付を変えた際は対応する `daily/{targetDate}` ドキュメントを読み込む
 
 ---
 
@@ -119,8 +120,8 @@ const QUERY_RANGE_DAYS = 30;
 ## 日付切り替え（V3変更点）
 
 - 日付は MUI DatePicker で選択し、アプリ全体のグローバル state（Context）で共有する
-- 清掃ボード・予約状況など各ページが同じ `targetDate` を参照する
-- V2 は「翌日固定」だったが V3 では任意の日付に変更可能
+- 「清掃ボード」・「予約状況」・「タイムテーブル」・「宿泊税表」など各ページが同じ `targetDate` を参照する
+- V2 は「翌日固定」だったが V3 では任意の日付に選択切り替え可能
 
 ---
 
@@ -132,8 +133,8 @@ Firestore(reservations)
        └─ cancel=1 を除外
             └─ ROOM_NUMBERS でグループ化
                  └─ 各部屋ごとに CleaningBoardRow を生成
-                      ├─ stayingReservation（滞在中）を特定
-                      ├─ checkInReservation（次CI）を特定
+                      ├─ stayingReservation を特定
+                      ├─ checkInReservation を特定
                       ├─ isConsecutive を判定（パターンA/B）
                       ├─ autoNotes を生成
                       └─ userNotes を Firestore(daily/{targetDate}.CleaningBoardUserNotes) から読み込み
