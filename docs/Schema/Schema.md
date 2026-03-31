@@ -15,34 +15,32 @@ check_in_date == "YYYY/MM/DD"
 
 ### フィールド定義
 
-| フィールド | 型 | 制約 | 説明 |
-|---|---|---|---|
-| id | string | ドキュメントID | 予約ドキュメントの識別子 |
-| reservation_number | string | 1文字以上 | 予約番号 |
-| booking_site | string (enum) | `"Chillnn"` \| `"Booking.com"` \| `"Expedia"` \| `"Other"` | 予約経路（OTA） |
-| guest_name | string | 1文字以上 | ゲスト名 |
-| check_in_date | string | `YYYY/MM/DD` 形式 | チェックイン日 |
-| check_out_date | string | `YYYY/MM/DD` 形式 | チェックアウト日 |
-| room | string | `"21"` \| `"22"` \| `"31"` \| `"32"` \| `"42"` \| `"43"` \| `"61"` | 部屋番号 |
-| room_type | string | 1文字以上 | 部屋タイプ |
-| stay_plan | string | 1文字以上 | 宿泊プラン |
-| room_count | integer | 1〜9 | 部屋数 |
-| adult_count | integer | 1〜9 | 大人数 |
-| child_count | integer | 0〜9 | 子供数 |
-| total_price | integer | 0以上 | 合計金額（円） |
-| remarks | string | 空文字可 | 備考 |
-| payment | string | 空文字可 | 支払い情報 |
-| late_out | boolean | - | レイトアウト有無 |
-| cancel | integer | `0` \| `1` | キャンセルフラグ（1 = キャンセル済み） |
-| source | string (literal) | `"gmail"` 固定 | データソース |
-| mail_id | string | 1文字以上 | 取り込み元の Gmail メッセージID |
+| フィールド | 型 | 必須/任意 | 制約 | 説明 |
+|---|---|---|---|---|
+| id | string | 必須 | ドキュメントID | 予約ドキュメントの識別子 |
+| reservation_number | string | 必須 | 1文字以上 | 予約番号 |
+| guest_name | string | 必須 | 1文字以上 | ゲスト名 |
+| check_in_date | string | 必須 | `YYYY/MM/DD` 形式 | チェックイン日 |
+| check_out_date | string | 必須 | `YYYY/MM/DD` 形式 | チェックアウト日 |
+| adult_count | integer | 必須 | 1〜9 | 大人数 |
+| child_count | integer | 必須 | 0〜9 | 子供数 |
+| booking_site | string (enum) | 任意 | `"Chillnn"` \| `"Booking.com"` \| `"Expedia"` \| `"Other"` | 予約経路（OTA） |
+| room | string \| null | 任意 | `"21"` \| `"22"` \| `"31"` \| `"32"` \| `"42"` \| `"43"` \| `"61"` \| `""` \| `null` | 部屋番号 |
+| room_type | string | 任意 | 1文字以上 | 部屋タイプ |
+| stay_plan | string | 任意 | 1文字以上 | 宿泊プラン |
+| room_count | integer | 任意 | 1〜9 | 部屋数 |
+| total_price | integer | 任意 | 0以上 | 合計金額（円） |
+| remarks | string | 任意 | 空文字可 | 備考 |
+| payment | string | 任意 | 空文字可 | 支払い情報 |
+| late_out | boolean | 任意 | - | レイトアウト有無 |
+| cancel | integer | 任意 | `0` \| `1` | キャンセルフラグ（1 = キャンセル済み） |
+| source | string (literal) | 任意 | `"gmail"` 固定 | データソース |
+| mail_id | string | 任意 | 1文字以上 | 取り込み元の Gmail メッセージID |
 
 ### バリデーションルール
 
-- 必須フィールド: `id`, `reservation_number`, `guest_name`, `check_in_date`, `check_out_date`, `adult_count`, `child_count`
-- それ以外のフィールドは省略可（optional）
 - `check_out_date > check_in_date`
-- `cancel == 1` のレコードはアプリケーション層で除外する
+- `cancel == 1` のレコードは除外する
 - strict モード: 定義外のフィールドはエラー
 
 ---
@@ -51,13 +49,31 @@ check_in_date == "YYYY/MM/DD"
 
 日次データ。ドキュメントIDは対象日（`YYYY-MM-DD`）。
 
+**クエリキー例:**
+```ts
+doc("daily/2026-03-31")
+```
+
 ### フィールド定義
 
-| フィールド | 型 | 制約 | 説明 |
-|---|---|---|---|
-| cleaningBoardNotes | map\<room, string\> | 省略可 | 清掃ボードの部屋ごとのユーザー入力備考。キーは部屋番号（例: `"21"`）、値は備考テキスト |
+| フィールド | 型 | 必須/任意 | 制約 | 説明 |
+|---|---|---|---|---|
+| date | string | 必須 | `YYYY-MM-DD` 形式 | ドキュメントIDと同じ日付 |
+| CleaningBoardUserNotes | string | 任意 | 空文字可 | 清掃ボードのユーザー入力備考テキスト |
+| safeBalanceChecker | string | 任意 | - | `guestInfoRoom/{year}/{month}/{day}` の `safeBalanceChecker` をそのまま保持 |
+| source.collection | string | 任意 | - | 移行元コレクション名 |
+| source.path | string | 任意 | - | 移行元ドキュメントパス |
+| source.field | string | 任意 | `"safeBalanceChecker"` 固定 | 移行元フィールド名 |
+| migrated_at | string | 任意 | ISO8601 JST 形式 | マイグレーション実行日時 |
+| updated_at | string | 任意 | ISO8601 JST 形式 | 最終更新日時 |
 
-- `daily/{date}/cleaningBoardNotes` の形で部屋番号をキーにした map として格納する
-- キーが存在しない部屋は `userNotes = ""` として扱う
+### バリデーションルール
+
+- ドキュメントが存在しない場合はフロント側で新規作成する
 
 ---
+
+
+ ⚠️ **Date Format Policy**
+
+ 本来、日付フォーマットは `YYYY-MM-DD` に統一すべきだが 既存のDBスキーマとの互換性維持のため、`YYYY/MM/DD`と混在する
