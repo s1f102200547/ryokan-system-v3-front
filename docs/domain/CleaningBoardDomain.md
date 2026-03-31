@@ -114,6 +114,7 @@ isConsecutive =
 - 7行固定（`ROOM_NUMBERS` 順）
 - A4 横向き印刷を前提にスタイリングする
 - 列構成（参考）: 部屋番号 / 滞在中ゲスト / C/I / 連泊 / 備考
+- 参考: @cleaningBoard.png
 
 ---
 
@@ -122,22 +123,5 @@ isConsecutive =
 - 日付は MUI DatePicker で選択し、アプリ全体のグローバル state（Context）で共有する
 - 「清掃ボード」・「予約状況」・「タイムテーブル」・「宿泊税表」など各ページが同じ `targetDate` を参照する
 - V2 は「翌日固定」だったが V3 では任意の日付に選択切り替え可能
-
----
-
-## データフロー概要
-
-```
-Firestore(reservations)
-  └─ 指定日 ±30日分を取得
-       └─ cancel=1 を除外
-            └─ ROOM_NUMBERS でグループ化
-                 └─ 各部屋ごとに CleaningBoardRow を生成
-                      ├─ stayingReservation を特定
-                      ├─ checkInReservation を特定
-                      ├─ isConsecutive を判定（パターンA/B）
-                      ├─ autoNotes を生成
-                      └─ userNotes を Firestore(daily/{targetDate}.CleaningBoardUserNotes) から読み込み
-```
 
 ---
