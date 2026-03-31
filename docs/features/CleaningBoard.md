@@ -1,7 +1,7 @@
 # CleaningBoard フィーチャー仕様
 
-清掃ボード（V3）のフィーチャー仕様を定義する。スキーマは @Schema.md を参照。  
-部屋状態の変数定義（ドメイン層）は @RoomStateDomain.md を参照。  
+清掃ボード（V3）のフィーチャー仕様を定義する。スキーマは docs/Schema/* を参照。  
+部屋状態の変数定義（ドメイン層）は @RoomState.md を参照。  
 本ファイルは「RoomState変数を使ってCleaningBoardをどう表示するか」を定義する（Application/UI層の仕様）。
 
 ---
@@ -25,12 +25,12 @@ const QUERY_RANGE_DAYS = 30;
 
 ## 部屋の状態分類
 
-状態変数の定義・有効な組み合わせ一覧は @RoomStateDomain.md を参照。  
+状態変数の定義・有効な組み合わせ一覧は @RoomState.md を参照。  
 以下では RoomStateDomain の変数名のみを使って CleaningBoard の各列を記述する。
 
 ### 連泊（isConsecutive）
 
-「連泊カードを部屋に置くか否か」を示すフラグ。計算式・定義は @RoomStateDomain.md を参照。
+「連泊カードを部屋に置くか否か」を示すフラグ。計算式・定義は @RoomState.md を参照。
 
 判定対象の予約が異なるため 2 つのパターンに分かれる（直感）：
 
@@ -70,7 +70,7 @@ const QUERY_RANGE_DAYS = 30;
 
 | 列 | 定義 |
 |---|---|
-| `isConsecutive`（連泊） | @RoomStateDomain.md を参照 |
+| `isConsecutive`（連泊） | @RoomState.md を参照 |
 | C/I列 | 上記「C/I 列」表の通り |
 | `autoNotes` | 後述「備考欄の自動生成ロジック」の通り |
 
@@ -79,7 +79,7 @@ const QUERY_RANGE_DAYS = 30;
 ## ユーザー入力備考（userNotes）
 
 - `autoNotes` の下にテキストボックスを設置し、スタッフが印刷前に追記できる
-- `userNotes` は **Firestore の `daily` コレクションに保存する**（スキーマは @Schema.md 参照）
+- `userNotes` は **Firestore の `daily` コレクションに保存する**
 
 ---
 

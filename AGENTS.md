@@ -41,12 +41,12 @@ E2E test（Playwright） ← 「重要フローのみ」
 - Import alias: `@/*` → `./src/*`
 
 
-## 部屋状態のカプセル化方針
+## domain層の重要な役割
 
-部屋の状態判定（「今夜も滞在継続か」「前日空室か」など）は条件式が複雑で複数機能にまたがる。  
-`docs/domain/RoomStateDomain.md` にすべての状態を `{変数名（自然言語）}` の形で定義し、  
-`src/domain/room/` に共通関数・変数としてカプセル化する。  
-各機能（CleaningBoard / Atax / Timetable など）は **内部条件を見ずに変数名の組み合わせだけでロジックを記述する**。
+- 問題：部屋の状態判定は複雑で非直感的。
+- 解決策：domain内で部屋の状態判定ビジネスロジックを定義。
+- 結果：カプセル化して共通関数・変数として再利用性が高まる。
+
 
 ## Docs（必要に応じて参照）
 
@@ -54,5 +54,9 @@ E2E test（Playwright） ← 「重要フローのみ」
 - `docs/Auth.md` - 認証・認可・セッション管理の設計
 - `docs/Deploy.md` - Docker / Cloud Run デプロイ手順
 - `docs/KnownIssues.md` - 既知の問題・対応不要と判断した脆弱性の記録
-- `docs/domain/RoomStateDomain.md` - 部屋状態の共通変数定義（全機能共通）← Domain層
-- `docs/features/CleaningBoard.md` - 清掃ボードのフィーチャー仕様（表示ロジック・列定義）← Application/UI層
+- `docs/domain/RoomState.md` - 部屋状態の共通変数定義（全機能共通）
+- `docs/features/CleaningBoard.md` - 清掃ボードのフィーチャー
+
+
+## Reference (必要に応じて参照)
+- `v2/*` - 以前のバージョンで使用していたコードの一部

@@ -3,9 +3,7 @@
 各機能（CleaningBoard / Atax / Timetable など）が共通で使う部屋状態の変数定義。  
 実装は `src/domain/room/` にカプセル化する。各機能は**内部条件式を直接参照せず、ここで定義した変数名のみを使ってロジックを記述する**。
 
-DBフィールドの定義は @Schema.md を参照。
-
-> **`Reservation` 型**: `reservations` コレクションの1ドキュメントに対応する型。フィールド定義は @Schema.md の `reservations` コレクションを参照。
+DBフィールドの定義は docs/Schema/* を参照。
 
 ---
 
