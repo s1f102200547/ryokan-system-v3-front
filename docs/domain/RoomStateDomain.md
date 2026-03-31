@@ -150,6 +150,17 @@ nights = check_out_date - check_in_date（日数）
 
 ---
 
-## 変数間の含意ルール（検討中）
+## フィーチャー専用変数
 
----
+各フィーチャー固有のドメイン変数。共通の状態変数（上記）と組み合わせて使用する。
+
+### `isConsecutive`（連泊カード）― CleaningBoard専用
+
+```
+条件: stayingReservation !== null
+        ? isStayingContinued   // パターン A: 滞在中ゲストが翌日以降も継続するか
+        : isConsecutiveCheckIn // パターン B: 次のCIゲストが連泊か
+型:   boolean
+```
+
+清掃ボードで「連泊カードを部屋に置くか否か」を示す。
