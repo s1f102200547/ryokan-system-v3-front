@@ -100,4 +100,60 @@ describe('computeRoomCheckInState', () => {
     expect(result.checkInReservation).toBeNull()
     expect(result.isTodayCheckIn).toBe(false)
   })
+
+// ----- 連泊(isConsecutiveCheckIn=Trueの時は「連泊」列に人数を表示する) ---------
+
+  it('1泊のCI予約は isConsecutiveCheckIn=false になる', () => {
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: TARGET_DATE, check_out_date: '2026-04-02' }), // 1泊
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isConsecutiveCheckIn).toBe(false)
+  })
+
+  it('2泊のCI予約は isConsecutiveCheckIn=true になる', () => {
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: TARGET_DATE, check_out_date: '2026-04-03' }), // 2泊
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isConsecutiveCheckIn).toBe(true)
+  })
+
+  it('4泊のCI予約は isConsecutiveCheckIn=true になる', () => {
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: TARGET_DATE, check_out_date: '2026-04-05' }), // 4泊
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isConsecutiveCheckIn).toBe(true)
+  })
+
+  it('CI予約がない場合は isConsecutiveCheckIn=false になる', () => {
+    const result = computeRoomCheckInState([], TARGET_DATE, '21')
+
+    expect(result.isConsecutiveCheckIn).toBe(false)
+  })
+
+  it('滞在継続中（isStayingContinued=true）の場合は isConsecutiveCheckIn=false になる', () => {
+    // CI: 3/31, CO: 4/3 → 翌日(4/2)も継続 → isStayingContinued=true → checkInReservation=null
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: '2026-03-31', check_out_date: '2026-04-03' }),
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isStayingContinued).toBe(true)
+    expect(result.isConsecutiveCheckIn).toBe(false)
+  })
+
+  it('未来CIが2泊以上の場合は isConsecutiveCheckIn=true になる', () => {
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: '2026-04-05', check_out_date: '2026-04-07' }), // 2泊
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isFutureCheckIn).toBe(true)
+    expect(result.isConsecutiveCheckIn).toBe(true)
+  })
 })

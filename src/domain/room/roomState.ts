@@ -6,6 +6,7 @@ export type RoomCheckInState = {
   checkInReservation: Pick<Reservation, 'adult_count' | 'child_count'> | null
   isTodayCheckIn: boolean
   isFutureCheckIn: boolean
+  isConsecutiveCheckIn: boolean
 }
 
 export function computeRoomCheckInState(
@@ -22,17 +23,31 @@ export function computeRoomCheckInState(
   const isStayingContinued =
     stayingReservation !== null && stayingReservation.check_out_date > nextDay
 
-  const checkInReservation = isStayingContinued
+  const checkInFull = isStayingContinued
     ? null
     : (active
         .filter((r) => r.check_in_date >= targetDate)
         .sort((a, b) => a.check_in_date.localeCompare(b.check_in_date))[0] ?? null)
 
-  const isTodayCheckIn = checkInReservation?.check_in_date === targetDate
-  const isFutureCheckIn =
-    checkInReservation !== null && checkInReservation.check_in_date > targetDate
+  const isConsecutiveCheckIn =
+    checkInFull !== null &&
+    dateDiff(checkInFull.check_in_date, checkInFull.check_out_date) >= 2
 
-  return { stayingReservation, isStayingContinued, checkInReservation, isTodayCheckIn, isFutureCheckIn }
+  const checkInReservation = checkInFull
+    ? { adult_count: checkInFull.adult_count, child_count: checkInFull.child_count }
+    : null
+
+  const isTodayCheckIn = checkInFull?.check_in_date === targetDate
+  const isFutureCheckIn = checkInFull !== null && checkInFull.check_in_date > targetDate
+
+  return { stayingReservation, isStayingContinued, checkInReservation, isTodayCheckIn, isFutureCheckIn, isConsecutiveCheckIn }
+}
+
+function dateDiff(from: string, to: string): number {
+  const [fy, fm, fd] = from.split('-').map(Number)
+  const [ty, tm, td] = to.split('-').map(Number)
+  const msPerDay = 86400000
+  return (Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / msPerDay
 }
 
 function addDays(dateStr: string, days: number): string {
