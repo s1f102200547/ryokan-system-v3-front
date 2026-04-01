@@ -8,6 +8,8 @@ type CleaningBoardRow = {
     adult_count: number
     child_count: number
   } | null
+  isStayingContinued: boolean
+  isConsecutiveCheckIn: boolean
 }
 
 type UnassignedReservation = {
@@ -28,6 +30,8 @@ function makeEmptyRows(): CleaningBoardRow[] {
     isTodayCheckIn: false,
     isFutureCheckIn: false,
     checkInReservation: null,
+    isStayingContinued: false,
+    isConsecutiveCheckIn: false,
   }))
 }
 
@@ -53,12 +57,7 @@ test.describe('清掃ボード - C/I列', () => {
 
   test('当日CIの部屋はadult_count(child_count)を表示する', async ({ page }) => {
     const rows = makeEmptyRows()
-    rows[0] = {
-      room: '21',
-      isTodayCheckIn: true,
-      isFutureCheckIn: false,
-      checkInReservation: { adult_count: 2, child_count: 1 },
-    }
+    rows[0] = { ...rows[0], room: '21', isTodayCheckIn: true, checkInReservation: { adult_count: 2, child_count: 1 } }
 
     await page.route('/api/cleaning-board*', (route) =>
       route.fulfill({ json: mockCleaningBoard(rows) }),
@@ -70,12 +69,7 @@ test.describe('清掃ボード - C/I列', () => {
 
   test('当日CI・子供0人の場合は(child_count)を省略する', async ({ page }) => {
     const rows = makeEmptyRows()
-    rows[1] = {
-      room: '22',
-      isTodayCheckIn: true,
-      isFutureCheckIn: false,
-      checkInReservation: { adult_count: 3, child_count: 0 },
-    }
+    rows[1] = { ...rows[1], room: '22', isTodayCheckIn: true, checkInReservation: { adult_count: 3, child_count: 0 } }
 
     await page.route('/api/cleaning-board*', (route) =>
       route.fulfill({ json: mockCleaningBoard(rows) }),
@@ -87,12 +81,7 @@ test.describe('清掃ボード - C/I列', () => {
 
   test('未来CIの部屋は括弧で囲んで表示する', async ({ page }) => {
     const rows = makeEmptyRows()
-    rows[2] = {
-      room: '31',
-      isTodayCheckIn: false,
-      isFutureCheckIn: true,
-      checkInReservation: { adult_count: 2, child_count: 1 },
-    }
+    rows[2] = { ...rows[2], room: '31', isFutureCheckIn: true, checkInReservation: { adult_count: 2, child_count: 1 } }
 
     await page.route('/api/cleaning-board*', (route) =>
       route.fulfill({ json: mockCleaningBoard(rows) }),
@@ -104,12 +93,7 @@ test.describe('清掃ボード - C/I列', () => {
 
   test('未来CI・子供0人の場合は(adult_count)のみ表示する', async ({ page }) => {
     const rows = makeEmptyRows()
-    rows[3] = {
-      room: '32',
-      isTodayCheckIn: false,
-      isFutureCheckIn: true,
-      checkInReservation: { adult_count: 3, child_count: 0 },
-    }
+    rows[3] = { ...rows[3], room: '32', isFutureCheckIn: true, checkInReservation: { adult_count: 3, child_count: 0 } }
 
     await page.route('/api/cleaning-board*', (route) =>
       route.fulfill({ json: mockCleaningBoard(rows) }),
@@ -152,5 +136,81 @@ test.describe('清掃ボード - C/I列', () => {
     await page.goto('/cleaning-board')
 
     await expect(page.getByTestId('unassigned-warning')).not.toBeVisible()
+  })
+})
+
+test.describe('清掃ボード - 連泊', () => {
+  test.beforeEach(async ({ page }) => {
+    const email = process.env.TEST_EMAIL
+    const password = process.env.TEST_PASSWORD
+    if (!email || !password) test.skip()
+
+    await page.goto('/login')
+    await page.getByLabel('メールアドレス').fill(email!)
+    await page.getByLabel('パスワード').fill(password!)
+    await page.getByRole('button', { name: 'ログイン' }).click()
+    await page.waitForURL('/')
+  })
+
+  test('滞在継続中の部屋は伝達事項に「連泊(札置く)」を表示する', async ({ page }) => {
+    const rows = makeEmptyRows()
+    rows[0] = { ...rows[0], room: '21', isStayingContinued: true }
+
+    await page.route('/api/cleaning-board*', (route) =>
+      route.fulfill({ json: mockCleaningBoard(rows) }),
+    )
+    await page.goto('/cleaning-board')
+
+    await expect(page.getByTestId('notes-cell-21')).toHaveText('連泊(札置く)')
+    await expect(page.getByTestId('consecutive-cell-21')).toHaveText('')
+  })
+
+  test('連泊チェックイン予約がある部屋は連泊列に人数を表示する（子供あり）', async ({ page }) => {
+    const rows = makeEmptyRows()
+    rows[0] = {
+      ...rows[0],
+      room: '21',
+      isConsecutiveCheckIn: true,
+      checkInReservation: { adult_count: 2, child_count: 1 },
+    }
+
+    await page.route('/api/cleaning-board*', (route) =>
+      route.fulfill({ json: mockCleaningBoard(rows) }),
+    )
+    await page.goto('/cleaning-board')
+
+    await expect(page.getByTestId('consecutive-cell-21')).toHaveText('2(1)')
+    await expect(page.getByTestId('notes-cell-21')).toHaveText('')
+  })
+
+  test('連泊チェックイン予約がある部屋は連泊列に人数を表示する（子供なし）', async ({ page }) => {
+    const rows = makeEmptyRows()
+    rows[1] = {
+      ...rows[1],
+      room: '22',
+      isConsecutiveCheckIn: true,
+      checkInReservation: { adult_count: 3, child_count: 0 },
+    }
+
+    await page.route('/api/cleaning-board*', (route) =>
+      route.fulfill({ json: mockCleaningBoard(rows) }),
+    )
+    await page.goto('/cleaning-board')
+
+    await expect(page.getByTestId('consecutive-cell-22')).toHaveText('3')
+  })
+
+  test('連泊なしの場合、連泊列と伝達事項は空欄になる', async ({ page }) => {
+    const rows = makeEmptyRows()
+
+    await page.route('/api/cleaning-board*', (route) =>
+      route.fulfill({ json: mockCleaningBoard(rows) }),
+    )
+    await page.goto('/cleaning-board')
+
+    for (const room of ALL_ROOMS) {
+      await expect(page.getByTestId(`consecutive-cell-${room}`)).toHaveText('')
+      await expect(page.getByTestId(`notes-cell-${room}`)).toHaveText('')
+    }
   })
 })
