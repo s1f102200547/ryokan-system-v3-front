@@ -29,6 +29,8 @@ export async function getCleaningBoardUseCase(
       isTodayCheckIn: state.isTodayCheckIn,
       isFutureCheckIn: state.isFutureCheckIn,
       checkInReservation: state.checkInReservation,
+      isStayingContinued: state.isStayingContinued,
+      isConsecutiveCheckIn: state.isConsecutiveCheckIn,
     }
   })
 

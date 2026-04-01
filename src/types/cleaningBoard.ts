@@ -7,6 +7,8 @@ export type CleaningBoardRow = {
     adult_count: number
     child_count: number
   } | null
+  isStayingContinued: boolean
+  isConsecutiveCheckIn: boolean
 }
 
 // 部屋未割り当ての予約（警告表示用）
