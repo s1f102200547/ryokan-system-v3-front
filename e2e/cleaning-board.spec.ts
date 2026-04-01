@@ -10,6 +10,16 @@ type CleaningBoardRow = {
   } | null
 }
 
+type UnassignedReservation = {
+  id: string
+  check_in_date: string
+}
+
+type CleaningBoardData = {
+  rows: CleaningBoardRow[]
+  unassignedReservations: UnassignedReservation[]
+}
+
 const ALL_ROOMS = ['21', '22', '31', '32', '42', '43', '61'] as const
 
 function makeEmptyRows(): CleaningBoardRow[] {
@@ -21,8 +31,11 @@ function makeEmptyRows(): CleaningBoardRow[] {
   }))
 }
 
-function mockCleaningBoard(rows: CleaningBoardRow[]) {
-  return rows
+function mockCleaningBoard(
+  rows: CleaningBoardRow[],
+  unassignedReservations: UnassignedReservation[] = [],
+): CleaningBoardData {
+  return { rows, unassignedReservations }
 }
 
 test.describe('清掃ボード - C/I列', () => {
@@ -117,5 +130,27 @@ test.describe('清掃ボード - C/I列', () => {
     for (const room of ALL_ROOMS) {
       await expect(page.getByTestId(`ci-cell-${room}`)).toHaveText('')
     }
+  })
+
+  test('部屋未割り当て予約がある場合、警告が表示される', async ({ page }) => {
+    const unassigned: UnassignedReservation[] = [
+      { id: 'r-unassigned', check_in_date: '2026-04-01' },
+    ]
+
+    await page.route('/api/cleaning-board*', (route) =>
+      route.fulfill({ json: mockCleaningBoard(makeEmptyRows(), unassigned) }),
+    )
+    await page.goto('/cleaning-board')
+
+    await expect(page.getByTestId('unassigned-warning')).toBeVisible()
+  })
+
+  test('部屋未割り当て予約がない場合、警告は表示されない', async ({ page }) => {
+    await page.route('/api/cleaning-board*', (route) =>
+      route.fulfill({ json: mockCleaningBoard(makeEmptyRows()) }),
+    )
+    await page.goto('/cleaning-board')
+
+    await expect(page.getByTestId('unassigned-warning')).not.toBeVisible()
   })
 })

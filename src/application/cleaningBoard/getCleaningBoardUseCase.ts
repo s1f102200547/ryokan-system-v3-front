@@ -1,8 +1,8 @@
 import { firestoreReservationRepository } from '@/infra/reservation/firestoreReservationRepository'
 import { computeRoomCheckInState } from '@/domain/room/roomState'
-import type { CleaningBoardRow } from '@/types/cleaningBoard'
+import { ROOM_NUMBERS } from '@/types/room'
+import type { CleaningBoardData } from '@/types/cleaningBoard'
 
-const ROOM_NUMBERS = ['21', '22', '31', '32', '42', '43', '61'] as const
 const QUERY_RANGE_DAYS = 30
 
 /*
@@ -16,14 +16,14 @@ DTO（UI用データ）
 */
 export async function getCleaningBoardUseCase(
   targetDate: string, // YYYY-MM-DD
-): Promise<CleaningBoardRow[]> {
+): Promise<CleaningBoardData> {
   const from = addDays(targetDate, -QUERY_RANGE_DAYS)
   const to = addDays(targetDate, QUERY_RANGE_DAYS)
 
-  const reservations = await firestoreReservationRepository.fetchByDateRange(from, to) //infraでdbデータ取得
+  const reservations = await firestoreReservationRepository.fetchByDateRange(from, to) // infraでdbデータ取得
 
-  return ROOM_NUMBERS.map((room) => {
-    const state = computeRoomCheckInState(reservations, targetDate, room) //dmainで計算
+  const rows = ROOM_NUMBERS.map((room) => {
+    const state = computeRoomCheckInState(reservations, targetDate, room) // domainで計算
     return {
       room,
       isTodayCheckIn: state.isTodayCheckIn,
@@ -31,6 +31,13 @@ export async function getCleaningBoardUseCase(
       checkInReservation: state.checkInReservation,
     }
   })
+
+  // 部屋未割り当て（room=null）かつ今後のCI予約を警告用に収集
+  const unassignedReservations = reservations
+    .filter((r) => r.cancel !== 1 && r.room === null && r.check_in_date >= targetDate)
+    .map((r) => ({ id: r.id, check_in_date: r.check_in_date }))
+
+  return { rows, unassignedReservations }
 }
 
 function addDays(dateStr: string, days: number): string {
