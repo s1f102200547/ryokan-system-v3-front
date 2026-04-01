@@ -18,3 +18,6 @@
  ## DBスキーマのDate Format が統一されてない
 
  本来、日付フォーマットは `YYYY-MM-DD` に統一すべきだが 既存のDBスキーマとの互換性維持のため、`YYYY/MM/DD`と混在する
+
+## addDaysの重複定義
+addDays は getCleaningBoardUseCase.tsとroomState.ts 内にも private で存在するが、Application層は domain にしか依存できない。 domain から export してもよいが、日付ユーティリティをエクスポートするのは責務的に違和感あり。 → UseCase ファイル内に private 実装として持つ。
