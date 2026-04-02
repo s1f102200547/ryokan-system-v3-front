@@ -21,7 +21,7 @@ const FirestoreReservationSchema = z.object({
 export const firestoreReservationRepository: ReservationRepository = {
   async fetchByDateRange(from, to) {
     const snapshot = await adminDb
-      .collection('reservations')
+      .collection('guestInfoV2')
       .where('check_in_date', '>=', toFirestoreDate(from))
       .where('check_in_date', '<=', toFirestoreDate(to))
       .get()
