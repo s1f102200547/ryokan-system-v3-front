@@ -31,6 +31,20 @@ function formatCiCell(row: CleaningBoardRow): string {
   return row.isFutureCheckIn ? `(${base})` : base
 }
 
+// 伝達事項列: Pattern A（滞在継続中）
+function formatNotesCell(row: CleaningBoardRow): string {
+  if (row.isStayingContinued) return '連泊(札置く)'
+  return ''
+}
+
+// 連泊列: Pattern B（連泊CI）、C/I列と同フォーマット（外側の括弧なし）
+function formatConsecutiveCell(row: CleaningBoardRow): string {
+  if (!row.isConsecutiveCheckIn || !row.checkInReservation) return ''
+  const { adult_count, child_count } = row.checkInReservation
+  const childStr = child_count > 0 ? `(${child_count})` : ''
+  return `${adult_count}${childStr}`
+}
+
 export function CleaningBoardTable({ rows }: Props) {
   return (
     <>
@@ -80,7 +94,12 @@ export function CleaningBoardTable({ rows }: Props) {
           {rows.map((row) => (
             <tr key={row.room}>
               <td style={{ ...cellStyle, width: unit(2) }}>{row.room}</td>
-              <td style={{ ...cellStyle, width: unit(7) }}></td>
+              <td
+                style={{ ...cellStyle, width: unit(7) }}
+                data-testid={`notes-cell-${row.room}`}
+              >
+                {formatNotesCell(row)}
+              </td>
               <td style={{ ...cellStyle, width: unit(4) }}></td>
               <td
                 style={{ ...cellStyle, width: unit(1) }}
@@ -88,7 +107,12 @@ export function CleaningBoardTable({ rows }: Props) {
               >
                 {formatCiCell(row)}
               </td>
-              <td style={{ ...cellStyle, width: unit(1) }}></td>
+              <td
+                style={{ ...cellStyle, width: unit(1) }}
+                data-testid={`consecutive-cell-${row.room}`}
+              >
+                {formatConsecutiveCell(row)}
+              </td>
               <td style={{ ...cellStyle, width: unit(1) }}></td>
               <td style={{ ...cellStyle, width: unit(1) }}></td>
               <td style={{ ...cellStyle, width: unit(1) }}></td>
