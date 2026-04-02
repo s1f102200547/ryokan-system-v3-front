@@ -21,6 +21,8 @@ const mockData: CleaningBoardData = {
       isTodayCheckIn: true,
       isFutureCheckIn: false,
       checkInReservation: { adult_count: 2, child_count: 1 },
+      isStayingContinued: false,
+      isConsecutiveCheckIn: false,
     },
   ],
   unassignedReservations: [],
@@ -58,5 +60,29 @@ describe('GET /api/cleaning-board', () => {
     const response = await GET(makeRequest('2026-04-01'))
 
     expect(response.status).toBe(500)
+  })
+
+  it('isStayingContinued と isConsecutiveCheckIn が rows に含まれて返る', async () => {
+    const data: CleaningBoardData = {
+      rows: [
+        {
+          room: '21',
+          isTodayCheckIn: false,
+          isFutureCheckIn: false,
+          checkInReservation: null,
+          isStayingContinued: true,
+          isConsecutiveCheckIn: false,
+        },
+      ],
+      unassignedReservations: [],
+    }
+    mockUseCase.mockResolvedValue(data)
+
+    const response = await GET(makeRequest('2026-04-01'))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.rows[0].isStayingContinued).toBe(true)
+    expect(body.rows[0].isConsecutiveCheckIn).toBe(false)
   })
 })
