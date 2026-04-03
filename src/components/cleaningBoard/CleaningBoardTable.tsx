@@ -124,7 +124,12 @@ export function CleaningBoardTable({ rows }: Props) {
               <td style={{ ...cellStyle, width: unit(1) }}></td>
               <td style={{ ...cellStyle, width: unit(1) }}></td>
               <td style={{ ...cellStyle, width: unit(1) }}></td>
-              <td style={{ ...cellStyle, width: unit(10) }}></td>
+              <td
+                style={{ ...cellStyle, width: unit(10), textAlign: 'left', whiteSpace: 'pre-line' }}
+                data-testid={`auto-notes-cell-${row.room}`}
+              >
+                {row.autoNotes.join('\n')}
+              </td>
             </tr>
           ))}
         </tbody>
