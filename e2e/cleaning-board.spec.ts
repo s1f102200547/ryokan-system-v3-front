@@ -235,7 +235,7 @@ test.describe('清掃ボード - 備考欄(autoNotes)', () => {
     await page.waitForURL('/')
   })
 
-  test('autoNotes の文字列が清掃担当メモに表示される', async ({ page }) => {
+  test('autoNotes の文字列が備考欄に表示される', async ({ page }) => {
     const rows = makeEmptyRows()
     rows[0] = { ...rows[0], room: '21', autoNotes: ['21: レイトアウト11:00'] }
 
@@ -244,7 +244,7 @@ test.describe('清掃ボード - 備考欄(autoNotes)', () => {
     )
     await page.goto('/cleaning-board')
 
-    await expect(page.getByTestId('auto-notes-cell-21')).toHaveText('21: レイトアウト11:00')
+    await expect(page.getByTestId('auto-notes-box')).toHaveText('21: レイトアウト11:00')
   })
 
   test('autoNotes が複数あるとき改行して表示される', async ({ page }) => {
@@ -260,14 +260,14 @@ test.describe('清掃ボード - 備考欄(autoNotes)', () => {
     )
     await page.goto('/cleaning-board')
 
-    await expect(page.getByTestId('auto-notes-cell-21')).toContainText('21: 前日空室のためセットアップ済み')
-    await expect(page.getByTestId('auto-notes-cell-21')).toContainText(
+    await expect(page.getByTestId('auto-notes-box')).toContainText('21: 前日空室のためセットアップ済み')
+    await expect(page.getByTestId('auto-notes-box')).toContainText(
       '22: 本日空室のため翌日以降の予約情報をもとにセットアップ',
     )
-    await expect(page.getByTestId('auto-notes-cell-21')).toContainText('31: レイトアウト11:00')
+    await expect(page.getByTestId('auto-notes-box')).toContainText('31: レイトアウト11:00')
   })
 
-  test('autoNotes が空のとき清掃担当メモは空欄になる', async ({ page }) => {
+  test('autoNotes が空のとき備考欄は空欄になる', async ({ page }) => {
     const rows = makeEmptyRows()
 
     await page.route('/api/cleaning-board*', (route) =>
@@ -275,8 +275,6 @@ test.describe('清掃ボード - 備考欄(autoNotes)', () => {
     )
     await page.goto('/cleaning-board')
 
-    for (const room of ALL_ROOMS) {
-      await expect(page.getByTestId(`auto-notes-cell-${room}`)).toHaveText('')
-    }
+    await expect(page.getByTestId('auto-notes-box')).toHaveText('')
   })
 })

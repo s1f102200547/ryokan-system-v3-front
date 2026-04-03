@@ -11,6 +11,7 @@ export function CleaningBoardNotes({ rows }: Props) {
     <div style={{ marginTop: 12, fontSize: '8pt' }}>
       <div style={{ marginBottom: 4 }}>備考／引継ぎ →</div>
       <div
+        data-testid="auto-notes-box"
         style={{
           border: '0.5px solid #000',
           height: 90,
