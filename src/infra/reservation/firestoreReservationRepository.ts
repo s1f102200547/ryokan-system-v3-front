@@ -15,18 +15,18 @@ const FirestoreReservationSchema = z.object({
     .preprocess((v) => (v === '' ? null : v), z.enum(ROOM_NUMBERS).nullable())
     .default(null),
   cancel: z.number().int().nullish().transform((v) => v ?? 0),
-  late_out: z.boolean().nullish().transform((v) => v ?? false),
+  late_out: z.number().int().nullish().transform((v) => v ?? 0),
 })
 
 export const firestoreReservationRepository: ReservationRepository = {
   async fetchByDateRange(from, to) {
-    const snapshot = await adminDb
-      .collection('guestInfoV2')
-      .where('check_in_date', '>=', toFirestoreDate(from))
-      .where('check_in_date', '<=', toFirestoreDate(to))
-      .get()
-
-    return snapshot.docs.map((doc) => toReservation(doc.id, doc.data()))
+      const snapshot = await adminDb
+        .collection('guestInfoV2')
+        .where('check_in_date', '>=', toFirestoreDate(from))
+        .where('check_in_date', '<=', toFirestoreDate(to))
+        .get()
+        
+      return snapshot.docs.map((doc) => toReservation(doc.id, doc.data()))
   },
 }
 
