@@ -23,24 +23,33 @@ type RoomNumber = typeof ROOM_NUMBERS[number];
 const QUERY_RANGE_DAYS = 30;
 ```
 
+## Firestore
+
+- コレクション: `guestInfoV2`
+- `check_in_date` / `check_out_date` は Firestore 上 `YYYY/MM/DD` 形式、domain層では `YYYY-MM-DD` に変換して扱う
+
+---
+
 ## 部屋の状態分類
 
 状態変数の定義・有効な組み合わせ一覧は @RoomState.md を参照。  
-以下では RoomStateDomain の変数名のみを使って CleaningBoard の各列を記述する。
+以下では RoomState の変数名のみを使って CleaningBoard の各列を記述する。
 
-### 連泊（isConsecutive）
+---
 
-「連泊カードを部屋に置くか否か」を示すフラグ。計算式・定義は @RoomState.md を参照。
+## 伝達事項列
 
-判定対象の予約が異なるため 2 つのパターンに分かれる（直感）：
+| 条件 | 表示 |
+|---|---|
+| `isConsecutive === true` | `"連泊(札置く)"` |
+| 上記以外 | `""` |
 
-- **パターン A**（`stayingReservation` が対象）  
-  昨夜から在室中のゲストに適用。「明日以降もまだ滞在するか？」を判定する。
+`isConsecutive` の定義は @RoomState.md を参照。  
+`stayingReservation` があれば `isStayingContinued`、なければ `isConsecutiveCheckIn` を使う。
+※Consecutiveの意味は「連続した、連なる」
+---
 
-- **パターン B**（`checkInReservation` が対象）  
-  これから来るゲストに適用。「何泊するか？」を判定する。
-
-### C/I 列
+## C/I 列
 
 | 条件                         | 表示                               |
 | -------------------------- | -------------------------------- |
@@ -48,12 +57,24 @@ const QUERY_RANGE_DAYS = 30;
 | `isFutureCheckIn === true` | `({adult_count}({child_count}))` |
 | 上記以外                       | `""`（空文字）                        |
 
-- 子供が0人の場合は `({child_count})` 部分を省略。
-- 本日空室&未来予約の場合は括弧()で囲む
+- 子供が0人の場合は `({child_count})` 部分を省略
+- 未来予約の場合は全体を括弧 `()` で囲む
+- 人数は `checkInReservation` から取得
 
+---
+
+## 連泊列（人数）
+
+| 条件 | 表示 |
+|---|---|
+| `isStayingContinued === true` | `{adult_count}({child_count})`（`stayingReservation` の人数） |
+| 上記以外 | `""` |
+
+- 子供が0人の場合は `({child_count})` 部分を省略
+
+---
 
 ## 備考欄（autoNotes）
-
 
 | 条件 | 出力 |
 |---|---|
@@ -61,18 +82,6 @@ const QUERY_RANGE_DAYS = 30;
 | `isPreviousDayVacant` | `"{room}: 前日空室のためセットアップ済み"` |
 | `isTodayVacant && !isPreviousDayVacant` | `"{room}: 本日空室のため次回の予約情報をもとにセットアップ"` |
 | 上記いずれにも該当しない | `""` |
-
----
-
-### 状態 × 出力 一覧
-
-各列の出力は独立したルールで決定する。
-
-| 列 | 定義 |
-|---|---|
-| `isConsecutive`（連泊） | @RoomState.md を参照 |
-| C/I列 | 上記「C/I 列」表の通り |
-| `autoNotes` | 後述「備考欄の自動生成ロジック」の通り |
 
 ---
 
@@ -87,7 +96,7 @@ const QUERY_RANGE_DAYS = 30;
 
 - 7行固定（`ROOM_NUMBERS` 順）
 - A4 横向き印刷を前提にスタイリングする
-- 列構成（参考）: 部屋番号 / 滞在中ゲスト / C/I / 連泊 / 備考
+- 列構成: 部屋番号 / 伝達事項 / 浴衣サイズ / C/I / 連泊 / 清掃 / 布団 / タオル2点 / バスマット / シャンプー / 歯ブラシ等 / 水コップ / ティッシュ / ゴミ箱 / 掛け花 / トイレペーパー / ライト(連泊) / 清掃担当メモ
 - 参考: @cleaningBoard.png
 
 ---
@@ -95,5 +104,6 @@ const QUERY_RANGE_DAYS = 30;
 ## 日付切り替え（V3変更点）
 
 - 「清掃ボード」・「予約状況」・「タイムテーブル」・「宿泊税表」など各ページが同じ `targetDate` を参照する
+- デフォルトは当日（`new Date().toISOString().slice(0, 10)`）
 
 ---
