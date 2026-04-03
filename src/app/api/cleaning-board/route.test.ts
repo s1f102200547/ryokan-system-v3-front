@@ -21,8 +21,9 @@ const mockData: CleaningBoardData = {
       isTodayCheckIn: true,
       isFutureCheckIn: false,
       checkInReservation: { adult_count: 2, child_count: 1 },
+      stayingReservation: null,
       isStayingContinued: false,
-      isConsecutiveCheckIn: false,
+      isConsecutive: false,
     },
   ],
   unassignedReservations: [],
@@ -62,7 +63,7 @@ describe('GET /api/cleaning-board', () => {
     expect(response.status).toBe(500)
   })
 
-  it('isStayingContinued と isConsecutiveCheckIn が rows に含まれて返る', async () => {
+  it('isStayingContinued と isConsecutive が rows に含まれて返る', async () => {
     const data: CleaningBoardData = {
       rows: [
         {
@@ -70,8 +71,9 @@ describe('GET /api/cleaning-board', () => {
           isTodayCheckIn: false,
           isFutureCheckIn: false,
           checkInReservation: null,
+          stayingReservation: { adult_count: 2, child_count: 0 },
           isStayingContinued: true,
-          isConsecutiveCheckIn: false,
+          isConsecutive: true,
         },
       ],
       unassignedReservations: [],
@@ -83,6 +85,6 @@ describe('GET /api/cleaning-board', () => {
 
     expect(response.status).toBe(200)
     expect(body.rows[0].isStayingContinued).toBe(true)
-    expect(body.rows[0].isConsecutiveCheckIn).toBe(false)
+    expect(body.rows[0].isConsecutive).toBe(true)
   })
 })

@@ -12,7 +12,6 @@ export type CleaningBoardRow = {
     child_count: number
   } | null
   isStayingContinued: boolean
-  isConsecutiveCheckIn: boolean
   isConsecutive: boolean
 }
 

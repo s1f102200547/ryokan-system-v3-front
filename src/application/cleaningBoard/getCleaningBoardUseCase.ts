@@ -33,7 +33,6 @@ export async function getCleaningBoardUseCase(
         ? { adult_count: state.stayingReservation.adult_count, child_count: state.stayingReservation.child_count }
         : null,
       isStayingContinued: state.isStayingContinued,
-      isConsecutiveCheckIn: state.isConsecutiveCheckIn,
       isConsecutive: state.isConsecutive,
     }
   })
