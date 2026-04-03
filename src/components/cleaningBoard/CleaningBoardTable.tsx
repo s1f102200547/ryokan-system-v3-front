@@ -31,16 +31,16 @@ function formatCiCell(row: CleaningBoardRow): string {
   return row.isFutureCheckIn ? `(${base})` : base
 }
 
-// 伝達事項列: Pattern A（滞在継続中）
+// 伝達事項列: isConsecutiveCheckIn のとき連泊札を置く
 function formatNotesCell(row: CleaningBoardRow): string {
-  if (row.isStayingContinued) return '連泊(札置く)'
+  if (row.isConsecutiveCheckIn) return '連泊(札置く)'
   return ''
 }
 
-// 連泊列: Pattern B（連泊CI）、C/I列と同フォーマット（外側の括弧なし）
+// 連泊列: 昨夜から継続滞在中のゲスト人数
 function formatConsecutiveCell(row: CleaningBoardRow): string {
-  if (!row.isConsecutiveCheckIn || !row.checkInReservation) return ''
-  const { adult_count, child_count } = row.checkInReservation
+  if (!row.isStayingContinued || !row.stayingReservation) return ''
+  const { adult_count, child_count } = row.stayingReservation
   const childStr = child_count > 0 ? `(${child_count})` : ''
   return `${adult_count}${childStr}`
 }

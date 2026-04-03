@@ -25,7 +25,7 @@ export const firestoreReservationRepository: ReservationRepository = {
         .where('check_in_date', '>=', toFirestoreDate(from))
         .where('check_in_date', '<=', toFirestoreDate(to))
         .get()
-        
+
       return snapshot.docs.map((doc) => toReservation(doc.id, doc.data()))
   },
 }

@@ -8,7 +8,7 @@ const adminApp =
     ? process.env.FIREBASE_PRIVATE_KEY
       ? initializeApp({
           credential: cert({
-            projectId: process.env.FIREBASE_PROJECT_ID,
+            projectId: process.env.FIREBASE_PROJECT_ID, // サーバーサイドでだけ使うので先頭にNEXT_PUBLIC_はつけない
             privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
             clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
           }),

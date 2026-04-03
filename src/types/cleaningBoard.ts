@@ -7,6 +7,10 @@ export type CleaningBoardRow = {
     adult_count: number
     child_count: number
   } | null
+  stayingReservation: {
+    adult_count: number
+    child_count: number
+  } | null
   isStayingContinued: boolean
   isConsecutiveCheckIn: boolean
 }
