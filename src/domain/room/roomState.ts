@@ -3,7 +3,6 @@ import type { Reservation } from '@/types/reservation'
 export type RoomCheckInState = {
   stayingReservation: Reservation | null
   isStayingContinued: boolean
-  isLastNight: boolean
   isLateCheckout: boolean
   checkInReservation: Pick<Reservation, 'adult_count' | 'child_count'> | null
   isTodayCheckIn: boolean
@@ -47,8 +46,9 @@ export function computeRoomCheckInState(
 
   const isConsecutive = stayingReservation !== null ? isStayingContinued : isConsecutiveCheckIn
 
-  const isLastNight = stayingReservation !== null && stayingReservation.check_out_date === nextDay
-  const isLateCheckout = isLastNight && stayingReservation!.late_out === 1
+  const isLateCheckout = active.some(
+    (r) => r.check_out_date === targetDate && r.late_out === 1,
+  )
   const isTodayVacant = stayingReservation === null && !isTodayCheckIn
   const isPreviousDayVacant = !active.some(
     (r) => r.check_in_date < targetDate && r.check_out_date >= targetDate,
@@ -57,7 +57,6 @@ export function computeRoomCheckInState(
   return {
     stayingReservation,
     isStayingContinued,
-    isLastNight,
     isLateCheckout,
     checkInReservation,
     isTodayCheckIn,
