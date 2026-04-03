@@ -34,6 +34,7 @@ export async function getCleaningBoardUseCase(
         : null,
       isStayingContinued: state.isStayingContinued,
       isConsecutiveCheckIn: state.isConsecutiveCheckIn,
+      isConsecutive: state.isConsecutive,
     }
   })
 

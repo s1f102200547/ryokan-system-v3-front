@@ -31,9 +31,9 @@ function formatCiCell(row: CleaningBoardRow): string {
   return row.isFutureCheckIn ? `(${base})` : base
 }
 
-// 伝達事項列: isConsecutiveCheckIn のとき連泊札を置く
+// 伝達事項列: 該当予約が連泊（check_out_date > targetDate+1）なら連泊札を置く
 function formatNotesCell(row: CleaningBoardRow): string {
-  if (row.isConsecutiveCheckIn) return '連泊(札置く)'
+  if (row.isConsecutive) return '連泊(札置く)'
   return ''
 }
 

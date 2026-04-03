@@ -7,6 +7,7 @@ export type RoomCheckInState = {
   isTodayCheckIn: boolean
   isFutureCheckIn: boolean
   isConsecutiveCheckIn: boolean
+  isConsecutive: boolean // CleaningBoard専用: 連泊カードを置くか否か
 }
 
 export function computeRoomCheckInState(
@@ -40,7 +41,9 @@ export function computeRoomCheckInState(
   const isTodayCheckIn = checkInFull?.check_in_date === targetDate
   const isFutureCheckIn = checkInFull !== null && checkInFull.check_in_date > targetDate
 
-  return { stayingReservation, isStayingContinued, checkInReservation, isTodayCheckIn, isFutureCheckIn, isConsecutiveCheckIn }
+  const isConsecutive = stayingReservation !== null ? isStayingContinued : isConsecutiveCheckIn
+
+  return { stayingReservation, isStayingContinued, checkInReservation, isTodayCheckIn, isFutureCheckIn, isConsecutiveCheckIn, isConsecutive }
 }
 
 function dateDiff(from: string, to: string): number {

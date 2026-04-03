@@ -13,6 +13,7 @@ export type CleaningBoardRow = {
   } | null
   isStayingContinued: boolean
   isConsecutiveCheckIn: boolean
+  isConsecutive: boolean
 }
 
 // 部屋未割り当ての予約（警告表示用）
