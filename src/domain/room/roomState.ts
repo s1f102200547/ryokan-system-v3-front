@@ -3,11 +3,15 @@ import type { Reservation } from '@/types/reservation'
 export type RoomCheckInState = {
   stayingReservation: Reservation | null
   isStayingContinued: boolean
+  isLastNight: boolean
+  isLateCheckout: boolean
   checkInReservation: Pick<Reservation, 'adult_count' | 'child_count'> | null
   isTodayCheckIn: boolean
   isFutureCheckIn: boolean
   isConsecutiveCheckIn: boolean
   isConsecutive: boolean // CleaningBoard専用: 連泊カードを置くか否か
+  isTodayVacant: boolean
+  isPreviousDayVacant: boolean
 }
 
 export function computeRoomCheckInState(
@@ -43,7 +47,26 @@ export function computeRoomCheckInState(
 
   const isConsecutive = stayingReservation !== null ? isStayingContinued : isConsecutiveCheckIn
 
-  return { stayingReservation, isStayingContinued, checkInReservation, isTodayCheckIn, isFutureCheckIn, isConsecutiveCheckIn, isConsecutive }
+  const isLastNight = stayingReservation !== null && stayingReservation.check_out_date === nextDay
+  const isLateCheckout = isLastNight && stayingReservation!.late_out === 1
+  const isTodayVacant = stayingReservation === null && !isTodayCheckIn
+  const isPreviousDayVacant = !active.some(
+    (r) => r.check_in_date < targetDate && r.check_out_date >= targetDate,
+  )
+
+  return {
+    stayingReservation,
+    isStayingContinued,
+    isLastNight,
+    isLateCheckout,
+    checkInReservation,
+    isTodayCheckIn,
+    isFutureCheckIn,
+    isConsecutiveCheckIn,
+    isConsecutive,
+    isTodayVacant,
+    isPreviousDayVacant,
+  }
 }
 
 function dateDiff(from: string, to: string): number {

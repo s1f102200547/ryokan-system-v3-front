@@ -80,7 +80,7 @@ const QUERY_RANGE_DAYS = 30;
 |---|---|
 | `isLateCheckout` | `"{room}: レイトアウト11:00"` |
 | `isPreviousDayVacant` | `"{room}: 前日空室のためセットアップ済み"` |
-| `isTodayVacant && !isPreviousDayVacant` | `"{room}: 本日空室のため次回の予約情報をもとにセットアップ"` |
+| `isTodayVacant && !isPreviousDayVacant` | `"{room}: 本日空室のため翌日以降の予約情報をもとにセットアップ"` |
 | 上記いずれにも該当しない | `""` |
 
 ---

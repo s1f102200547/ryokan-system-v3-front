@@ -157,3 +157,154 @@ describe('computeRoomCheckInState', () => {
     expect(result.isConsecutiveCheckIn).toBe(true)
   })
 })
+
+// ----- isLastNight -----
+
+describe('isLastNight', () => {
+  it('stayingReservation の CO日 === targetDate+1 なら true になる', () => {
+    // CI: 3/31, CO: 4/2 → 今夜が最終泊
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: '2026-03-31', check_out_date: '2026-04-02' }),
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isLastNight).toBe(true)
+  })
+
+  it('stayingReservation の CO日 > targetDate+1 なら false になる（連泊継続中）', () => {
+    // CI: 3/31, CO: 4/3 → まだ継続
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: '2026-03-31', check_out_date: '2026-04-03' }),
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isLastNight).toBe(false)
+  })
+
+  it('stayingReservation がなければ false になる', () => {
+    const result = computeRoomCheckInState([], TARGET_DATE, '21')
+
+    expect(result.isLastNight).toBe(false)
+  })
+})
+
+// ----- isLateCheckout -----
+
+describe('isLateCheckout', () => {
+  it('isLastNight かつ late_out=1 なら true になる', () => {
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: '2026-03-31', check_out_date: '2026-04-02', late_out: 1 }),
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isLastNight).toBe(true)
+    expect(result.isLateCheckout).toBe(true)
+  })
+
+  it('isLastNight かつ late_out=0 なら false になる', () => {
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: '2026-03-31', check_out_date: '2026-04-02', late_out: 0 }),
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isLastNight).toBe(true)
+    expect(result.isLateCheckout).toBe(false)
+  })
+
+  it('isLastNight かつ late_out が undefined なら false になる', () => {
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: '2026-03-31', check_out_date: '2026-04-02' }),
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isLastNight).toBe(true)
+    expect(result.isLateCheckout).toBe(false)
+  })
+
+  it('isLastNight でなければ late_out=1 でも false になる', () => {
+    // 連泊継続中（isLastNight=false）
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: '2026-03-31', check_out_date: '2026-04-03', late_out: 1 }),
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isLastNight).toBe(false)
+    expect(result.isLateCheckout).toBe(false)
+  })
+})
+
+// ----- isTodayVacant -----
+
+describe('isTodayVacant', () => {
+  it('stayingReservation なし かつ isTodayCheckIn=false なら true になる', () => {
+    const result = computeRoomCheckInState([], TARGET_DATE, '21')
+
+    expect(result.isTodayVacant).toBe(true)
+  })
+
+  it('stayingReservation があれば false になる', () => {
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: '2026-03-31', check_out_date: '2026-04-03' }),
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isTodayVacant).toBe(false)
+  })
+
+  it('当日CI があれば false になる', () => {
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: TARGET_DATE, check_out_date: '2026-04-02' }),
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isTodayCheckIn).toBe(true)
+    expect(result.isTodayVacant).toBe(false)
+  })
+})
+
+// ----- isPreviousDayVacant -----
+
+describe('isPreviousDayVacant', () => {
+  it('前日に有効な滞在予約がなければ true になる', () => {
+    // 当日CIのみ（昨日は誰もいない）
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: TARGET_DATE, check_out_date: '2026-04-02' }),
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isPreviousDayVacant).toBe(true)
+  })
+
+  it('滞在継続中のゲストがいれば false になる（昨日も泊まっている）', () => {
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: '2026-03-31', check_out_date: '2026-04-03' }),
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isPreviousDayVacant).toBe(false)
+  })
+
+  it('今朝COの予約（check_out_date === targetDate）があれば false になる（昨日は泊まっていた）', () => {
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: '2026-03-31', check_out_date: TARGET_DATE }),
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isPreviousDayVacant).toBe(false)
+  })
+
+  it('予約がまったくなければ true になる', () => {
+    const result = computeRoomCheckInState([], TARGET_DATE, '21')
+
+    expect(result.isPreviousDayVacant).toBe(true)
+  })
+
+  it('cancel=1 の昨日泊まっていた予約は除外されるため true になる', () => {
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: '2026-03-31', check_out_date: TARGET_DATE, cancel: 1 }),
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isPreviousDayVacant).toBe(true)
+  })
+})
