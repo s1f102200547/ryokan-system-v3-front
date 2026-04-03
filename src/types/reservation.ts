@@ -8,5 +8,5 @@ export type Reservation = {
   child_count: number
   room: RoomNumber | null
   cancel: number // 0 | 1
-  late_out?: boolean
+  late_out?: number // 0 | 1
 }
