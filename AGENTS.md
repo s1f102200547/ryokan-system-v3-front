@@ -33,6 +33,10 @@ Integration test       ← 「Route Handler（API）の"入口->出口"を検証
 E2E test（Playwright） ← 「重要フローのみ」
 ```
 
+## validation戦略
+- infraと外部の間のデータのやり取りでzodを使う
+- Next.jsプロジェクト内でfrontendとapi間のデータのやり取りでzodを使う
+
 ## Rules
 
 - コミットメッセージは日本語
@@ -41,9 +45,22 @@ E2E test（Playwright） ← 「重要フローのみ」
 - Import alias: `@/*` → `./src/*`
 
 
+## domain層の重要な役割
+
+- 問題：部屋の状態判定は複雑で非直感的。
+- 解決策：domain内で部屋の状態判定ビジネスロジックを定義。
+- 結果：カプセル化して共通関数・変数として再利用性が高まる。
+
+
 ## Docs（必要に応じて参照）
 
 - `docs/Architecture.md` - レイヤー構造・設計パターン・ファイル構造
 - `docs/Auth.md` - 認証・認可・セッション管理の設計
 - `docs/Deploy.md` - Docker / Cloud Run デプロイ手順
 - `docs/KnownIssues.md` - 既知の問題・対応不要と判断した脆弱性の記録
+- `docs/domain/RoomState.md` - 部屋状態の共通変数定義（全機能共通）
+- `docs/features/CleaningBoard.md` - 清掃ボードのフィーチャー
+
+
+## Reference (必要に応じて参照)
+- `v2/*` - 以前のバージョンで使用していたコードの一部

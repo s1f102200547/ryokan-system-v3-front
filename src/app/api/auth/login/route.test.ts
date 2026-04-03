@@ -46,4 +46,16 @@ describe('POST /api/auth/login', () => {
     expect(response.status).toBe(401)
     expect(body.error).toBe('invalid_credentials')
   })
+
+  it('email が不正な形式の場合 400 が返る', async () => {
+    const response = await POST(makeRequest({ email: 'not-an-email', password: 'password' }))
+
+    expect(response.status).toBe(400)
+  })
+
+  it('password が空文字の場合 400 が返る', async () => {
+    const response = await POST(makeRequest({ email: 'test@example.com', password: '' }))
+
+    expect(response.status).toBe(400)
+  })
 })
