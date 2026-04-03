@@ -1,5 +1,6 @@
 import { firestoreReservationRepository } from '@/infra/reservation/firestoreReservationRepository'
 import { computeRoomCheckInState } from '@/domain/room/roomState'
+import type { RoomCheckInState } from '@/domain/room/roomState'
 import { ROOM_NUMBERS } from '@/types/room'
 import type { CleaningBoardData } from '@/types/cleaningBoard'
 
@@ -34,6 +35,7 @@ export async function getCleaningBoardUseCase(
         : null,
       isStayingContinued: state.isStayingContinued,
       isConsecutive: state.isConsecutive,
+      autoNotes: computeAutoNotes(room, state),
     }
   })
 
@@ -43,6 +45,14 @@ export async function getCleaningBoardUseCase(
     .map((r) => ({ id: r.id, check_in_date: r.check_in_date }))
 
   return { rows, unassignedReservations }
+}
+
+function computeAutoNotes(room: string, state: RoomCheckInState): string[] {
+  const notes: string[] = []
+  if (state.isLateCheckout) notes.push(`${room}: レイトアウト11:00`)
+  if (state.isPreviousDayVacant) notes.push(`${room}: 前日空室のためセットアップ済み`)
+  if (state.isTodayVacant) notes.push(`${room}: 本日空室のため翌日以降の予約情報をもとにセットアップ`)
+  return notes
 }
 
 function addDays(dateStr: string, days: number): string {
