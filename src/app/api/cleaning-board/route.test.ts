@@ -24,6 +24,7 @@ const mockData: CleaningBoardData = {
       stayingReservation: null,
       isStayingContinued: false,
       isConsecutive: false,
+      autoNotes: [],
     },
   ],
   unassignedReservations: [],
@@ -74,6 +75,7 @@ describe('GET /api/cleaning-board', () => {
           stayingReservation: { adult_count: 2, child_count: 0 },
           isStayingContinued: true,
           isConsecutive: true,
+          autoNotes: [],
         },
       ],
       unassignedReservations: [],
@@ -86,5 +88,30 @@ describe('GET /api/cleaning-board', () => {
     expect(response.status).toBe(200)
     expect(body.rows[0].isStayingContinued).toBe(true)
     expect(body.rows[0].isConsecutive).toBe(true)
+  })
+
+  it('autoNotes が rows に含まれて返る', async () => {
+    const data: CleaningBoardData = {
+      rows: [
+        {
+          room: '21',
+          isTodayCheckIn: false,
+          isFutureCheckIn: false,
+          checkInReservation: null,
+          stayingReservation: null,
+          isStayingContinued: false,
+          isConsecutive: false,
+          autoNotes: ['21: レイトアウト11:00', '21: 前日空室のためセットアップ済み'],
+        },
+      ],
+      unassignedReservations: [],
+    }
+    mockUseCase.mockResolvedValue(data)
+
+    const response = await GET(makeRequest('2026-04-01'))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.rows[0].autoNotes).toEqual(['21: レイトアウト11:00', '21: 前日空室のためセットアップ済み'])
   })
 })
