@@ -22,6 +22,16 @@ const headerCellStyle: React.CSSProperties = {
   padding: '10px 4px',
 }
 
+const amenityHeaderCellStyle: React.CSSProperties = {
+  ...cellStyle,
+  writingMode: 'vertical-rl',
+  textOrientation: 'upright',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  padding: '4px 2px',
+  lineHeight: 1,
+}
+
 // C/I 列の表示文字列を生成
 function formatCiCell(row: CleaningBoardRow): string {
   if (!row.checkInReservation) return ''
@@ -57,9 +67,11 @@ export function CleaningBoardTable({ rows }: Props) {
           .no-print { display: none !important }
         }
       `}</style>
+      <div style={{ overflowX: 'auto', width: '100%' }}>
       <table
         style={{
           width: '100%',
+          minWidth: 800,
           tableLayout: 'fixed',
           borderCollapse: 'collapse',
           borderSpacing: 0,
@@ -74,25 +86,25 @@ export function CleaningBoardTable({ rows }: Props) {
             <th style={{ ...headerCellStyle, width: unit(7) }}>伝達事項</th>
             <th style={{ ...headerCellStyle, width: unit(4) }}>浴衣サイズ</th>
             <th style={{ ...headerCellStyle, width: unit(1) }}>C/I</th>
-            <th style={{ ...headerCellStyle, width: unit(1) }}>連泊</th>
-            <th style={{ ...headerCellStyle, width: unit(1) }}>清掃</th>
-            <th style={{ ...headerCellStyle, width: unit(1) }}>布団</th>
-            <th style={{ ...headerCellStyle, width: unit(1) }}>タオル2点</th>
-            <th style={{ ...headerCellStyle, width: unit(1) }}>バスマット</th>
-            <th style={{ ...headerCellStyle, width: unit(1) }}>シャンプー</th>
-            <th style={{ ...headerCellStyle, width: unit(1) }}>歯ブラシ等</th>
-            <th style={{ ...headerCellStyle, width: unit(1) }}>水コップ</th>
-            <th style={{ ...headerCellStyle, width: unit(1) }}>ティッシュ</th>
-            <th style={{ ...headerCellStyle, width: unit(1) }}>ゴミ箱</th>
-            <th style={{ ...headerCellStyle, width: unit(1) }}>掛け花</th>
-            <th style={{ ...headerCellStyle, width: unit(1) }}>トイレペーパー</th>
-            <th style={{ ...headerCellStyle, width: unit(1) }}>ライト(連泊)</th>
+            <th style={{ ...amenityHeaderCellStyle, width: unit(1) }}>連泊</th>
+            <th style={{ ...amenityHeaderCellStyle, width: unit(1) }}>清掃</th>
+            <th style={{ ...amenityHeaderCellStyle, width: unit(1) }}>布団</th>
+            <th style={{ ...amenityHeaderCellStyle, width: unit(1) }}>タオル2点</th>
+            <th style={{ ...amenityHeaderCellStyle, width: unit(1) }}>バスマット</th>
+            <th style={{ ...amenityHeaderCellStyle, width: unit(1) }}>シャンプー</th>
+            <th style={{ ...amenityHeaderCellStyle, width: unit(1) }}>歯ブラシ等</th>
+            <th style={{ ...amenityHeaderCellStyle, width: unit(1) }}>水コップ</th>
+            <th style={{ ...amenityHeaderCellStyle, width: unit(1) }}>ティッシュ</th>
+            <th style={{ ...amenityHeaderCellStyle, width: unit(1) }}>ゴミ箱</th>
+            <th style={{ ...amenityHeaderCellStyle, width: unit(1) }}>掛け花</th>
+            <th style={{ ...amenityHeaderCellStyle, width: unit(1) }}>トイレペーパー</th>
+            <th style={{ ...amenityHeaderCellStyle, width: unit(1) }}>ライト(連泊)</th>
             <th style={{ ...headerCellStyle, width: unit(10) }}>清掃担当メモ</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.room}>
+            <tr key={row.room} style={{ height: '40px' }}>
               <td style={{ ...cellStyle, width: unit(2) }}>{row.room}</td>
               <td
                 style={{ ...cellStyle, width: unit(7) }}
@@ -125,15 +137,15 @@ export function CleaningBoardTable({ rows }: Props) {
               <td style={{ ...cellStyle, width: unit(1) }}></td>
               <td style={{ ...cellStyle, width: unit(1) }}></td>
               <td
-                style={{ ...cellStyle, width: unit(10), textAlign: 'left', whiteSpace: 'pre-line' }}
+                style={{ ...cellStyle, width: unit(10) }}
                 data-testid={`auto-notes-cell-${row.room}`}
               >
-                {row.autoNotes.join('\n')}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+      </div>
     </>
   )
 }
