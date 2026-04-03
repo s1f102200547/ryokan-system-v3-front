@@ -136,6 +136,7 @@ export function CleaningBoardTable({ rows }: Props) {
               <td style={{ ...cellStyle, width: unit(1) }}></td>
               <td style={{ ...cellStyle, width: unit(1) }}></td>
               <td style={{ ...cellStyle, width: unit(1) }}></td>
+              <td style={{ ...cellStyle, width: unit(1) }}></td>
               <td
                 style={{ ...cellStyle, width: unit(10) }}
                 data-testid={`auto-notes-cell-${row.room}`}
