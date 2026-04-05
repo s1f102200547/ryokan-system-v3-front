@@ -1,0 +1,134 @@
+name: CI
+
+on:
+  pull_request: # mainにマージされる前に走らせる
+    branches: [main]
+
+permissions:
+  issues: write
+
+jobs:
+  # ── Phase 1: 軽量チェック（並列）────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:                           # 1ステップ = 1コマンド or 1アクション
+      - uses: actions/checkout@v4     # 1. コードをCI環境にコピーする
+      - uses: actions/setup-node@v4   # 2. node本体をinstall
+        with:
+          node-version: 20
+      - uses: actions/cache@v4        # 3. keyに紐づくキャッシュデータがあれば取得, なかったらjob終了後に(あれば)保存
+        id: cache
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('package-lock.json') }} #キャッシュのkey(これを下に探索する)
+      - run: npm ci                   # 4. cacheがなかったら npm ci で依存パッケージをinstall
+        if: steps.cache.outputs.cache-hit != 'true'
+      - run: npm run lint             # 5. lint実行
+
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+        if: steps.cache.outputs.cache-hit != 'true'
+      - run: npx tsc --noEmit
+
+  audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+        if: steps.cache.outputs.cache-hit != 'true'
+      - run: npm audit --audit-level=high
+
+  # ── Phase 2: ユニットテスト（Phase 1 通過後）────────────────────────────
+  unit-test:
+    name: Unit Test
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck, audit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+        if: steps.cache.outputs.cache-hit != 'true'
+      - run: npm run test
+
+  # ── Phase 3: 重いテスト（unit-test 通過後）──────────────────────────────
+  e2e:
+    name: E2E Test
+    runs-on: ubuntu-latest
+    needs: [unit-test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+        if: steps.cache.outputs.cache-hit != 'true'
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+      - name: Upload playwright report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+
+  zap-scan:
+    name: OWASP ZAP Baseline Scan
+    runs-on: ubuntu-latest
+    needs: [unit-test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+        if: steps.cache.outputs.cache-hit != 'true'
+      - name: Build Next.js
+        run: npm run build
+      - name: Start server
+        run: npm run start &                                   # ローカルでアプリ起動（http://localhost:3000）
+      - name: Wait for server
+        run: npx wait-on http://localhost:3000 --timeout 60000 # サーバーが立ち上がるまで待つ
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.14.0                  #  zapを実行
+        with:
+          target: http://localhost:3000/login
+          fail_action: warn
