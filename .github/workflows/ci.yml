@@ -1,7 +1,7 @@
 name: CI
 
 on:
-  pull_request:
+  pull_request: # mainにマージされる前に走らせる
     branches: [main]
 
 permissions:
@@ -12,19 +12,19 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+    steps:                           # 1ステップ = 1コマンド or 1アクション
+      - uses: actions/checkout@v4     # 1. コードをCI環境にコピーする
+      - uses: actions/setup-node@v4   # 2. node本体をinstall
         with:
           node-version: 20
-      - uses: actions/cache@v4
+      - uses: actions/cache@v4        # 3. keyに紐づくキャッシュデータがあれば取得, なかったらjob終了後に(あれば)保存
         id: cache
         with:
           path: node_modules
-          key: node-modules-${{ hashFiles('package-lock.json') }}
-      - run: npm ci
+          key: node-modules-${{ hashFiles('package-lock.json') }} #キャッシュのkey(これを下に探索する)
+      - run: npm ci                   # 4. cacheがなかったら npm ci で依存パッケージをinstall
         if: steps.cache.outputs.cache-hit != 'true'
-      - run: npm run lint
+      - run: npm run lint             # 5. lint実行
 
   typecheck:
     name: Type Check
@@ -98,20 +98,6 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
       - run: npx playwright install --with-deps chromium
       - name: Set up env files
-        run: |
-          printf 'NEXT_PUBLIC_FIREBASE_API_KEY=%s\nNEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=%s\nNEXT_PUBLIC_FIREBASE_PROJECT_ID=%s\n' \
-            "$NEXT_PUBLIC_FIREBASE_API_KEY" \
-            "$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN" \
-            "$NEXT_PUBLIC_FIREBASE_PROJECT_ID" > .env.local
-          printf 'TEST_EMAIL=%s\nTEST_PASSWORD=%s\n' \
-            "$TEST_EMAIL" \
-            "$TEST_PASSWORD" > .env.test.local
-        env:
-          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
-          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
-          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
       - run: npm run e2e
       - name: Upload playwright report
         uses: actions/upload-artifact@v4
@@ -136,16 +122,6 @@ jobs:
           key: node-modules-${{ hashFiles('package-lock.json') }}
       - run: npm ci
         if: steps.cache.outputs.cache-hit != 'true'
-      - name: Set up env
-        run: |
-          printf 'NEXT_PUBLIC_FIREBASE_API_KEY=%s\nNEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=%s\nNEXT_PUBLIC_FIREBASE_PROJECT_ID=%s\n' \
-            "$NEXT_PUBLIC_FIREBASE_API_KEY" \
-            "$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN" \
-            "$NEXT_PUBLIC_FIREBASE_PROJECT_ID" > .env.local
-        env:
-          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
       - name: Build Next.js
         run: npm run build
       - name: Start server
