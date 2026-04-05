@@ -124,11 +124,11 @@ jobs:
       - name: Build Next.js
         run: npm run build
       - name: Start server
-        run: npm run start &
+        run: npm run start &                                   # ローカルでアプリ起動（http://localhost:3000）
       - name: Wait for server
-        run: npx wait-on http://localhost:3000 --timeout 60000
+        run: npx wait-on http://localhost:3000 --timeout 60000 # サーバーが立ち上がるまで待つ
       - name: ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.14.0
+        uses: zaproxy/action-baseline@v0.14.0                  #  zapを実行
         with:
           target: http://localhost:3000/login
           fail_action: warn
