@@ -1,9 +1,7 @@
 ````md
 # Middleware
-
-2025年にCVSS 9.1の脆弱性が公開され、  
-`x-middleware-subrequest` ヘッダーを送信するだけで  
-**Middlewareのロジック（認証チェック含む）をバイパスできる**問題が発生した。
+- リクエストを最初に横取りする場所
+- 2025年にCVSS 9.1の脆弱性が公開され、  `x-middleware-subrequest` ヘッダーを送信するだけで  **Middlewareのロジック（認証チェック含む）をバイパスできる**問題が発生した。
 
 ## 教訓
 

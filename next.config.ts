@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  poweredByHeader: false, //＝「このサーバーはNext.jsで動いてます」という情報を外部に出さない
 };
 
 export default nextConfig;
