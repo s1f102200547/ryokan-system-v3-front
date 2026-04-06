@@ -29,6 +29,8 @@ export function proxy(request: NextRequest) {
     if (!session) {
       // リダイレクトレスポンスにもセキュリティヘッダーを付与する
       const redirectResponse = NextResponse.redirect(new URL('/login', request.url))
+      // ZAP [10019]: リダイレクトレスポンスでも Content-Type が必要(明示することでMIMEスニッフィング防止)
+      redirectResponse.headers.set('Content-Type', 'text/html; charset=utf-8')
       applySecurityHeaders(redirectResponse, nonce, csp)
       return redirectResponse
     }

@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Cross-Origin-Resource-Policy', value: 'same-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          // ZAP [10049]: 静的アセットは内容が変わらないので長期キャッシュを許可する
+          // Next.jsは本番ビルドで自動付与するが、dev環境・リバースプロキシ経由で欠落する場合があるため明示する
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
         ],
       },
       {
