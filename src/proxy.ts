@@ -21,7 +21,7 @@ export function proxy(request: NextRequest) {
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ''}`, //「'nonce-${nonce}' 'strict-dynamic'」 -> nonceあったらok
     `style-src 'self' 'unsafe-inline'`,           // MUI使用するのでinlineCSSを許可
     `img-src 'self'`,
-    `font-src 'self' https://fonts.gstatic.com`,  //googleFontsのみ使用
+    `font-src 'self'`,  // next/font/google はビルド時に自己ホスト化されるので 'self' のみで十分
     `connect-src 'self'`,     // 外部通信先制限
     `frame-ancestors 'none'`, // iframeとして埋め込まれない
     `base-uri 'self'`,        // baseタグは自分のドメインのみ、悪意あるドメインが設定されないようにする
@@ -41,7 +41,7 @@ export function proxy(request: NextRequest) {
   h.set('Referrer-Policy', 'strict-origin-when-cross-origin') //遷移時に知られるurlにトークンなどが含まれないようにする
   h.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
   h.set('Cross-Origin-Opener-Policy', 'same-origin')    // 自分のリソースは同じオリジン(自分)にしか使わせない
-  h.set('Cross-Origin-Embedder-Policy', 'unsafe-none')  // googleFontsがあるので弱め
+  h.set('Cross-Origin-Embedder-Policy', 'require-corp')  // 外部リソースはすべて同一オリジンから（next/font は自己ホスト化済み）
   h.set('Cross-Origin-Resource-Policy', 'same-origin')  // 他のサイトから操作されない
   h.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains') //最後にアクセスしてから(ヘッダーを受け取ってから)1年間はhttps強制
 
