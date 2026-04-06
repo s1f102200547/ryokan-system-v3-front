@@ -2,12 +2,6 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function proxy(request: NextRequest) {
-  // セッションガード
-  const session = request.cookies.get('session')
-  if (!session) {
-    return NextResponse.redirect(new URL('/login', request.url))
-  }
-
   // nonce 生成
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
 
@@ -28,7 +22,24 @@ export function proxy(request: NextRequest) {
     `form-action 'self'`,     // formの送信先制限
   ].join('; ')
 
+  // セッションガード（ログインページは認証不要）
+  const isLoginPage = request.nextUrl.pathname === '/login'
+  if (!isLoginPage) {
+    const session = request.cookies.get('session')
+    if (!session) {
+      // リダイレクトレスポンスにもセキュリティヘッダーを付与する
+      const redirectResponse = NextResponse.redirect(new URL('/login', request.url))
+      applySecurityHeaders(redirectResponse, nonce, csp)
+      return redirectResponse
+    }
+  }
+
   const response = NextResponse.next()
+  applySecurityHeaders(response, nonce, csp)
+  return response
+}
+
+function applySecurityHeaders(response: NextResponse, nonce: string, csp: string) {
   const h = response.headers
 
   // nonce を layout.tsx に渡す
@@ -40,14 +51,14 @@ export function proxy(request: NextRequest) {
   h.set('X-Frame-Options', 'DENY')
   h.set('Referrer-Policy', 'strict-origin-when-cross-origin') //遷移時に知られるurlにトークンなどが含まれないようにする
   h.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
-  h.set('Cross-Origin-Opener-Policy', 'same-origin')    // 自分のリソースは同じオリジン(自分)にしか使わせない
+  h.set('Cross-Origin-Opener-Policy', 'same-origin')    // 自分のウィンドウを他のオリジンから操作させない
   h.set('Cross-Origin-Embedder-Policy', 'require-corp')  // 外部リソースはすべて同一オリジンから（next/font は自己ホスト化済み）
-  h.set('Cross-Origin-Resource-Policy', 'same-origin')  // 他のサイトから操作されない
+  h.set('Cross-Origin-Resource-Policy', 'same-origin')  // 他のサイトから自リソースを読み込ませない
   h.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains') //最後にアクセスしてから(ヘッダーを受け取ってから)1年間はhttps強制
-
-  return response
 }
 
 export const config = {
-  matcher: ['/((?!login|api|_next|favicon.ico).*)'],
+  // /login を含める（以前は除外していたため /login にヘッダーが付かなかった）
+  // /_next/static/* は next.config.ts の headers() で対応
+  matcher: ['/((?!api|_next|favicon.ico).*)'],
 }
