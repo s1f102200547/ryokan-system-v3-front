@@ -56,10 +56,12 @@ E2E test（Playwright） ← 「重要フローのみ」
 
 - `docs/Architecture.md` - レイヤー構造・設計パターン・ファイル構造
 - `docs/Auth.md` - 認証・認可・セッション管理の設計
+- `docs/Security.md` - セキュリティヘッダー・CSP・認証境界の設計方針
 - `docs/Deploy.md` - Docker / Cloud Run デプロイ手順
 - `docs/KnownIssues.md` - 既知の問題・対応不要と判断した脆弱性の記録
-- `docs/domain/RoomState.md` - 部屋状態の共通変数定義（全機能共通）
-- `docs/features/CleaningBoard.md` - 清掃ボードのフィーチャー
+- `docs/Test.md` - E2Eテストにおける認証情報の扱い方針
+- `docs/CleaningBoard.md` - 清掃ボードのフィーチャー
+- `docs/Schema/` - DBスキーマ定義（Daily.md, Reservations.md）
 
 
 ## Reference (必要に応じて参照)
