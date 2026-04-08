@@ -62,6 +62,7 @@ E2E test（Playwright） ← 「重要フローのみ」
 - `docs/Test.md` - E2Eテストにおける認証情報の扱い方針
 - `docs/CleaningBoard.md` - 清掃ボードのフィーチャー
 - `docs/Schema/` - DBスキーマ定義（Daily.md, Reservations.md）
+- `docs/ErrorHandling.md` - エラーハンドリングの方針
 
 
 ## Reference (必要に応じて参照)
