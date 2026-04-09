@@ -67,7 +67,7 @@ function toReservation(id: string, data: FirebaseFirestore.DocumentData): Reserv
     }
   } catch (e) {
     if (e instanceof ZodError) {
-      throw new InfraError('FIRESTORE_VALIDATION', `Schema validation failed for doc ${id}`, e)
+      throw new InfraError('FIRESTORE_DATA_CORRUPTION', `Schema validation failed for doc ${id}`, e)
     }
     throw e
   }

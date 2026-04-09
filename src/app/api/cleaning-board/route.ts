@@ -28,7 +28,7 @@ export async function GET(request: Request) {
       if (e.code === 'FIRESTORE_UNAVAILABLE') {
         notifySlackFireAndForget(`[ALERT] Firestore接続失敗: ${e.message}`)
       }
-      if (e.code === 'FIRESTORE_VALIDATION') {
+      if (e.code === 'FIRESTORE_DATA_CORRUPTION') {
         notifySlackFireAndForget(`[ALERT] DBデータ破損（Zodパース失敗）: ${e.message}`)
       }
       if (e.code === 'FIRESTORE_PERMISSION') {

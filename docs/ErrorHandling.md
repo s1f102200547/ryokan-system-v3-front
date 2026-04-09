@@ -73,7 +73,7 @@ Route Handler はエラーの「翻訳層」。内部エラーを HTTP ステー
 |---|---|---|
 | `FIRESTORE_UNAVAILABLE` | 503 | 一時的な障害。リトライ可 |
 | `FIRESTORE_PERMISSION` | 500 | サーバー設定の問題 |
-| `FIRESTORE_VALIDATION` | 500 | DB データ破損 |
+| `FIRESTORE_DATA_CORRUPTION` | 500 | DB データ破損 |
 | `AUTH_FAILED` | 401 | 認証失敗 |
 | `AUTH_UNAVAILABLE` | 503 | 認証サービス一時障害 |
 | Zod parse failure（リクエスト） | 400 | リクエスト不正 |
