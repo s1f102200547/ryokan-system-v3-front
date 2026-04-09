@@ -1,5 +1,6 @@
-import { z } from 'zod'
+import { ZodError, z } from 'zod'
 import { adminDb } from '@/lib/firebase/admin'
+import { InfraError } from '@/types/errors'
 import { ROOM_NUMBERS } from '@/types/room'
 import type { ReservationRepository } from '@/domain/ports/reservationRepository'
 import type { Reservation } from '@/types/reservation'
@@ -20,6 +21,7 @@ const FirestoreReservationSchema = z.object({
 
 export const firestoreReservationRepository: ReservationRepository = {
   async fetchByDateRange(from, to) {
+    try {
       const snapshot = await adminDb
         .collection('guestInfoV2')
         .where('check_in_date', '>=', toFirestoreDate(from))
@@ -27,6 +29,16 @@ export const firestoreReservationRepository: ReservationRepository = {
         .get()
 
       return snapshot.docs.map((doc) => toReservation(doc.id, doc.data()))
+    } catch (e) {
+      if (e instanceof InfraError) throw e // throw e -> さらに上位のcatchに伝搬する
+
+      // UNAVAILABLE = 14, PERMISSION_DENIED = 7
+      const code = (e as { code?: number }).code
+      if (code === 14) throw new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unreachable', e) // constructorの引数(code, Error.message, couse)の順で指定
+      if (code === 7) throw new InfraError('FIRESTORE_PERMISSION', 'Firestore permission denied', e)
+
+      throw new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unknown error', e)
+    }
   },
 }
 
@@ -41,15 +53,22 @@ function toIsoDate(date: string): string {
 }
 
 function toReservation(id: string, data: FirebaseFirestore.DocumentData): Reservation {
-  const parsed = FirestoreReservationSchema.parse(data)
-  return {
-    id,
-    check_in_date: toIsoDate(parsed.check_in_date),
-    check_out_date: toIsoDate(parsed.check_out_date),
-    adult_count: parsed.adult_count,
-    child_count: parsed.child_count,
-    room: parsed.room,
-    cancel: parsed.cancel,
-    late_out: parsed.late_out,
+  try {
+    const parsed = FirestoreReservationSchema.parse(data)
+    return {
+      id,
+      check_in_date: toIsoDate(parsed.check_in_date),
+      check_out_date: toIsoDate(parsed.check_out_date),
+      adult_count: parsed.adult_count,
+      child_count: parsed.child_count,
+      room: parsed.room,
+      cancel: parsed.cancel,
+      late_out: parsed.late_out,
+    }
+  } catch (e) {
+    if (e instanceof ZodError) {
+      throw new InfraError('FIRESTORE_VALIDATION', `Schema validation failed for doc ${id}`, e)
+    }
+    throw e
   }
 }
