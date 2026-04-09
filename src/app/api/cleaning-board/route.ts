@@ -35,6 +35,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'internal server error' }, { status })
     }
     logger.error('清掃ボード取得 想定外エラー', { message: String(e) })
+    notifySlackFireAndForget(`[ALERT] 清掃ボード取得で想定外エラー: ${String(e)}`)
     return NextResponse.json({ error: 'internal server error' }, { status: 500 })
   }
 }

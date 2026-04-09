@@ -2,7 +2,13 @@ import { logger } from './logger'
 
 export async function notifySlack(message: string): Promise<void> {
   const webhookUrl = process.env.SLACK_WEBHOOK_URL
-  if (!webhookUrl) return // 未設定（dev/test）は静かにスキップ
+  if (!webhookUrl) {
+    if (process.env.NODE_ENV === 'production') {
+      // production で未設定は設定ミスなので警告する
+      logger.warn('SLACK_WEBHOOK_URL が未設定のため通知をスキップ')
+    }
+    return
+  }
   await fetch(webhookUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

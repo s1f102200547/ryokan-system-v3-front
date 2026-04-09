@@ -4,6 +4,7 @@ import { loginCommand } from '@/application/auth/loginCommand'
 import { InfraError } from '@/types/errors'
 import { infraErrorToStatus } from '@/lib/infraErrorToHttpStatus'
 import { logger } from '@/lib/logger'
+import { notifySlackFireAndForget } from '@/lib/slack'
 
 const BodySchema = z.object({
   email: z.email(),
@@ -43,6 +44,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'server error' }, { status })
     }
     logger.error('ログイン 想定外エラー', { message: String(e) })
+    notifySlackFireAndForget(`[ALERT] ログイン処理で想定外エラー: ${String(e)}`)
     return NextResponse.json({ error: 'server error' }, { status: 500 })
   }
 }
