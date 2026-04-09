@@ -31,6 +31,9 @@ export async function GET(request: Request) {
       if (e.code === 'FIRESTORE_VALIDATION') {
         notifySlackFireAndForget(`[ALERT] DBデータ破損（Zodパース失敗）: ${e.message}`)
       }
+      if (e.code === 'FIRESTORE_PERMISSION') {
+        notifySlackFireAndForget(`[ALERT] Firestore権限エラー（IAM設定を確認）: ${e.message}`)
+      }
 
       return NextResponse.json({ error: 'internal server error' }, { status })
     }
