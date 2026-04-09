@@ -12,7 +12,7 @@ describe('login', () => {
     }
     // モックを使って login() を実行
     const result = await login({ email: 'test@example.com', password: 'correct' }, authProvider)
-    expect(result).toEqual({ success: true, userId: 'user-1' })
+    expect(result).toEqual({ success: true, value: { userId: 'user-1' } })
   })
 
   it('誤った認証情報で失敗する', async () => {
@@ -20,6 +20,6 @@ describe('login', () => {
       authenticate: vi.fn().mockResolvedValue({ success: false }),
     }
     const result = await login({ email: 'test@example.com', password: 'wrong' }, authProvider)
-    expect(result).toEqual({ success: false, reason: 'invalid_credentials' })
+    expect(result).toEqual({ success: false, error: 'invalid_credentials' })
   })
 })

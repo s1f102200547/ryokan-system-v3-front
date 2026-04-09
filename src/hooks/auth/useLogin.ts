@@ -13,22 +13,27 @@ export function useLogin() {
 
   const login = async (credentials: { email: string; password: string }) => {
     setIsPending(true) // ログイン中をonにする
-    setError(null)// エラーをリセットする
+    setError(null) // エラーをリセットする
     try {
       const response = await fetch('/api/auth/login', { //api経由でlogin機能を使う
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials),
       })
-      if (!response.ok) {
+      if (response.ok) {
+        router.push('/')
+        return
+      }
+      if (response.status === 401) {
         setError('メールアドレスまたはパスワードが正しくありません')
       } else {
-        router.push('/')
+        // 503・500 ともに原因を明かさずあいまいに返す（監視インフラの存在を公開しない）
+        setError('サービスが一時的に利用できません。しばらくお待ちください')  // サーバ側の一般的なエラー
       }
     } catch {
-      setError('通信エラーが発生しました')
+      setError('通信エラーが発生しました。ネットワーク接続を確認してください')  // fetch自体が失敗でレスポンスすら無い
     } finally {
-      setIsPending(false)// ログイン中をoffにする
+      setIsPending(false) // ログイン中をoffにする
     }
   }
 

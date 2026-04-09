@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET } from './route'
 import type { CleaningBoardData } from '@/types/cleaningBoard'
+import { InfraError } from '@/types/errors'
 
 vi.mock('@/application/cleaningBoard/getCleaningBoardUseCase')
 import { getCleaningBoardUseCase } from '@/application/cleaningBoard/getCleaningBoardUseCase'
@@ -56,8 +57,24 @@ describe('GET /api/cleaning-board', () => {
     expect(response.status).toBe(400)
   })
 
-  it('UseCase が例外を投げた場合に 500 が返る', async () => {
-    mockUseCase.mockRejectedValue(new Error('Firestore error'))
+  it('FIRESTORE_UNAVAILABLE の場合 503 が返る', async () => {
+    mockUseCase.mockRejectedValue(new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore down'))
+
+    const response = await GET(makeRequest('2026-04-01'))
+
+    expect(response.status).toBe(503)
+  })
+
+  it('FIRESTORE_DATA_CORRUPTION の場合 500 が返る', async () => {
+    mockUseCase.mockRejectedValue(new InfraError('FIRESTORE_DATA_CORRUPTION', 'Schema error'))
+
+    const response = await GET(makeRequest('2026-04-01'))
+
+    expect(response.status).toBe(500)
+  })
+
+  it('想定外のエラーの場合 500 が返る', async () => {
+    mockUseCase.mockRejectedValue(new Error('unexpected'))
 
     const response = await GET(makeRequest('2026-04-01'))
 

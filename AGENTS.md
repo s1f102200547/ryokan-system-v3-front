@@ -33,10 +33,6 @@ Integration test       ← 「Route Handler（API）の"入口->出口"を検証
 E2E test（Playwright） ← 「重要フローのみ」
 ```
 
-## validation戦略
-- infraと外部の間のデータのやり取りでzodを使う
-- Next.jsプロジェクト内でfrontendとapi間のデータのやり取りでzodを使う
-
 ## Rules
 
 - コミットメッセージは日本語
@@ -62,6 +58,7 @@ E2E test（Playwright） ← 「重要フローのみ」
 - `docs/Test.md` - E2Eテストにおける認証情報の扱い方針
 - `docs/CleaningBoard.md` - 清掃ボードのフィーチャー
 - `docs/Schema/` - DBスキーマ定義（Daily.md, Reservations.md）
+- `docs/ErrorHandling.md` - エラーハンドリングの方針
 
 
 ## Reference (必要に応じて参照)

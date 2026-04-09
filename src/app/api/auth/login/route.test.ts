@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST } from './route'
 import type { LoginResult } from '@/types/auth'
+import { InfraError } from '@/types/errors'
 
 vi.mock('@/application/auth/loginCommand')
 import { loginCommand } from '@/application/auth/loginCommand'
@@ -26,7 +27,7 @@ describe('POST /api/auth/login', () => {
   it('正しい認証情報で 200 と session Cookie が返る', async () => {
 
     // 「成功のレスポンスが返ってくる」と強制的に決める
-    const result: LoginResult = { success: true, userId: 'user-1' }
+    const result: LoginResult = { success: true, value: { userId: 'user-1' } }
     mockLoginCommand.mockResolvedValue(result)
 
     // リクエスト(自身のurlへのアクセス)をemail, passwordを乗せて実行
@@ -37,7 +38,7 @@ describe('POST /api/auth/login', () => {
   })
 
   it('誤った認証情報で 401 と error が返る', async () => {
-    const result: LoginResult = { success: false, reason: 'invalid_credentials' }
+    const result: LoginResult = { success: false, error: 'invalid_credentials' }
     mockLoginCommand.mockResolvedValue(result)
 
     const response = await POST(makeRequest({ email: 'test@example.com', password: 'wrong' }))
@@ -57,5 +58,21 @@ describe('POST /api/auth/login', () => {
     const response = await POST(makeRequest({ email: 'test@example.com', password: '' }))
 
     expect(response.status).toBe(400)
+  })
+
+  it('AUTH_UNAVAILABLE の場合 503 が返る', async () => {
+    mockLoginCommand.mockRejectedValue(new InfraError('AUTH_UNAVAILABLE', 'Firebase Auth down'))
+
+    const response = await POST(makeRequest({ email: 'test@example.com', password: 'pw' }))
+
+    expect(response.status).toBe(503)
+  })
+
+  it('想定外の(定義していない)エラーの場合 500 が返る', async () => {
+    mockLoginCommand.mockRejectedValue(new Error('unexpected'))
+
+    const response = await POST(makeRequest({ email: 'test@example.com', password: 'pw' }))
+
+    expect(response.status).toBe(500)
   })
 })

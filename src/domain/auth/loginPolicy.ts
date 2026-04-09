@@ -18,6 +18,6 @@ export async function login(
   authProvider: AuthProvider,
 ): Promise<LoginResult> {
   const result = await authProvider.authenticate(credentials.email, credentials.password)
-  if (!result.success) return { success: false, reason: 'invalid_credentials' }
-  return { success: true, userId: result.userId }
+  if (!result.success) return { success: false, error: 'invalid_credentials' }
+  return { success: true, value: { userId: result.userId } }
 }

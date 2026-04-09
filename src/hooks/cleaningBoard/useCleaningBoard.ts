@@ -20,17 +20,29 @@ export function useCleaningBoard(targetDate: string) {
   })
 
   useEffect(() => {
-    // setState は useEffect 内で呼ぶとそのたびに無駄に再レンダリングされてバグの原因&パフォーマンス低下になりうるので外で呼ぶ
-    fetch(`/api/cleaning-board?date=${targetDate}`) // 2. データを取りにいく（fetch）
-      .then((res) => {
-        if (!res.ok) throw new Error('データの取得に失敗しました')
-        return res.json() as Promise<CleaningBoardData>
-      })
-      .then((data) => setState({ data, fetchedDate: targetDate, error: null })) // 3. 成功 or 失敗でstate更新
-      .catch((e: unknown) => {
-        const message = e instanceof Error ? e.message : '通信エラーが発生しました'
-        setState({ data: null, fetchedDate: targetDate, error: message }) // // 3. 成功 or 失敗でstate更新
-      })
+    let cancelled = false // targetDate が変わった場合に古い fetch の結果を無視する
+
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/cleaning-board?date=${targetDate}`) // 2. データを取りにいく（fetch）
+        if (cancelled) return
+        if (!res.ok) {
+          const message = res.status === 503
+            ? '一時的に通信に失敗しました。しばらく待ってから再度お試しください。' // 一時的なサーバ不調
+            : 'データの取得に失敗しました。管理者に通知済みです。'                // サーバ側の一般エラー
+          setState({ data: null, fetchedDate: targetDate, error: message })
+          return
+        }
+        const data = await res.json() as CleaningBoardData
+        if (!cancelled) setState({ data, fetchedDate: targetDate, error: null }) // 3. 成功 or 失敗でstate更新
+      } catch {
+        if (!cancelled) setState({ data: null, fetchedDate: targetDate,
+          error: '通信エラーが発生しました。ネットワーク接続を確認してください' })    // fetch自体が失敗でレスポンスすら無い
+      }
+    }
+
+    void load()
+    return () => { cancelled = true }
   }, [targetDate]) // 1. targetDate が変わったら実行
 
   const isLoading = state.fetchedDate !== targetDate // 3. 成功 or 失敗でstate更新 でどっちにしてもfetchedDateはセットされる
