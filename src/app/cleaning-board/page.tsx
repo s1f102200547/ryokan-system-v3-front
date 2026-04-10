@@ -8,7 +8,15 @@ import { CleaningBoardFooter } from '@/components/cleaningBoard/CleaningBoardFoo
 import { CleaningBoardNotes } from '@/components/cleaningBoard/CleaningBoardNotes'
 import { Loading } from '@/components/Loading'
 
-const TODAY = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+function getTomorrowJST(): string {
+  const now = new Date()
+  // JST = UTC+9
+  const jstOffset = 9 * 60 * 60 * 1000
+  const tomorrow = new Date(now.getTime() + jstOffset + 24 * 60 * 60 * 1000)
+  return tomorrow.toISOString().slice(0, 10)
+}
+
+const TODAY = getTomorrowJST() // 日本時間の翌日 YYYY-MM-DD
 
 function formatDateHeader(dateStr: string): string {
   const [year, month, day] = dateStr.split('-').map(Number)
