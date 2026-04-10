@@ -6,13 +6,23 @@ import { InfraError } from '@/types/errors'
 vi.mock('@/application/cleaningBoard/getCleaningBoardUseCase')
 import { getCleaningBoardUseCase } from '@/application/cleaningBoard/getCleaningBoardUseCase'
 
-const mockUseCase = vi.mocked(getCleaningBoardUseCase) // 自分で好きな結果を返せるようにする
+vi.mock('@/lib/auth/verifySession')
+import { verifySession } from '@/lib/auth/verifySession'
 
-function makeRequest(date?: string) {
+vi.mock('@/lib/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
+vi.mock('@/lib/slack', () => ({ notifySlackFireAndForget: vi.fn() }))
+
+const mockUseCase = vi.mocked(getCleaningBoardUseCase)
+const mockVerifySession = vi.mocked(verifySession)
+
+function makeRequest(date?: string, withSession = true) {
   const url = date
     ? `http://localhost/api/cleaning-board?date=${date}`
     : `http://localhost/api/cleaning-board`
-  return new Request(url, { method: 'GET' })
+  return new Request(url, {
+    method: 'GET',
+    headers: withSession ? { cookie: 'session=valid-session-cookie' } : {}, // withSession = true（ログイン済み）
+  })
 }
 
 const mockData: CleaningBoardData = {
@@ -32,7 +42,27 @@ const mockData: CleaningBoardData = {
 }
 
 describe('GET /api/cleaning-board', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // デフォルト: 認証済みとして扱う
+    mockVerifySession.mockResolvedValue({ uid: 'user-1' })
+  })
+
+  it('session Cookie がない場合 401 が返る', async () => {
+    mockVerifySession.mockResolvedValue(null)
+
+    const response = await GET(makeRequest('2026-04-01', false))
+
+    expect(response.status).toBe(401)
+  })
+
+  it('session Cookie が無効な（ログイン中でない）場合 401 が返る', async () => {
+    mockVerifySession.mockResolvedValue(null)
+
+    const response = await GET(makeRequest('2026-04-01'))
+
+    expect(response.status).toBe(401)
+  })
 
   it('正常な date で 200 と CleaningBoardData が返る', async () => {
     mockUseCase.mockResolvedValue(mockData) // 0. usecaseを呼ぶ(返り値は強制的に決まってる)

@@ -98,6 +98,14 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e
+        env:
+          # Firebase SDK はリクエスト送出前に API キーの存在チェックをする。
+          # 未設定だと auth/invalid-api-key を同期的に throw し、
+          # Playwright の page.route モックが介入できなくなるため、ダミー値を設定する。
+          # 実際のリクエストは Playwright がインターセプトするため、値の正確性は不要。
+          NEXT_PUBLIC_FIREBASE_API_KEY: dummy-api-key-for-e2e
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: dummy-project.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: dummy-project
       - name: Upload playwright report
         uses: actions/upload-artifact@v4
         if: failure()

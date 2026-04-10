@@ -2,38 +2,61 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
+import type { FirebaseError } from 'firebase/app'
+import { firebaseApp } from '@/lib/firebase/client'
+
+const CREDENTIAL_ERROR_CODES = new Set([
+  'auth/wrong-password',
+  'auth/user-not-found',
+  'auth/invalid-credential',
+  'auth/invalid-email',
+])
 
 // ログイン処理＋UI状態（loading / error / 遷移）をまとめる
-// loginCommand を直接呼ばず Route Handler 経由にすることで
-// サーバー側で Cookie を発行できる
+// 1. Firebase Client SDK で認証 → idToken 取得
+// 2. idToken を /api/auth/login に POST → サーバーが Session Cookie を発行
 export function useLogin() {
-  const [isPending, setIsPending] = useState(false) // ログイン中かどうか
+  const [isPending, setIsPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const router = useRouter() // ページ遷移用
+  const router = useRouter()
 
   const login = async (credentials: { email: string; password: string }) => {
-    setIsPending(true) // ログイン中をonにする
-    setError(null) // エラーをリセットする
+    setIsPending(true)
+    setError(null)
     try {
-      const response = await fetch('/api/auth/login', { //api経由でlogin機能を使う
+      // Step 1: Firebase Client SDK で認証
+      let idToken: string
+      try {
+        const auth = getAuth(firebaseApp)
+        const credential = await signInWithEmailAndPassword(auth, credentials.email, credentials.password)
+        idToken = await credential.user.getIdToken()
+      } catch (e) {
+        const code = (e as FirebaseError).code
+        if (CREDENTIAL_ERROR_CODES.has(code)) {
+          setError('メールアドレスまたはパスワードが正しくありません')
+        } else {
+          setError('サービスが一時的に利用できません。しばらくお待ちください')
+        }
+        return
+      }
+
+      // Step 2: idToken をサーバーに送り Session Cookie を発行してもらう
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials),
+        body: JSON.stringify({ idToken }),
       })
       if (response.ok) {
         router.push('/')
         return
       }
-      if (response.status === 401) {
-        setError('メールアドレスまたはパスワードが正しくありません')
-      } else {
-        // 503・500 ともに原因を明かさずあいまいに返す（監視インフラの存在を公開しない）
-        setError('サービスが一時的に利用できません。しばらくお待ちください')  // サーバ側の一般的なエラー
-      }
+      // 503・500 ともに原因を明かさずあいまいに返す（監視インフラの存在を公開しない）
+      setError('サービスが一時的に利用できません。しばらくお待ちください')
     } catch {
-      setError('通信エラーが発生しました。ネットワーク接続を確認してください')  // fetch自体が失敗でレスポンスすら無い
+      setError('通信エラーが発生しました。ネットワーク接続を確認してください')
     } finally {
-      setIsPending(false) // ログイン中をoffにする
+      setIsPending(false)
     }
   }
 

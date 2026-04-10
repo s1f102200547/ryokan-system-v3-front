@@ -16,15 +16,34 @@ export function proxy(request: NextRequest) {
     `style-src 'self' 'unsafe-inline'`,           // MUI使用するのでinlineCSSを許可
     `img-src 'self'`,
     `font-src 'self'`,  // next/font/google はビルド時に自己ホスト化されるので 'self' のみで十分
-    `connect-src 'self'`,     // 外部通信先制限
+    `connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com`, // Firebase Auth（signInWithEmailAndPassword）が叩く外部エンドポイントを許可
     `frame-ancestors 'none'`, // iframeとして埋め込まれない
     `base-uri 'self'`,        // baseタグは自分のドメインのみ、悪意あるドメインが設定されないようにする
     `form-action 'self'`,     // formの送信先制限
   ].join('; ')
 
-  // セッションガード（ログインページは認証不要）
-  const isLoginPage = request.nextUrl.pathname === '/login'
-  if (!isLoginPage) {
+  const { pathname } = request.nextUrl
+  const isLoginPage = pathname === '/login'
+  const isTimeRestrictedPage = pathname === '/time-restricted'
+
+  // 時間帯制限（本番のみ、6:00–23:00 JST）
+  // /time-restricted は制限対象外（それ以外の全ページをブロック）
+  const isProd = process.env.NODE_ENV === 'production'
+  if (isProd && !isTimeRestrictedPage) {
+    // UTC+9 で現在時刻を計算
+    const nowJST = new Date(Date.now() + 9 * 60 * 60 * 1000)
+    const minuteOfDay = nowJST.getUTCHours() * 60 + nowJST.getUTCMinutes()
+    const isOutsideHours = minuteOfDay < 6 * 60 || minuteOfDay >= 23 * 60  // 6:00未満 or 23:00以降
+    if (isOutsideHours) {
+      const redirectResponse = NextResponse.redirect(new URL('/time-restricted', request.url))
+      redirectResponse.headers.set('Content-Type', 'text/html; charset=utf-8')
+      applySecurityHeaders(redirectResponse, nonce, csp)
+      return redirectResponse
+    }
+  }
+
+  // セッションガード（/login・/time-restricted は認証不要）
+  if (!isLoginPage && !isTimeRestrictedPage) {
     const session = request.cookies.get('session')
     if (!session) {
       // リダイレクトレスポンスにもセキュリティヘッダーを付与する

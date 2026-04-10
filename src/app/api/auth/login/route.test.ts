@@ -1,16 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST } from './route'
-import type { LoginResult } from '@/types/auth'
-import { InfraError } from '@/types/errors'
 
-vi.mock('@/application/auth/loginCommand')
-import { loginCommand } from '@/application/auth/loginCommand'
+// adminAuth の verifyIdToken / createSessionCookie をモック
+vi.mock('@/lib/firebase/admin', () => ({
+  adminAuth: {
+    verifyIdToken: vi.fn(),
+    createSessionCookie: vi.fn(),
+  },
+  adminDb: {},
+}))
+import { adminAuth } from '@/lib/firebase/admin'
 
-// //FIrebaseの外部アクセスをしたくないのでlogingCommand(application層)から下(dmain, infra)は使わない
-// 「こういう結果が返ってくる」と強制的に決める
-const mockLoginCommand = vi.mocked(loginCommand) 
+vi.mock('@/lib/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
+vi.mock('@/lib/slack', () => ({ notifySlackFireAndForget: vi.fn() }))
 
-// リクエスト(自身のurlへのアクセス)を生成
+const mockVerifyIdToken = vi.mocked(adminAuth.verifyIdToken)
+const mockCreateSessionCookie = vi.mocked(adminAuth.createSessionCookie)
+
 function makeRequest(body: object) {
   return new Request('http://localhost/api/auth/login', {
     method: 'POST',
@@ -24,55 +30,56 @@ describe('POST /api/auth/login', () => {
     vi.clearAllMocks()
   })
 
-  it('正しい認証情報で 200 と session Cookie が返る', async () => {
+  it('有効な idToken がクライアントから来たら 200 と session Cookie を返す', async () => {
+    mockVerifyIdToken.mockResolvedValue({} as never)
+    mockCreateSessionCookie.mockResolvedValue('session-cookie-value')
 
-    // 「成功のレスポンスが返ってくる」と強制的に決める
-    const result: LoginResult = { success: true, value: { userId: 'user-1' } }
-    mockLoginCommand.mockResolvedValue(result)
-
-    // リクエスト(自身のurlへのアクセス)をemail, passwordを乗せて実行
-    const response = await POST(makeRequest({ email: 'test@example.com', password: 'correct' }))
+    const response = await POST(makeRequest({ idToken: 'valid-id-token' }))
+    const body = await response.json()
 
     expect(response.status).toBe(200)
-    expect(response.headers.get('set-cookie')).toContain('session=') // セッションにクッキーがセットされる
+    expect(body).toEqual({ success: true })
+    expect(response.headers.get('set-cookie')).toContain('session=')
   })
 
-  it('誤った認証情報で 401 と error が返る', async () => {
-    const result: LoginResult = { success: false, error: 'invalid_credentials' }
-    mockLoginCommand.mockResolvedValue(result)
+  it('クライアントからのデータにidToken がない場合 400 を返す', async () => {
+    const response = await POST(makeRequest({}))
 
-    const response = await POST(makeRequest({ email: 'test@example.com', password: 'wrong' }))
+    expect(response.status).toBe(400)
+  })
+
+  it('クライアントからのidToken が空文字の場合 400 を返す', async () => {
+    const response = await POST(makeRequest({ idToken: '' }))
+
+    expect(response.status).toBe(400)
+  })
+
+  it('verifyIdToken が認証失敗コードを返した場合 401 を返す', async () => {
+    // CREDENTIAL_ERROR_CODES に含まれる code を持つエラー（Firebase Admin が実際に throw する形式）
+    mockVerifyIdToken.mockRejectedValue({ code: 'auth/invalid-id-token', message: 'invalid token' })
+
+    const response = await POST(makeRequest({ idToken: 'invalid-id-token' }))
     const body = await response.json()
 
     expect(response.status).toBe(401)
     expect(body.error).toBe('invalid_credentials')
   })
 
-  it('email が不正な形式の場合 400 が返る', async () => {
-    const response = await POST(makeRequest({ email: 'not-an-email', password: 'password' }))
+  it('verifyIdToken がインフラ障害（認証失敗コード以外）の場合 503 を返す', async () => {
+    // CREDENTIAL_ERROR_CODES に含まれない code → インフラ障害扱い
+    mockVerifyIdToken.mockRejectedValue({ code: 'auth/internal-error', message: 'Firebase down' })
 
-    expect(response.status).toBe(400)
-  })
-
-  it('password が空文字の場合 400 が返る', async () => {
-    const response = await POST(makeRequest({ email: 'test@example.com', password: '' }))
-
-    expect(response.status).toBe(400)
-  })
-
-  it('AUTH_UNAVAILABLE の場合 503 が返る', async () => {
-    mockLoginCommand.mockRejectedValue(new InfraError('AUTH_UNAVAILABLE', 'Firebase Auth down'))
-
-    const response = await POST(makeRequest({ email: 'test@example.com', password: 'pw' }))
+    const response = await POST(makeRequest({ idToken: 'valid-id-token' }))
 
     expect(response.status).toBe(503)
   })
 
-  it('想定外の(定義していない)エラーの場合 500 が返る', async () => {
-    mockLoginCommand.mockRejectedValue(new Error('unexpected'))
+  it('createSessionCookie が失敗した場合 503 を返す', async () => {
+    mockVerifyIdToken.mockResolvedValue({} as never)
+    mockCreateSessionCookie.mockRejectedValue(new Error('Firebase Auth down'))
 
-    const response = await POST(makeRequest({ email: 'test@example.com', password: 'pw' }))
+    const response = await POST(makeRequest({ idToken: 'valid-id-token' }))
 
-    expect(response.status).toBe(500)
+    expect(response.status).toBe(503)
   })
 })
