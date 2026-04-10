@@ -2,6 +2,8 @@
 
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import PrintIcon from '@mui/icons-material/Print'
 import { useCleaningBoard } from '@/hooks/cleaningBoard/useCleaningBoard'
 import { CleaningBoardTable } from '@/components/cleaningBoard/CleaningBoardTable'
 import { CleaningBoardFooter } from '@/components/cleaningBoard/CleaningBoardFooter'
@@ -45,7 +47,9 @@ export default function CleaningBoardPage() {
       )}
 
       <Box className="no-print" sx={{ mb: 1 }}>
-        <button onClick={() => window.print()}>印刷</button>
+        <Button variant="contained" startIcon={<PrintIcon />} onClick={() => window.print()}>
+          印刷
+        </Button>
       </Box>
 
       <Box className="print-area" sx={{ fontFamily: 'sans-serif', fontSize: '8pt', color: '#000' }}>
