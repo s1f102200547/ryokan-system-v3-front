@@ -1,17 +1,9 @@
 import { FirebaseError } from 'firebase/app'
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
 import { firebaseApp } from '@/lib/firebase/client'
+import { CREDENTIAL_ERROR_CODES } from '@/lib/firebase/credentialErrorCodes'
 import { InfraError } from '@/types/errors'
 import type { AuthProvider } from '@/domain/ports/authProvider'
-
-// 認証失敗（ビジネス結果）として扱う Firebase エラーコード
-// これ以外は AUTH_UNAVAILABLE（インフラ障害）として throw する
-const CREDENTIAL_ERROR_CODES = new Set([
-  'auth/wrong-password',
-  'auth/invalid-credential', // Firebase v9+ の統合コード
-  'auth/user-not-found',
-  'auth/invalid-email',
-])
 
 // Domain層 の ports/ のAuthProviderインターフェースを Firebase で差し替え。
 export const firebaseAuthProvider: AuthProvider = {
