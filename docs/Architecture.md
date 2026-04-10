@@ -35,6 +35,8 @@ Shared (lib/, types/)
 
 ```
 src/
+├── proxy.ts        # Next.js Middleware の実装本体（CSPヘッダー付与・セッション Cookie 有無チェック）
+│                   # ※ Next.js 16 で middleware.ts に代わる公式ファイル規約（middleware.ts は deprecated）
 ├── app/            # UI層: App Router, Route Handlers
 │   ├── api/auth/   # 認証エンドポイント（サーバーサイド）
 │   └── api/        # その他 Route Handlers
