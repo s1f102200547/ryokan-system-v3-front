@@ -1,4 +1,5 @@
 import { getApps, initializeApp, cert } from 'firebase-admin/app'
+import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 
 // ローカル: FIREBASE_PRIVATE_KEY 等の環境変数で認証
@@ -16,4 +17,5 @@ const adminApp =
       : initializeApp()
     : getApps()[0]
 
+export const adminAuth = getAuth(adminApp)
 export const adminDb = getFirestore(adminApp)
