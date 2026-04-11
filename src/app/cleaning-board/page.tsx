@@ -39,7 +39,7 @@ export default function CleaningBoardPage() {
   if (!data) return null
 
   return (
-    <Box sx={{ p: 2 }}>
+    <Box sx={{ px: 2, pt: 0.5, pb: 2 }}>
       {data.unassignedReservations.length > 0 && (
         <Alert severity="warning" data-testid="unassigned-warning" sx={{ mb: 2 }}>
           部屋が割り当てられていない予約があります（{data.unassignedReservations.length}件）
