@@ -104,23 +104,23 @@ export function CleaningBoardTable({ rows }: Props) {
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.room} style={{ height: '40px' }}>
-              <td style={{ ...cellStyle, width: unit(2) }}>{row.room}</td>
+            <tr key={row.room} style={{ height: '28px' }}>
+              <td style={{ ...cellStyle, width: unit(2), fontSize: '10pt' }}>{row.room}</td>
               <td
-                style={{ ...cellStyle, width: unit(7) }}
+                style={{ ...cellStyle, width: unit(7), fontSize: '10pt' }}
                 data-testid={`notes-cell-${row.room}`}
               >
                 {formatNotesCell(row)}
               </td>
               <td style={{ ...cellStyle, width: unit(4) }}></td>
               <td
-                style={{ ...cellStyle, width: unit(1) }}
+                style={{ ...cellStyle, width: unit(1), fontSize: '10pt' }}
                 data-testid={`ci-cell-${row.room}`}
               >
                 {formatCiCell(row)}
               </td>
               <td
-                style={{ ...cellStyle, width: unit(1) }}
+                style={{ ...cellStyle, width: unit(1), fontSize: '10pt' }}
                 data-testid={`consecutive-cell-${row.room}`}
               >
                 {formatConsecutiveCell(row)}

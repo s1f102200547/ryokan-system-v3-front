@@ -2,7 +2,8 @@ import { firestoreReservationRepository } from '@/infra/reservation/firestoreRes
 import { addDays } from '@/lib/dateUtils'
 import { computeRoomCheckInState } from '@/domain/room/roomState'
 import type { RoomCheckInState } from '@/domain/room/roomState'
-import { ROOM_NUMBERS } from '@/types/room'
+import { ROOM_NUMBERS, CLEANING_BOARD_ROOM_NUMBERS } from '@/types/room'
+import type { RoomNumber } from '@/types/room'
 import type { CleaningBoardData } from '@/types/cleaningBoard'
 
 const QUERY_RANGE_DAYS = 30
@@ -24,8 +25,26 @@ export async function getCleaningBoardUseCase(
 
   const reservations = await firestoreReservationRepository.fetchByDateRange(from, to) // infraでdbデータ取得
 
-  const rows = ROOM_NUMBERS.map((room) => {
-    const state = computeRoomCheckInState(reservations, targetDate, room) // domainで計算
+  // 予約データは7部屋分だけ計算
+  const stateMap = new Map(
+    ROOM_NUMBERS.map((room) => [room, computeRoomCheckInState(reservations, targetDate, room)]),
+  )
+
+  // 表示は10部屋順。52/53/54は予約データなし（空行）
+  const rows = CLEANING_BOARD_ROOM_NUMBERS.map((room) => {
+    const state = stateMap.get(room as RoomNumber)
+    if (!state) {
+      return {
+        room,
+        isTodayCheckIn: false,
+        isFutureCheckIn: false,
+        checkInReservation: null,
+        stayingReservation: null,
+        isStayingContinued: false,
+        isConsecutive: false,
+        autoNotes: [],
+      }
+    }
     return {
       room,
       isTodayCheckIn: state.isTodayCheckIn,
