@@ -18,9 +18,9 @@
     "@mui/material": "^7.3.9",
     "@mui/material-nextjs": "^7.3.9",
     "firebase": "^12.11.0",
-    "firebase-admin": "^13.7.0",
+    "firebase-admin": "^13.8.0",
     "maxmind": "^5.0.5",
-    "next": "16.2.1",
+    "next": "^16.2.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "zod": "^4.3.6"
