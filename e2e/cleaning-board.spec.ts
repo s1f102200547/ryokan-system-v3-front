@@ -27,7 +27,7 @@ type CleaningBoardData = {
   unassignedReservations: UnassignedReservation[]
 }
 
-const ALL_ROOMS = ['21', '22', '31', '32', '42', '43', '61'] as const
+const ALL_ROOMS = ['21', '22', '31', '32', '42', '43', '52', '53', '54', '61'] as const
 
 function makeEmptyRows(): CleaningBoardRow[] {
   return ALL_ROOMS.map((room) => ({

@@ -11,3 +11,6 @@ let room2: RoomNumber = "99" // ❌ エラー
 */
 export const ROOM_NUMBERS = ['21', '22', '31', '32', '42', '43', '61'] as const
 export type RoomNumber = (typeof ROOM_NUMBERS)[number]
+
+export const CLEANING_BOARD_ROOM_NUMBERS = ['21', '22', '31', '32', '42', '43', '52', '53', '54', '61'] as const
+export type CleaningBoardRoomNumber = (typeof CLEANING_BOARD_ROOM_NUMBERS)[number]
