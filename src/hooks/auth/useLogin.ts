@@ -5,13 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
 import type { FirebaseError } from 'firebase/app'
 import { firebaseApp } from '@/lib/firebase/client'
-
-const CREDENTIAL_ERROR_CODES = new Set([
-  'auth/wrong-password',
-  'auth/user-not-found',
-  'auth/invalid-credential',
-  'auth/invalid-email',
-])
+import { CREDENTIAL_ERROR_CODES } from '@/lib/firebase/credentialErrorCodes'
 
 // ログイン処理＋UI状態（loading / error / 遷移）をまとめる
 // 1. Firebase Client SDK で認証 → idToken 取得

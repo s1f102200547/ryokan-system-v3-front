@@ -44,8 +44,7 @@ src/
 ├── hooks/          # UI層: Application層の薄いラッパー（Domain層を直接呼ばない）
 ├── application/    # Application層: Command（状態変更操作）, UseCase（読み取り系オーケストレーション）
 ├── domain/         # Domain層: 純粋TS、ビジネスルール
-│   ├── ports/      # インターフェース定義（Repository等）
-│   └── tax/        # Strategy Pattern（税計算等）
+│   └── ports/      # インターフェース定義（Repository等）
 ├── infra/          # Infra層: ports/ の実装（Firestore, Slack等）
 ├── lib/            # ユーティリティ
 └── types/          # 共通型定義

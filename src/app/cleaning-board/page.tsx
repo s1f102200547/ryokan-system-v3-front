@@ -2,13 +2,23 @@
 
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import PrintIcon from '@mui/icons-material/Print'
 import { useCleaningBoard } from '@/hooks/cleaningBoard/useCleaningBoard'
 import { CleaningBoardTable } from '@/components/cleaningBoard/CleaningBoardTable'
 import { CleaningBoardFooter } from '@/components/cleaningBoard/CleaningBoardFooter'
 import { CleaningBoardNotes } from '@/components/cleaningBoard/CleaningBoardNotes'
 import { Loading } from '@/components/Loading'
 
-const TODAY = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+function getTomorrowJST(): string {
+  const now = new Date()
+  // JST = UTC+9
+  const jstOffset = 9 * 60 * 60 * 1000
+  const tomorrow = new Date(now.getTime() + jstOffset + 24 * 60 * 60 * 1000)
+  return tomorrow.toISOString().slice(0, 10)
+}
+
+const TODAY = getTomorrowJST() // 日本時間の翌日 YYYY-MM-DD
 
 function formatDateHeader(dateStr: string): string {
   const [year, month, day] = dateStr.split('-').map(Number)
@@ -37,7 +47,9 @@ export default function CleaningBoardPage() {
       )}
 
       <Box className="no-print" sx={{ mb: 1 }}>
-        <button onClick={() => window.print()}>印刷</button>
+        <Button variant="contained" startIcon={<PrintIcon />} onClick={() => window.print()}>
+          印刷
+        </Button>
       </Box>
 
       <Box className="print-area" sx={{ fontFamily: 'sans-serif', fontSize: '8pt', color: '#000' }}>

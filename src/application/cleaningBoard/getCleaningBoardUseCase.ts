@@ -1,4 +1,5 @@
 import { firestoreReservationRepository } from '@/infra/reservation/firestoreReservationRepository'
+import { addDays } from '@/lib/dateUtils'
 import { computeRoomCheckInState } from '@/domain/room/roomState'
 import type { RoomCheckInState } from '@/domain/room/roomState'
 import { ROOM_NUMBERS } from '@/types/room'
@@ -55,12 +56,3 @@ function computeAutoNotes(room: string, state: RoomCheckInState): string[] {
   return notes
 }
 
-function addDays(dateStr: string, days: number): string {
-  const [year, month, day] = dateStr.split('-').map(Number)
-  const d = new Date(year, month - 1, day + days)
-  return [
-    d.getFullYear(),
-    String(d.getMonth() + 1).padStart(2, '0'),
-    String(d.getDate()).padStart(2, '0'),
-  ].join('-')
-}
