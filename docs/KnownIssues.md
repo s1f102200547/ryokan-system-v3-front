@@ -60,3 +60,8 @@ rm -rf .next
 rm -rf node_modules/.cache
 npm run dev
 ```
+
+## targetData drivenで時系列データを処理すべきじゃなかった
+- 現在はtargetDateの1つの日付を引数にしてdb取得してDomainで計算してuiで表示している
+- 様々な制約や処理をtargetDate1つを起点にやろうとするとUseCase-Domainがとても複雑になる
+- 時系列データを扱う専用のアーキテクチャを採用すべきだった。

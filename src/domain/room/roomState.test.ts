@@ -13,6 +13,12 @@ function makeReservation(overrides: Partial<Reservation>): Reservation {
     child_count: 0,
     room: '21',
     cancel: 0,
+    guest_name: '',
+    arrival_time: null,
+    dinner_time: [],
+    breakfast_time: [],
+    open_air_bath_time: [],
+    timetable_info: [],
     ...overrides,
   }
 }
