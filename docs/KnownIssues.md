@@ -51,3 +51,12 @@
 ## ui層の日付指定未実装
 - 現在はcleaningBoardのui層で日付指定している
 - 将来は日付指定機能の下にcleaningBoardを含めた様々な機能を実装する(複数機能で同じ日付を共有する)
+
+## npm run dev した時にerrorになる。
+- Next.js 16 の Turbopack と Firebase JS SDK v12 の間の互換性問題が生じる時がある
+- 以下のコマンドで直った。
+```
+rm -rf .next
+rm -rf node_modules/.cache
+npm run dev
+```
