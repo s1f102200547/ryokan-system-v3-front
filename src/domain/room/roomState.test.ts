@@ -158,6 +158,94 @@ describe('computeRoomCheckInState', () => {
   })
 })
 
+// ----- todayCheckInReservation -----
+
+describe('todayCheckInReservation', () => {
+  it('check_in_date === targetDate の予約が返る', () => {
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: TARGET_DATE, check_out_date: '2026-04-03' }),
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.todayCheckInReservation).not.toBeNull()
+    expect(result.todayCheckInReservation?.check_in_date).toBe(TARGET_DATE)
+    expect(result.todayCheckInReservation?.adult_count).toBe(2)
+  })
+
+  it('未来CI予約（check_in_date > targetDate）は null になる', () => {
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: '2026-04-05', check_out_date: '2026-04-07' }),
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isFutureCheckIn).toBe(true)
+    expect(result.todayCheckInReservation).toBeNull()
+  })
+
+  it('滞在継続中（isStayingContinued=true）は null になる', () => {
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: '2026-03-31', check_out_date: '2026-04-03' }),
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isStayingContinued).toBe(true)
+    expect(result.todayCheckInReservation).toBeNull()
+  })
+
+  it('予約なしの場合は null になる', () => {
+    const result = computeRoomCheckInState([], TARGET_DATE, '21')
+
+    expect(result.todayCheckInReservation).toBeNull()
+  })
+})
+
+// ----- isTodayCheckout -----
+
+describe('isTodayCheckout', () => {
+  it('check_out_date === targetDate の予約があれば true になる', () => {
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: '2026-03-31', check_out_date: TARGET_DATE }),
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isTodayCheckout).toBe(true)
+  })
+
+  it('late_out=1 でも check_out_date === targetDate なら true になる', () => {
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: '2026-03-31', check_out_date: TARGET_DATE, late_out: 1 }),
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isTodayCheckout).toBe(true)
+    expect(result.isLateCheckout).toBe(true)
+  })
+
+  it('check_out_date が targetDate より後なら false になる', () => {
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: TARGET_DATE, check_out_date: '2026-04-03' }),
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isTodayCheckout).toBe(false)
+  })
+
+  it('予約なしの場合は false になる', () => {
+    const result = computeRoomCheckInState([], TARGET_DATE, '21')
+
+    expect(result.isTodayCheckout).toBe(false)
+  })
+
+  it('cancel=1 の予約は除外されるため false になる', () => {
+    const reservations: Reservation[] = [
+      makeReservation({ check_in_date: '2026-03-31', check_out_date: TARGET_DATE, cancel: 1 }),
+    ]
+    const result = computeRoomCheckInState(reservations, TARGET_DATE, '21')
+
+    expect(result.isTodayCheckout).toBe(false)
+  })
+})
+
 // ----- isLateCheckout -----
 
 describe('isLateCheckout', () => {
