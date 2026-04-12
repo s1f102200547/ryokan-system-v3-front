@@ -28,8 +28,8 @@ const ROOM_MAP = {
 |---|---|---|
 | `room` | string/number | 部屋番号（例: `"21"`, `21`） |
 | `guest_name` | string | 宿泊者名 |
-| `check_in_date` | string | `"YYYY/MM/DD"` 形式 |
-| `check_out_date` | string | `"YYYY/MM/DD"` 形式 |
+| `check_in_date` | string | `"YYYY-MM-DD"` 形式（infra 層で変換済み） |
+| `check_out_date` | string | `"YYYY-MM-DD"` 形式（infra 層で変換済み） |
 | `adult_count` | number | 大人人数 |
 | `child_count` | number | 子供人数 |
 | `arrival_time` | string | 到着予定時刻（例: `"16:00"`） |
