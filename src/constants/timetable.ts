@@ -26,5 +26,5 @@ export const OPEN_AIR_TIMES_MORNING = [
 
 // 夕食 列（'PENDING' は '未定' キーに対応）
 export const DINNER_TIME_KEYS = [
-  '未定', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00',
+  '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '未定',
 ] as const
