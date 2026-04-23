@@ -37,13 +37,22 @@ function BreakfastCell({ timeKey, marks }: { timeKey: string; marks: string[] })
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        gap: '2px',
+        gap: '4px',
       }}
     >
-      <div style={{ fontSize: '9px', color: '#555' }}>{LOCATION_LABEL[timeKey]}</div>
-      {marks.map((m, i) => (
-        <div key={i} style={{ fontSize: '18px', lineHeight: 1 }}>{m}</div>
-      ))}
+      <div style={{ fontSize: '9px' }}>
+        {LOCATION_LABEL[timeKey]}
+      </div>
+      <div style={{ fontSize: '9px', width: '100%', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+        <span>
+          Room:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+          {marks.map((m, i) => (
+            <span key={i} style={{ fontSize: '18px', lineHeight: 1 }}>{m}</span>
+          ))}
+        </span>
+        <span>menu:</span>
+        <span style={{ marginLeft: 'auto' }}>×&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+      </div>
     </div>
   )
 }
