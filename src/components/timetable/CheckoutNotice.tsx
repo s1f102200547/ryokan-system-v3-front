@@ -6,9 +6,9 @@ type Props = {
 function formatRooms(rooms: string[]): string {
   const lines: string[] = []
   for (let i = 0; i < rooms.length; i += 2) {
-    lines.push(rooms.slice(i, i + 2).join('▢　'))
+    lines.push(rooms.slice(i, i + 2).map((r) => `${r}▢`).join('　'))
   }
-  return lines.join('\n') + (rooms.length > 0 ? '▢' : '')
+  return lines.join('\n')
 }
 
 export function CheckoutNotice({ checkoutRooms }: Props) {
