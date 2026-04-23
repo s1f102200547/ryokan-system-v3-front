@@ -29,11 +29,8 @@ const infoCellStyle: React.CSSProperties = {
 }
 
 const infoWrapperStyle: React.CSSProperties = {
-  display: '-webkit-box',
-  WebkitBoxOrient: 'vertical',
-  WebkitLineClamp: 3,
-  overflow: 'hidden',
   whiteSpace: 'normal',
+  overflowWrap: 'break-word',
   lineHeight: '1.2em',
   fontSize: '10px',
 }
