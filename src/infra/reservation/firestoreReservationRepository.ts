@@ -44,8 +44,8 @@ const FirestoreReservationSchema = z.object({
   room: z
     .preprocess((v) => (v === '' ? null : v), z.enum(ROOM_NUMBERS).nullable())
     .default(null),
-  cancel: z.number().int().nullish().transform((v) => v ?? 0),
-  late_out: z.number().int().nullish().transform((v) => v ?? 0),
+  cancel: z.number().int().nullish().transform((v) => (v === 1 ? 1 : 0)),
+  late_out: z.number().int().nullish().transform((v) => (v === 1 ? 1 : 0)),
   // 欠損 or 不正 → ""
   guest_name: z.string().max(100).catch(''),
   // 定義外 or 欠損 → null
