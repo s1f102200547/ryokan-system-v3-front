@@ -196,12 +196,16 @@ function TimetablePage() {
 
           {/* 露天 + C/O（くっつけて1エリアに、朝食との間は若干空ける） */}
           <Box sx={{ gridArea: 'bathco', mt: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Box sx={{ fontSize: '10px', pr: 0.5 }}>露天</Box>
+            <Box sx={{ position: 'relative' }}>
+              <Box sx={{ position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', pr: '2px', whiteSpace: 'nowrap' }}>
+                露天
+              </Box>
               <OpenAirBathMorning morningBathSlots={data.morningBathSlots} />
             </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Box sx={{ fontSize: '10px', pr: 0.5 }}>C/O</Box>
+            <Box sx={{ position: 'relative' }}>
+              <Box sx={{ position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', pr: '2px', whiteSpace: 'nowrap' }}>
+                C/O
+              </Box>
               <CheckoutTime lateCheckoutRooms={data.lateCheckoutRooms} />
             </Box>
           </Box>
