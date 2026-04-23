@@ -1,5 +1,5 @@
 import type { Reservation } from '@/types/reservation'
-import { addDays } from '@/lib/dateUtils'
+import { addDays, dateDiff } from '@/lib/dateUtils'
 
 export type RoomCheckInState = {
   stayingReservation: Reservation | null // 対象日に滞在中の予約（チェックイン日 < 対象日 < チェックアウト日）
@@ -75,10 +75,4 @@ export function computeRoomCheckInState(
   }
 }
 
-function dateDiff(from: string, to: string): number {
-  const [fy, fm, fd] = from.split('-').map(Number)
-  const [ty, tm, td] = to.split('-').map(Number)
-  const msPerDay = 86400000
-  return (Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / msPerDay
-}
 

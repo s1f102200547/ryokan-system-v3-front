@@ -2,9 +2,7 @@ type Props = {
   breakfastSlots: Record<string, string[]>
 }
 
-// 朝食時刻キーの列順（ヘッダーの 7:30〜9:30 に対応）
-const A_TIMES = ['7:30a', '8:00a', '8:30a', '9:00a', '9:30a'] as const
-const B_TIMES = ['7:30b', '8:00b', '8:30b', '9:00b', '9:30b'] as const
+import { BREAKFAST_A_TIMES, BREAKFAST_B_TIMES } from '@/constants/timetable'
 
 // 場所ラベル
 const LOCATION_LABEL: Record<string, string> = {
@@ -69,10 +67,10 @@ export function Breakfast({ breakfastSlots }: Props) {
         borderBottom: '1px solid #000',
       }}
     >
-      {A_TIMES.map((key) => (
+      {BREAKFAST_A_TIMES.map((key) => (
         <BreakfastCell key={key} timeKey={key} marks={breakfastSlots[key] ?? []} />
       ))}
-      {B_TIMES.map((key) => (
+      {BREAKFAST_B_TIMES.map((key) => (
         <BreakfastCell key={key} timeKey={key} marks={breakfastSlots[key] ?? []} />
       ))}
     </div>

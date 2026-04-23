@@ -1,5 +1,5 @@
 import { firestoreReservationRepository } from '@/infra/reservation/firestoreReservationRepository'
-import { addDays } from '@/lib/dateUtils'
+import { addDays, dateDiff } from '@/lib/dateUtils'
 import { computeRoomCheckInState } from '@/domain/room/roomState'
 import type { RoomCheckInState } from '@/domain/room/roomState'
 import { ROOM_NUMBERS } from '@/types/room'
@@ -64,9 +64,7 @@ function roomMark(room: string): string {
 
 /** 宿泊インデックス: チェックイン当日=0、翌日=1、… */
 function nightIdx(checkInDate: string, targetDate: string): number {
-  const [cy, cm, cd] = checkInDate.split('-').map(Number)
-  const [ty, tm, td] = targetDate.split('-').map(Number)
-  return (Date.UTC(ty, tm - 1, td) - Date.UTC(cy, cm - 1, cd)) / 86400000
+  return dateDiff(checkInDate, targetDate)
 }
 
 /** {部屋マーク}{宿泊者名}-{大人数}[({子供数})] */
@@ -78,9 +76,7 @@ function guestLabel(room: string, r: Reservation): string {
 /** {部屋マーク}-{大人数}[({子供数})]({現在泊目}/{全泊数}泊目) */
 function stayingLabel(room: string, r: Reservation, targetDate: string): string {
   const children = r.child_count > 0 ? `(${r.child_count})` : ''
-  const [cy, cm, cd] = r.check_in_date.split('-').map(Number)
-  const [oy, om, od] = r.check_out_date.split('-').map(Number)
-  const total = (Date.UTC(oy, om - 1, od) - Date.UTC(cy, cm - 1, cd)) / 86400000
+  const total = dateDiff(r.check_in_date, r.check_out_date)
   const current = nightIdx(r.check_in_date, targetDate) + 1
   return `${roomMark(room)}-${r.adult_count}${children}(${current}/${total}泊目)`
 }
@@ -113,12 +109,7 @@ function buildCheckInSlots(stateMap: Map<string, RoomCheckInState>): Record<stri
 /** stayingGuestLabels: 2泊以上の全滞在ゲストを横並び表示 */
 function buildStayingGuestLabels(staying: RoomStay[], targetDate: string): string[] {
   return staying
-    .filter(({ reservation: r }) => {
-      const [cy, cm, cd] = r.check_in_date.split('-').map(Number)
-      const [oy, om, od] = r.check_out_date.split('-').map(Number)
-      const total = (Date.UTC(oy, om - 1, od) - Date.UTC(cy, cm - 1, cd)) / 86400000
-      return total >= 2
-    })
+    .filter(({ reservation: r }) => dateDiff(r.check_in_date, r.check_out_date) >= 2)
     .map(({ room, reservation: r }) => stayingLabel(room, r, targetDate))
 }
 

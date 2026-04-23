@@ -4,6 +4,7 @@ import { InfraError } from '@/types/errors'
 import { ROOM_NUMBERS } from '@/types/room'
 import type { ReservationRepository } from '@/domain/ports/reservationRepository'
 import type { Reservation } from '@/types/reservation'
+import { dateDiff } from '@/lib/dateUtils'
 
 // --- バリデーション用定数（Firestore 値の許容範囲） ---
 
@@ -88,13 +89,6 @@ function toIsoDate(date: string): string {
   return date.replace(/\//g, '-')
 }
 
-// YYYY-MM-DD 2日間の泊数を計算
-function calcNights(checkIn: string, checkOut: string): number {
-  const msPerDay = 86_400_000
-  const [iy, im, id] = checkIn.split('-').map(Number)
-  const [oy, om, od] = checkOut.split('-').map(Number)
-  return (Date.UTC(oy, om - 1, od) - Date.UTC(iy, im - 1, id)) / msPerDay
-}
 
 /**
  * 配列フィールドの正規化
@@ -137,7 +131,7 @@ function toReservation(id: string, data: FirebaseFirestore.DocumentData): Reserv
     const parsed = FirestoreReservationSchema.parse(data)
     const checkIn = toIsoDate(parsed.check_in_date)
     const checkOut = toIsoDate(parsed.check_out_date)
-    const nights = calcNights(checkIn, checkOut)
+    const nights = dateDiff(checkIn, checkOut)
 
     return {
       id,

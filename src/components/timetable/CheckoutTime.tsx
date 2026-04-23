@@ -1,4 +1,4 @@
-const CHECKOUT_TIMES = ['7:30', '8:00', '8:30', '9:00', '9:30', '11:00'] as const
+import { CHECKOUT_TIMES } from '@/constants/timetable'
 
 type Props = {
   lateCheckoutRooms: string[]

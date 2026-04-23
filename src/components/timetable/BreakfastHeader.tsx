@@ -1,4 +1,4 @@
-const BREAKFAST_HEADER_TIMES = ['7:30', '8:00', '8:30', '9:00', '9:30'] as const
+import { BREAKFAST_HEADER_TIMES } from '@/constants/timetable'
 
 type Props = {
   nextDateLabel: string // 例: "4/13"
