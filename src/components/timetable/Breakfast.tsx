@@ -32,7 +32,7 @@ function BreakfastCell({ timeKey, marks }: { timeKey: string; marks: string[] })
         borderBottom: 'none',
         padding: '4px',
         fontSize: '10px',
-        minHeight: '50px',
+        minHeight: '125px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',

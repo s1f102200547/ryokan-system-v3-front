@@ -154,15 +154,14 @@ function TimetablePage() {
           component="section"
           sx={{
             display: 'grid',
+            rowGap: 0,
             gridTemplateColumns: '2.5fr 5fr 2.5fr',
             gridTemplateAreas: `
-              "checkin   checkin   checkin"
-              "evening   evening   evening"
-              "number    dinner    guestinfo"
-              "header    header    guestinfo"
-              "breakfast breakfast guestinfo"
-              "morning   morning   guestinfo"
-              "checkout  checkout  guestinfo"
+              "checkin  checkin  checkin"
+              "evening  evening  evening"
+              "number   dinner   guestinfo"
+              "bf       bf       guestinfo"
+              "bathco   bathco   guestinfo"
             `,
           }}
         >
@@ -186,23 +185,21 @@ function TimetablePage() {
             <GuestInfo guestInfoRows={data.guestInfoRows} />
           </Box>
 
-          <Box sx={{ gridArea: 'header' }}>
+          {/* 朝食ヘッダー + 朝食テーブル（くっつけて1エリアに） */}
+          <Box sx={{ gridArea: 'bf' }}>
             <BreakfastHeader nextDateLabel={nextDateLabel} />
+            <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+              <Breakfast breakfastSlots={data.breakfastSlots} />
+              <CheckoutNotice checkoutRooms={data.checkoutRooms} />
+            </Box>
           </Box>
 
-          <Box sx={{ gridArea: 'breakfast', display: 'flex', alignItems: 'flex-start' }}>
-            <Breakfast breakfastSlots={data.breakfastSlots} />
-            <CheckoutNotice checkoutRooms={data.checkoutRooms} />
-          </Box>
-
-          <Box sx={{ gridArea: 'morning' }}>
+          {/* 露天 + C/O（くっつけて1エリアに、朝食との間は若干空ける） */}
+          <Box sx={{ gridArea: 'bathco', mt: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Box sx={{ fontSize: '10px', pr: 0.5 }}>露天</Box>
               <OpenAirBathMorning morningBathSlots={data.morningBathSlots} />
             </Box>
-          </Box>
-
-          <Box sx={{ gridArea: 'checkout' }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Box sx={{ fontSize: '10px', pr: 0.5 }}>C/O</Box>
               <CheckoutTime lateCheckoutRooms={data.lateCheckoutRooms} />
