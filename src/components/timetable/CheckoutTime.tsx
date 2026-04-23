@@ -16,7 +16,7 @@ export function CheckoutTime({ lateCheckoutRooms }: Props) {
   return (
     <table
       style={{
-        width: '83.2%',
+        width: '99.9%',
         borderCollapse: 'collapse',
         tableLayout: 'fixed',
       }}
