@@ -100,9 +100,11 @@ function buildCheckInSlots(stateMap: Map<string, RoomCheckInState>): Record<stri
       (VALID_ARRIVAL_TIMES as readonly string[]).includes(r.arrival_time)
     const key = isValid ? (r.arrival_time as ValidArrivalTime) : 'OTHER'
     const label =
-      !isValid && r.arrival_time !== null
-        ? `${guestLabel(room, r)}（${r.arrival_time}着）`
-        : guestLabel(room, r)
+      r.arrival_time === null
+        ? `${guestLabel(room, r)}（未定）`
+        : !isValid
+          ? `${guestLabel(room, r)}（${r.arrival_time}着）`
+          : guestLabel(room, r)
     ;(slots[key] ??= []).push(label)
   }
   return slots

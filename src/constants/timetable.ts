@@ -8,9 +8,9 @@ export const ROOM_MAP: Record<string, string> = {
   '61': '61',
 }
 
-// CheckInTime 列（15:00〜22:00、1時間刻み）
+// CheckInTime 列（15:00〜21:00、1時間刻み）。22:00以降はその他列へ
 export const VALID_ARRIVAL_TIMES = [
-  '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00',
+  '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00',
 ] as const
 export type ValidArrivalTime = (typeof VALID_ARRIVAL_TIMES)[number]
 
