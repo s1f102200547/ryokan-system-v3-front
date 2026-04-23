@@ -1,17 +1,19 @@
 import type { Reservation } from '@/types/reservation'
-import { addDays } from '@/lib/dateUtils'
+import { addDays, dateDiff } from '@/lib/dateUtils'
 
 export type RoomCheckInState = {
-  stayingReservation: Reservation | null
-  isStayingContinued: boolean
-  isLateCheckout: boolean
-  checkInReservation: Pick<Reservation, 'adult_count' | 'child_count'> | null
-  isTodayCheckIn: boolean
-  isFutureCheckIn: boolean
-  isConsecutiveCheckIn: boolean
+  stayingReservation: Reservation | null // 対象日に滞在中の予約（チェックイン日 < 対象日 < チェックアウト日）
+  isStayingContinued: boolean // 滞在中の予約が翌日以降も続く（連泊中かつ翌日も泊まる）
+  isLateCheckout: boolean // 対象日にレイトチェックアウトの予約がある
+  checkInReservation: Pick<Reservation, 'adult_count' | 'child_count'> | null // 対象日以降で最も近いチェックイン予約の人数情報（連泊継続中はnull）
+  todayCheckInReservation: Reservation | null // 対象日がチェックイン日の予約（Timetable用）
+  isTodayCheckIn: boolean // 対象日がチェックイン日の予約がある
+  isTodayCheckout: boolean // 対象日がチェックアウト日の予約がある（isLateCheckout でも参照）
+  isFutureCheckIn: boolean // チェックイン日が対象日より後の予約がある（今後チェックイン予定）
+  isConsecutiveCheckIn: boolean // チェックイン予約の宿泊数が2泊以上（連泊チェックイン）
   isConsecutive: boolean // CleaningBoard専用: 連泊カードを置くか否か
-  isTodayVacant: boolean
-  isPreviousDayVacant: boolean
+  isTodayVacant: boolean // 対象日が空室（滞在中の予約もチェックインもない）
+  isPreviousDayVacant: boolean // 前日が空室（対象日をまたぐ滞在中の予約がない）
 }
 
 export function computeRoomCheckInState(
@@ -43,10 +45,12 @@ export function computeRoomCheckInState(
     : null
 
   const isTodayCheckIn = checkInFull?.check_in_date === targetDate
+  const todayCheckInReservation = isTodayCheckIn ? checkInFull : null
   const isFutureCheckIn = checkInFull !== null && checkInFull.check_in_date > targetDate
 
   const isConsecutive = stayingReservation !== null ? isStayingContinued : isConsecutiveCheckIn
 
+  const isTodayCheckout = active.some((r) => r.check_out_date === targetDate)
   const isLateCheckout = active.some(
     (r) => r.check_out_date === targetDate && r.late_out === 1,
   )
@@ -60,7 +64,9 @@ export function computeRoomCheckInState(
     isStayingContinued,
     isLateCheckout,
     checkInReservation,
+    todayCheckInReservation,
     isTodayCheckIn,
+    isTodayCheckout,
     isFutureCheckIn,
     isConsecutiveCheckIn,
     isConsecutive,
@@ -69,10 +75,4 @@ export function computeRoomCheckInState(
   }
 }
 
-function dateDiff(from: string, to: string): number {
-  const [fy, fm, fd] = from.split('-').map(Number)
-  const [ty, tm, td] = to.split('-').map(Number)
-  const msPerDay = 86400000
-  return (Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / msPerDay
-}
 
