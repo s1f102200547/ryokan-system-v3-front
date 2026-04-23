@@ -23,7 +23,7 @@ const roomCellStyle: React.CSSProperties = {
 const infoCellStyle: React.CSSProperties = {
   border: '1px solid #000',
   textAlign: 'center',
-  height: '51px',
+  height: '65px',
   overflow: 'hidden',
   padding: '4px',
 }
