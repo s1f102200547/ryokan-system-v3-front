@@ -10,15 +10,6 @@ const LOCATION_LABEL: Record<string, string> = {
   '7:30b': 'ラウンジ', '8:00b': 'ラウンジ', '8:30b': '54号室', '9:00b': 'ラウンジ', '9:30b': '54号室',
 }
 
-const cellStyle: React.CSSProperties = {
-  border: '1px solid #000',
-  borderLeft: 'none',
-  borderBottom: 'none',
-  padding: '4px',
-  textAlign: 'center',
-  verticalAlign: 'middle',
-  fontSize: '10px',
-}
 
 function BreakfastCell({ timeKey, marks }: { timeKey: string; marks: string[] }) {
   return (
