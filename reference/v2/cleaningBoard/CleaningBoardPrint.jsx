@@ -23,7 +23,6 @@ export default function CleaningBoardPrint() {
     specifiedReservations,
     pastReservations,
     futureReservations,
-    loading,
     error,
   } = useReservations(targetDate);
 

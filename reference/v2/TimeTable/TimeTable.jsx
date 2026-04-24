@@ -61,9 +61,6 @@ export default function TimeTable({ selectedDate, setSelectedDate }) {
   const {
     specifiedReservations,
     pastReservations,
-    futureReservations,
-    loading,
-    error,
   } = useReservations(selectedDate);
 
   const allReservations = useMemo(
@@ -95,9 +92,10 @@ export default function TimeTable({ selectedDate, setSelectedDate }) {
   // printTime と isPrinting が揃ったタイミングで window.print() を呼ぶ
   useEffect(() => {
     if (isPrinting && printTime) {
+      const handleAfterPrint = () => setIsPrinting(false);
+      window.addEventListener('afterprint', handleAfterPrint);
       window.print();
-      // 印刷後はフラグをオフに戻す
-      setIsPrinting(false);
+      return () => window.removeEventListener('afterprint', handleAfterPrint);
     }
   }, [isPrinting, printTime]);
 

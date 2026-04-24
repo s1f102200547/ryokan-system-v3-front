@@ -48,12 +48,6 @@ function getWeekdayChecks(dateStr: string): string {
   return '▢ニゴウ情報送信　▢61布団'
 }
 
-function addDays(dateStr: string, n: number): string {
-  const [year, month, day] = dateStr.split('-').map(Number)
-  const d = new Date(year, month - 1, day + n)
-  return d.toISOString().slice(0, 10)
-}
-
 const printStyles = (
   <GlobalStyles
     styles={{
@@ -84,8 +78,10 @@ function TimetablePage() {
 
   useEffect(() => {
     if (isPrinting && printTime) {
+      const handleAfterPrint = () => setIsPrinting(false)
+      window.addEventListener('afterprint', handleAfterPrint)
       window.print()
-      setIsPrinting(false)
+      return () => window.removeEventListener('afterprint', handleAfterPrint)
     }
   }, [isPrinting, printTime])
 
@@ -97,7 +93,6 @@ function TimetablePage() {
   const dateLabel = formatDateLabel(targetDate)
   const nextDateLabel = formatNextDateLabel(targetDate)
   const weekdayChecks = getWeekdayChecks(targetDate)
-  const nextDay = addDays(targetDate, 1)
 
   if (isLoading) return <Loading />
   if (error) return <Alert severity="error">{error}</Alert>
