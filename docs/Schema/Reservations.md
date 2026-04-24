@@ -8,7 +8,7 @@ Gmail から取り込んだ予約データ。
 check_in_date == "YYYY/MM/DD"
 ```
 
-### 基本フィールド定義
+### フィールド定義
 
 | フィールド | 型 | 必須/任意 | 制約 | 説明 |
 |---|---|---|---|---|
@@ -39,15 +39,3 @@ check_in_date == "YYYY/MM/DD"
 - strict モード: 定義外のフィールドはエラー
 
 ---
-
-## UI操作で追加・編集される フィールド
-
-| フィールド | 型 | 許容値 | 欠損時 |
-|---|---|---|---|
-| `arrival_time` | string\|null | `06:00`〜`22:00`（0埋め必須） | null |
-| `dinner_time` | string[] | `NONE`/`CANCEL`/`PENDING`/`HH:MM` | 要素 `'NONE'` |
-| `breakfast_time` | (string\|null)[] | `HH:MMa`/`HH:MMb`/null | 要素 `null` |
-| `open_air_bath_time` | (string\|null)[] | 夕方16:00〜22:00 / 朝7:30〜9:30 | 要素 `null` |
-| `timetable_info` | string[] | 任意文字列 | 要素 `''` |
-
-配列長は `dateDiff(check_in_date, check_out_date)` と一致すること。不一致は fallback 値で全補完。
