@@ -3,6 +3,8 @@ name: CI
 on:
   pull_request: # mainにマージされる前に走らせる
     branches: [main]
+  push: # deployのworkflow_runトリガーのために、mainへのpushでも走らせる
+    branches: [main]
 
 permissions:
   issues: write
