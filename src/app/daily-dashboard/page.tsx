@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
+import Backdrop from '@mui/material/Backdrop'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import CircularProgress from '@mui/material/CircularProgress'
 import IconButton from '@mui/material/IconButton'
 import Popover from '@mui/material/Popover'
 import Typography from '@mui/material/Typography'
@@ -19,17 +21,30 @@ export default function DailyDashboardPage() {
     useDateNavigation()
 
   const [calendarAnchor, setCalendarAnchor] = useState<HTMLElement | null>(null)
+  const [isPrinting, setIsPrinting] = useState(false)
 
-  const handlePrintTimetable = () => {
-    window.open(`/timetable?date=${selectedDate}&autoprint=1`, '_blank')
-  }
+  const openPrintTab = useCallback((url: string) => {
+    const child = window.open(url, '_blank')
+    if (!child) return
+    setIsPrinting(true)
+    const timer = setInterval(() => {
+      if (child.closed) {
+        clearInterval(timer)
+        setIsPrinting(false)
+      }
+    }, 500)
+  }, [])
 
-  const handlePrintCleaningBoard = () => {
-    window.open(`/cleaning-board?date=${selectedDate}&autoprint=1`, '_blank')
-  }
+  const handlePrintTimetable = () => openPrintTab(`/timetable?date=${selectedDate}&autoprint=1`)
+  const handlePrintCleaningBoard = () => openPrintTab(`/cleaning-board?date=${selectedDate}&autoprint=1`)
 
   return (
     <Box sx={{ p: 3 }}>
+      <Backdrop open={isPrinting} sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, flexDirection: 'column', gap: 2 }}>
+        <CircularProgress color="inherit" />
+        <Typography color="inherit">印刷ダイアログが開いています。完了後に操作できます。</Typography>
+      </Backdrop>
+
       {/* 日付ナビゲーション */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 4 }}>
         <IconButton onClick={goToPrevDay} size="small" aria-label="前日">
