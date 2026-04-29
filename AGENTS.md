@@ -48,7 +48,7 @@ E2E test（Playwright） ← 「重要フローのみ」
 - 結果：カプセル化して共通関数・変数として再利用性が高まる。
 
 ## hooks層の注意事項
-- React 19 で新しく強化されたルールで、useEffect の中で setState を直接呼ぶのは反パターン
+- React 19 で新しく強化されたルールで、useEffect の中で setState を直接呼ぶのはアンチパターン
 
 ## Docs（必要に応じて参照）
 

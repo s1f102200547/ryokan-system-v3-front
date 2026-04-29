@@ -1,13 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { getTodayJST, addDays, dateDiff } from '@/lib/dateUtils'
+import { getTodayJST, addDays, dateDiff, formatDateLabel } from '@/lib/dateUtils'
 import type { UseDateNavigationReturn } from '@/types/date'
-
-function formatDateLabel(dateStr: string): string {
-  const parts = dateStr.split('-').map(Number)
-  return `${parts[1]}/${parts[2]}`
-}
 
 function formatDiffLabel(today: string, selected: string): string {
   const diff = dateDiff(today, selected)

@@ -1,5 +1,7 @@
 'use client'
 
+import { Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -11,8 +13,6 @@ import { CleaningBoardNotes } from '@/components/cleaningBoard/CleaningBoardNote
 import { Loading } from '@/components/Loading'
 import { getTodayJST, addDays } from '@/lib/dateUtils'
 
-const TODAY = addDays(getTodayJST(), 1)
-
 function formatDateHeader(dateStr: string): string {
   const [year, month, day] = dateStr.split('-').map(Number)
   const d = new Date(year, month - 1, day)
@@ -20,15 +20,15 @@ function formatDateHeader(dateStr: string): string {
   return `${month}月${day}日（${wk}）`
 }
 
-export default function CleaningBoardPage() {
-  const { data, isLoading, error } = useCleaningBoard(TODAY)
+function CleaningBoardPage() {
+  const searchParams = useSearchParams()
+  const dateParam = searchParams.get('date')
+  const targetDate = dateParam ?? addDays(getTodayJST(), 1)
+
+  const { data, isLoading, error } = useCleaningBoard(targetDate)
 
   if (isLoading) return <Loading />
-
-  if (error) {
-    return <Alert severity="error">{error}</Alert>
-  }
-
+  if (error) return <Alert severity="error">{error}</Alert>
   if (!data) return null
 
   return (
@@ -46,11 +46,19 @@ export default function CleaningBoardPage() {
       </Box>
 
       <Box className="print-area" sx={{ fontFamily: 'sans-serif', fontSize: '8pt', color: '#000' }}>
-        <div style={{ fontSize: '1.2em', marginBottom: 6 }}>{formatDateHeader(TODAY)}</div>
+        <div style={{ fontSize: '1.2em', marginBottom: 6 }}>{formatDateHeader(targetDate)}</div>
         <CleaningBoardTable rows={data.rows} />
         <CleaningBoardFooter />
         <CleaningBoardNotes rows={data.rows} />
       </Box>
     </Box>
+  )
+}
+
+export default function CleaningBoardPageWrapper() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <CleaningBoardPage />
+    </Suspense>
   )
 }
