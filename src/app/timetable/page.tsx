@@ -66,19 +66,20 @@ function TimetablePage() {
   const searchParams = useSearchParams()
   const dateParam = searchParams.get('date')
   const targetDate = dateParam ?? getTodayJST()
+  const autoprint = searchParams.get('autoprint') === '1'
 
   const { data, isLoading, error } = useTimetable(targetDate)
-  const [printTime, setPrintTime] = useState<Date | null>(null)
-  const [isPrinting, setIsPrinting] = useState(false)
+  const [printTime, setPrintTime] = useState<Date | null>(autoprint ? new Date() : null)
+  const [isPrinting, setIsPrinting] = useState(autoprint)
 
   useEffect(() => {
-    if (isPrinting && printTime) {
+    if (isPrinting && printTime && data) {
       const handleAfterPrint = () => setIsPrinting(false)
       window.addEventListener('afterprint', handleAfterPrint)
       window.print()
       return () => window.removeEventListener('afterprint', handleAfterPrint)
     }
-  }, [isPrinting, printTime])
+  }, [isPrinting, printTime, data])
 
   const handlePrint = () => {
     setPrintTime(new Date())

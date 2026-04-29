@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense } from 'react'
+import { Suspense, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -24,8 +24,17 @@ function CleaningBoardPage() {
   const searchParams = useSearchParams()
   const dateParam = searchParams.get('date')
   const targetDate = dateParam ?? addDays(getTodayJST(), 1)
+  const autoprint = searchParams.get('autoprint') === '1'
 
   const { data, isLoading, error } = useCleaningBoard(targetDate)
+  const autoPrintTriggered = useRef(false)
+
+  useEffect(() => {
+    if (autoprint && data && !isLoading && !autoPrintTriggered.current) {
+      autoPrintTriggered.current = true
+      window.print()
+    }
+  }, [autoprint, data, isLoading])
 
   if (isLoading) return <Loading />
   if (error) return <Alert severity="error">{error}</Alert>

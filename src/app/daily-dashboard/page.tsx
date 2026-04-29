@@ -21,11 +21,11 @@ export default function DailyDashboardPage() {
   const [calendarAnchor, setCalendarAnchor] = useState<HTMLElement | null>(null)
 
   const handlePrintTimetable = () => {
-    window.open(`/timetable?date=${selectedDate}`, '_blank')
+    window.open(`/timetable?date=${selectedDate}&autoprint=1`, '_blank')
   }
 
   const handlePrintCleaningBoard = () => {
-    window.open(`/cleaning-board?date=${selectedDate}`, '_blank')
+    window.open(`/cleaning-board?date=${selectedDate}&autoprint=1`, '_blank')
   }
 
   return (
