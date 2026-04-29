@@ -1,17 +1,14 @@
 'use client'
 
 import { Suspense, useEffect, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
-import PrintIcon from '@mui/icons-material/Print'
 import { useCleaningBoard } from '@/hooks/cleaningBoard/useCleaningBoard'
 import { CleaningBoardTable } from '@/components/cleaningBoard/CleaningBoardTable'
 import { CleaningBoardFooter } from '@/components/cleaningBoard/CleaningBoardFooter'
 import { CleaningBoardNotes } from '@/components/cleaningBoard/CleaningBoardNotes'
 import { Loading } from '@/components/Loading'
-import { getTodayJST, addDays } from '@/lib/dateUtils'
 
 function formatDateHeader(dateStr: string): string {
   const [year, month, day] = dateStr.split('-').map(Number)
@@ -21,11 +18,16 @@ function formatDateHeader(dateStr: string): string {
 }
 
 function CleaningBoardPage() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const dateParam = searchParams.get('date')
-  const targetDate = dateParam ?? addDays(getTodayJST(), 1)
   const autoprint = searchParams.get('autoprint') === '1'
 
+  useEffect(() => {
+    if (!dateParam) router.replace('/daily-dashboard')
+  }, [dateParam, router])
+
+  const targetDate = dateParam ?? ''
   const { data, isLoading, error } = useCleaningBoard(targetDate)
   const autoPrintTriggered = useRef(false)
 
@@ -38,6 +40,7 @@ function CleaningBoardPage() {
     }
   }, [autoprint, data, isLoading])
 
+  if (!dateParam) return null
   if (isLoading) return <Loading />
   if (error) return <Alert severity="error">{error}</Alert>
   if (!data) return null
@@ -49,12 +52,6 @@ function CleaningBoardPage() {
           部屋が割り当てられていない予約があります（{data.unassignedReservations.length}件）
         </Alert>
       )}
-
-      <Box className="no-print" sx={{ mb: 1 }}>
-        <Button variant="contained" startIcon={<PrintIcon />} onClick={() => window.print()}>
-          印刷
-        </Button>
-      </Box>
 
       <Box className="print-area" sx={{ fontFamily: 'sans-serif', fontSize: '8pt', color: '#000' }}>
         <div style={{ fontSize: '1.2em', marginBottom: 6 }}>{formatDateHeader(targetDate)}</div>

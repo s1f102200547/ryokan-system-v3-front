@@ -1,10 +1,9 @@
 'use client'
 
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { useState, useEffect, Suspense } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
 import GlobalStyles from '@mui/material/GlobalStyles'
 import { useTimetable } from '@/hooks/timetable/useTimetable'
 import { CheckInTime } from '@/components/timetable/CheckInTime'
@@ -19,7 +18,6 @@ import { OpenAirBathMorning } from '@/components/timetable/OpenAirBathMorning'
 import { CheckoutTime } from '@/components/timetable/CheckoutTime'
 import { StayingGuests } from '@/components/timetable/StayingGuests'
 import { Loading } from '@/components/Loading'
-import { getTodayJST } from '@/lib/dateUtils'
 
 function formatDateLabel(dateStr: string): string {
   const [year, month, day] = dateStr.split('-').map(Number)
@@ -63,13 +61,18 @@ const printStyles = (
 )
 
 function TimetablePage() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const dateParam = searchParams.get('date')
-  const targetDate = dateParam ?? getTodayJST()
   const autoprint = searchParams.get('autoprint') === '1'
 
+  useEffect(() => {
+    if (!dateParam) router.replace('/daily-dashboard')
+  }, [dateParam, router])
+
+  const targetDate = dateParam ?? ''
   const { data, isLoading, error } = useTimetable(targetDate)
-  const [printTime, setPrintTime] = useState<Date | null>(autoprint ? new Date() : null)
+  const [printTime] = useState<Date | null>(autoprint ? new Date() : null)
   const [isPrinting, setIsPrinting] = useState(autoprint)
 
   useEffect(() => {
@@ -84,15 +87,11 @@ function TimetablePage() {
     }
   }, [isPrinting, printTime, data, autoprint])
 
-  const handlePrint = () => {
-    setPrintTime(new Date())
-    setIsPrinting(true)
-  }
-
   const dateLabel = formatDateLabel(targetDate)
   const nextDateLabel = formatNextDateLabel(targetDate)
   const weekdayChecks = getWeekdayChecks(targetDate)
 
+  if (!dateParam) return null
   if (isLoading) return <Loading />
   if (error) return <Alert severity="error">{error}</Alert>
   if (!data) return null
@@ -100,13 +99,6 @@ function TimetablePage() {
   return (
     <>
       {printStyles}
-
-      {/* 印刷時非表示のコントロール */}
-      <Box className="no-print" sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2, py: 1 }}>
-        <Button variant="contained" onClick={handlePrint}>
-          印刷
-        </Button>
-      </Box>
 
       <Box className="print-area" sx={{ width: '95%', mx: 'auto', px: 1 }}>
         {/* 印刷時のみ表示する日時 */}
