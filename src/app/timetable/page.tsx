@@ -19,12 +19,7 @@ import { OpenAirBathMorning } from '@/components/timetable/OpenAirBathMorning'
 import { CheckoutTime } from '@/components/timetable/CheckoutTime'
 import { StayingGuests } from '@/components/timetable/StayingGuests'
 import { Loading } from '@/components/Loading'
-
-function getTodayJST(): string {
-  const now = new Date()
-  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000)
-  return jst.toISOString().slice(0, 10)
-}
+import { getTodayJST } from '@/lib/dateUtils'
 
 function formatDateLabel(dateStr: string): string {
   const [year, month, day] = dateStr.split('-').map(Number)

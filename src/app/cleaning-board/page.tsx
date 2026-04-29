@@ -9,16 +9,9 @@ import { CleaningBoardTable } from '@/components/cleaningBoard/CleaningBoardTabl
 import { CleaningBoardFooter } from '@/components/cleaningBoard/CleaningBoardFooter'
 import { CleaningBoardNotes } from '@/components/cleaningBoard/CleaningBoardNotes'
 import { Loading } from '@/components/Loading'
+import { getTodayJST, addDays } from '@/lib/dateUtils'
 
-function getTomorrowJST(): string {
-  const now = new Date()
-  // JST = UTC+9
-  const jstOffset = 9 * 60 * 60 * 1000
-  const tomorrow = new Date(now.getTime() + jstOffset + 24 * 60 * 60 * 1000)
-  return tomorrow.toISOString().slice(0, 10)
-}
-
-const TODAY = getTomorrowJST() // 日本時間の翌日 YYYY-MM-DD
+const TODAY = addDays(getTodayJST(), 1)
 
 function formatDateHeader(dateStr: string): string {
   const [year, month, day] = dateStr.split('-').map(Number)
