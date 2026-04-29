@@ -32,6 +32,8 @@ function CleaningBoardPage() {
   useEffect(() => {
     if (autoprint && data && !isLoading && !autoPrintTriggered.current) {
       autoPrintTriggered.current = true
+      const handleAfterPrint = () => window.close()
+      window.addEventListener('afterprint', handleAfterPrint)
       window.print()
     }
   }, [autoprint, data, isLoading])

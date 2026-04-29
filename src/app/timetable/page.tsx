@@ -74,12 +74,15 @@ function TimetablePage() {
 
   useEffect(() => {
     if (isPrinting && printTime && data) {
-      const handleAfterPrint = () => setIsPrinting(false)
+      const handleAfterPrint = () => {
+        setIsPrinting(false)
+        if (autoprint) window.close()
+      }
       window.addEventListener('afterprint', handleAfterPrint)
       window.print()
       return () => window.removeEventListener('afterprint', handleAfterPrint)
     }
-  }, [isPrinting, printTime, data])
+  }, [isPrinting, printTime, data, autoprint])
 
   const handlePrint = () => {
     setPrintTime(new Date())
