@@ -47,7 +47,7 @@ export default function DailyDashboardPage() {
 
       {/* 日付ナビゲーション */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 4 }}>
-        <IconButton onClick={goToPrevDay} size="small" aria-label="前日">
+        <IconButton onClick={goToPrevDay} size="small" aria-label="前日" data-testid="prev-day">
           <NavigateBeforeIcon />
         </IconButton>
 
@@ -77,13 +77,13 @@ export default function DailyDashboardPage() {
         </Popover>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mx: 0.5 }}>
-          <Typography fontWeight="bold">{dateLabel}</Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography fontWeight="bold" data-testid="date-label">{dateLabel}</Typography>
+          <Typography variant="body2" color="text.secondary" data-testid="diff-label">
             ({diffLabel})
           </Typography>
         </Box>
 
-        <IconButton onClick={goToNextDay} size="small" aria-label="翌日">
+        <IconButton onClick={goToNextDay} size="small" aria-label="翌日" data-testid="next-day">
           <NavigateNextIcon />
         </IconButton>
 
