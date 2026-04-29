@@ -1,4 +1,4 @@
-# Ryokan System V3 - Frontend
+# Ryokan System V3　(Must read this MD first)
 
 ## Project 概要
 小規模旅館（7部屋）の業務効率化webアプリ。
@@ -52,16 +52,14 @@ E2E test（Playwright） ← 「重要フローのみ」
 
 ## Docs（必要に応じて参照）
 
-- `docs/Architecture.md` - レイヤー構造・設計パターン・ファイル構造
+- `docs/Schema/*.md` - DBスキーマ定義（Daily.md, Reservations.md）
+- `docs/Architecture.md` - レイヤー構造・設計パターン・ファイル構造(要確認)
 - `docs/Auth.md` - 認証・認可・セッション管理の設計
-- `docs/Security.md` - セキュリティヘッダー・CSP・認証境界の設計方針
-- `docs/Deploy.md` - Docker / Cloud Run デプロイ手順
-- `docs/KnownIssues.md` - 既知の問題・対応不要と判断した脆弱性の記録
-- `docs/Test.md` - E2Eテストにおける認証情報の扱い方針
 - `docs/CleaningBoard.md` - 清掃ボードのフィーチャー
-- `docs/Schema/` - DBスキーマ定義（Daily.md, Reservations.md）
-- `docs/ErrorHandling.md` - エラーハンドリングの方針
-
-
-## Reference (必要に応じて参照)
-- `v2/*` - 以前のバージョンで使用していたコードの一部
+- `docs/Deploy.md` - Docker / Cloud Run デプロイ手順
+- `docs/ErrorHandling.md` - エラーハンドリングの方針(要確認)
+- `docs/KnownIssues.md` - 既知の問題・対応不要と判断した脆弱性の記録
+- `docs/Review.md` - 実装後のレビュー項目
+- `docs/Security.md` - セキュリティヘッダー・CSP・認証境界の設計方針(要確認)
+- `docs/Test.md` - E2Eテストにおける認証情報の扱い方針
+- `docs/Timetable.md` - タイムテーブルのフィーチャー
