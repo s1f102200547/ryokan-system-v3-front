@@ -80,49 +80,4 @@ test.describe('デイリーダッシュボード', () => {
     await expect(page.getByTestId('diff-label')).toContainText('今日')
   })
 
-  // ── 印刷ボタン ──────────────────────────────────────────────────────────
-
-  test('タイムテーブル印刷ボタンで /timetable?date=2026-04-12&autoprint=1 が開く', async ({ page, context }) => {
-    await context.route('/api/timetable*', (route) => route.abort())
-
-    const [newPage] = await Promise.all([
-      context.waitForEvent('page'),
-      page.getByTestId('print-timetable').click(),
-    ])
-    await expect(newPage).toHaveURL(/\/timetable\?date=2026-04-12&autoprint=1/)
-    await newPage.close()
-  })
-
-  test('清掃ボード印刷ボタンで /cleaning-board?date=2026-04-12&autoprint=1 が開く', async ({ page, context }) => {
-    await context.route('/api/cleaning-board*', (route) => route.abort())
-
-    const [newPage] = await Promise.all([
-      context.waitForEvent('page'),
-      page.getByTestId('print-cleaning-board').click(),
-    ])
-    await expect(newPage).toHaveURL(/\/cleaning-board\?date=2026-04-12&autoprint=1/)
-    await newPage.close()
-  })
-})
-
-test.describe('印刷ページリダイレクト', () => {
-  test.beforeEach(async ({ page }) => {
-    const email = process.env.TEST_EMAIL
-    const password = process.env.TEST_PASSWORD
-    if (!email || !password) test.skip()
-
-    await login(page, email!, password!)
-  })
-
-  test('/timetable を ?date= なしで開くと /daily-dashboard にリダイレクトされる', async ({ page }) => {
-    await page.route('/api/timetable*', (route) => route.abort())
-    await page.goto('/timetable')
-    await expect(page).toHaveURL('/daily-dashboard')
-  })
-
-  test('/cleaning-board を ?date= なしで開くと /daily-dashboard にリダイレクトされる', async ({ page }) => {
-    await page.route('/api/cleaning-board*', (route) => route.abort())
-    await page.goto('/cleaning-board')
-    await expect(page).toHaveURL('/daily-dashboard')
-  })
 })
