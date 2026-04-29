@@ -9,21 +9,17 @@ import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import PrintIcon from '@mui/icons-material/Print'
 import { useDateNavigation } from '@/hooks/date/useDateNavigation'
-import { addDays, formatDateLabel } from '@/lib/dateUtils'
 
 export default function DailyDashboardPage() {
   const { selectedDate, dateLabel, diffLabel, goToPrevDay, goToNextDay, goToToday } =
     useDateNavigation()
-
-  const cleaningBoardDate = addDays(selectedDate, 1)
-  const cleaningBoardLabel = formatDateLabel(cleaningBoardDate)
 
   const handlePrintTimetable = () => {
     window.open(`/timetable?date=${selectedDate}`, '_blank')
   }
 
   const handlePrintCleaningBoard = () => {
-    window.open(`/cleaning-board?date=${cleaningBoardDate}`, '_blank')
+    window.open(`/cleaning-board?date=${selectedDate}`, '_blank')
   }
 
   return (
@@ -72,7 +68,7 @@ export default function DailyDashboardPage() {
           onClick={handlePrintCleaningBoard}
           data-testid="print-cleaning-board"
         >
-          清掃ボード印刷（{cleaningBoardLabel}）
+          清掃ボード印刷（{dateLabel}）
         </Button>
       </Box>
     </Box>
