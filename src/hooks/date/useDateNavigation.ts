@@ -21,6 +21,7 @@ export function useDateNavigation(): UseDateNavigationReturn {
     selectedDate,
     dateLabel: formatDateLabel(selectedDate),
     diffLabel: formatDiffLabel(today, selectedDate),
+    setDate: (date: string) => { if (date) setSelectedDate(date) },
     goToPrevDay: () => setSelectedDate((d) => addDays(d, -1)),
     goToNextDay: () => setSelectedDate((d) => addDays(d, 1)),
     goToToday: () => setSelectedDate(getTodayJST()),

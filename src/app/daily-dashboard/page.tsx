@@ -1,18 +1,24 @@
 'use client'
 
+import { useState } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
+import Popover from '@mui/material/Popover'
 import Typography from '@mui/material/Typography'
 import NavigateNextIcon from '@mui/icons-material/NavigateNext'
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import PrintIcon from '@mui/icons-material/Print'
+import { DateCalendar } from '@mui/x-date-pickers/DateCalendar'
+import dayjs from 'dayjs'
 import { useDateNavigation } from '@/hooks/date/useDateNavigation'
 
 export default function DailyDashboardPage() {
-  const { selectedDate, dateLabel, diffLabel, goToPrevDay, goToNextDay, goToToday } =
+  const { selectedDate, dateLabel, diffLabel, setDate, goToPrevDay, goToNextDay, goToToday } =
     useDateNavigation()
+
+  const [calendarAnchor, setCalendarAnchor] = useState<HTMLElement | null>(null)
 
   const handlePrintTimetable = () => {
     window.open(`/timetable?date=${selectedDate}`, '_blank')
@@ -30,8 +36,32 @@ export default function DailyDashboardPage() {
           <NavigateBeforeIcon />
         </IconButton>
 
+        <IconButton
+          size="small"
+          aria-label="日付を選択"
+          onClick={(e) => setCalendarAnchor(e.currentTarget)}
+        >
+          <CalendarMonthIcon fontSize="small" />
+        </IconButton>
+
+        <Popover
+          open={Boolean(calendarAnchor)}
+          anchorEl={calendarAnchor}
+          onClose={() => setCalendarAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        >
+          <DateCalendar
+            value={dayjs(selectedDate)}
+            onChange={(newValue) => {
+              if (newValue) {
+                setDate(newValue.format('YYYY-MM-DD'))
+                setCalendarAnchor(null)
+              }
+            }}
+          />
+        </Popover>
+
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mx: 0.5 }}>
-          <CalendarMonthIcon fontSize="small" color="action" />
           <Typography fontWeight="bold">{dateLabel}</Typography>
           <Typography variant="body2" color="text.secondary">
             ({diffLabel})
