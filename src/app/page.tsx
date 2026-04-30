@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
 
 export default function Home() {
-  redirect('/daily-dashboard')
+  redirect('/cleaning-board')
 }

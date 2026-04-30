@@ -27,21 +27,15 @@ export function proxy(request: NextRequest) {
   const isTimeRestrictedPage = pathname === '/time-restricted'
 
   // 時間帯制限（本番のみ、6:00–23:00 JST）
+  // /time-restricted は制限対象外（それ以外の全ページをブロック）
   const isProd = process.env.NODE_ENV === 'production'
-  if (isProd) {
+  if (isProd && !isTimeRestrictedPage) {
+    // UTC+9 で現在時刻を計算
     const nowJST = new Date(Date.now() + 9 * 60 * 60 * 1000)
     const minuteOfDay = nowJST.getUTCHours() * 60 + nowJST.getUTCMinutes()
-    const isOutsideHours = minuteOfDay < 6 * 60 || minuteOfDay >= 23 * 60
-
-    if (isOutsideHours && !isTimeRestrictedPage) {
+    const isOutsideHours = minuteOfDay < 6 * 60 || minuteOfDay >= 23 * 60  // 6:00未満 or 23:00以降
+    if (isOutsideHours) {
       const redirectResponse = NextResponse.redirect(new URL('/time-restricted', request.url))
-      redirectResponse.headers.set('Content-Type', 'text/html; charset=utf-8')
-      applySecurityHeaders(redirectResponse, nonce, csp)
-      return redirectResponse
-    }
-
-    if (!isOutsideHours && isTimeRestrictedPage) {
-      const redirectResponse = NextResponse.redirect(new URL('/', request.url))
       redirectResponse.headers.set('Content-Type', 'text/html; charset=utf-8')
       applySecurityHeaders(redirectResponse, nonce, csp)
       return redirectResponse
