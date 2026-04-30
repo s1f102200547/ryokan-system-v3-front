@@ -21,6 +21,7 @@ Shared (lib/, types/)
 ```
 
 
+
 ## 層ごとのルール
 
 | 層 | import してよいもの | import してはいけないもの |
