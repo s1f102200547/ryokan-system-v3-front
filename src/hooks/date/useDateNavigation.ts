@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { getTodayJST, addDays, dateDiff, formatDateLabel } from '@/lib/dateUtils'
 import type { UseDateNavigationReturn } from '@/types/date'
+
+const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
 
 function formatDiffLabel(today: string, selected: string): string {
   const diff = dateDiff(today, selected)
@@ -13,20 +15,24 @@ function formatDiffLabel(today: string, selected: string): string {
   return `${Math.abs(diff)}日前`
 }
 
-// initialDate: Server Component から渡されたサーバー確定の今日の日付 (YYYY-MM-DD)
-// Server Component が getTodayJST() を呼ぶため SSR/クライアント間で値が一致し、
-// useSyncExternalStore は不要になる。
-export function useDateNavigation(initialDate: string): UseDateNavigationReturn {
-  const [override, setOverride] = useState<string | null>(null)
-  const selectedDate = override ?? initialDate
+export function useDateNavigation(): UseDateNavigationReturn {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  const rawDate = searchParams.get('date')
+  const selectedDate = rawDate !== null && DATE_REGEX.test(rawDate) ? rawDate : getTodayJST()
   const today = getTodayJST()
+
+  const navigate = (date: string) => router.push(`${pathname}?date=${date}`)
+
   return {
     selectedDate,
     dateLabel: formatDateLabel(selectedDate),
     diffLabel: formatDiffLabel(today, selectedDate),
-    setDate: (date: string) => { if (date) setOverride(date) },
-    goToPrevDay: () => setOverride((d) => addDays(d ?? initialDate, -1)),
-    goToNextDay: () => setOverride((d) => addDays(d ?? initialDate, 1)),
-    goToToday: () => setOverride(null),
+    setDate: (date: string) => { if (date) navigate(date) },
+    goToPrevDay: () => navigate(addDays(selectedDate, -1)),
+    goToNextDay: () => navigate(addDays(selectedDate, 1)),
+    goToToday: () => router.push(pathname),
   }
 }

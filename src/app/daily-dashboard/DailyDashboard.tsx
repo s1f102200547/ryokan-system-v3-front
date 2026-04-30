@@ -18,13 +18,9 @@ import { CleaningBoardPrintContent } from './CleaningBoardPrintContent'
 
 type PrintMode = 'timetable' | 'cleaning-board' | null
 
-type Props = {
-  initialDate: string
-}
-
-export function DailyDashboard({ initialDate }: Props) {
+export function DailyDashboard() {
   const { selectedDate, dateLabel, diffLabel, setDate, goToPrevDay, goToNextDay, goToToday } =
-    useDateNavigation(initialDate)
+    useDateNavigation()
 
   const [calendarAnchor, setCalendarAnchor] = useState<HTMLElement | null>(null)
   const [printMode, setPrintMode] = useState<PrintMode>(null)

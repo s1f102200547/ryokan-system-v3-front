@@ -170,12 +170,14 @@ test.describe('デイリーダッシュボード', () => {
     await page.getByTestId('next-day').click()
     await expect(page.getByTestId('date-label')).toContainText('4/13')
     await expect(page.getByTestId('diff-label')).toContainText('明日')
+    await expect(page).toHaveURL(/[?&]date=2026-04-13/)
   })
 
   test('前日ボタンで 4/11「昨日」に移動する', async ({ page }) => {
     await page.getByTestId('prev-day').click()
     await expect(page.getByTestId('date-label')).toContainText('4/11')
     await expect(page.getByTestId('diff-label')).toContainText('昨日')
+    await expect(page).toHaveURL(/[?&]date=2026-04-11/)
   })
 
   test('Today ボタンで今日（4/12）に戻る', async ({ page }) => {
@@ -185,6 +187,7 @@ test.describe('デイリーダッシュボード', () => {
     await page.getByRole('button', { name: 'Today' }).click()
     await expect(page.getByTestId('date-label')).toContainText('4/12')
     await expect(page.getByTestId('diff-label')).toContainText('今日')
+    await expect(page).not.toHaveURL(/[?&]date=/)
   })
 })
 
