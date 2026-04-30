@@ -13,6 +13,10 @@ import PrintIcon from '@mui/icons-material/Print'
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar'
 import dayjs from 'dayjs'
 import { useDateNavigation } from '@/hooks/date/useDateNavigation'
+import { TimetablePrintContent } from './TimetablePrintContent'
+import { CleaningBoardPrintContent } from './CleaningBoardPrintContent'
+
+type PrintMode = 'timetable' | 'cleaning-board' | null
 
 type Props = {
   initialDate: string
@@ -23,6 +27,7 @@ export function DailyDashboard({ initialDate }: Props) {
     useDateNavigation(initialDate)
 
   const [calendarAnchor, setCalendarAnchor] = useState<HTMLElement | null>(null)
+  const [printMode, setPrintMode] = useState<PrintMode>(null)
 
   return (
     <Box sx={{ p: 3 }}>
@@ -83,7 +88,7 @@ export function DailyDashboard({ initialDate }: Props) {
         <Button
           variant="contained"
           startIcon={<PrintIcon />}
-          onClick={() => {}}
+          onClick={() => setPrintMode('timetable')}
           data-testid="print-timetable"
         >
           タイムテーブル印刷（{dateLabel}）
@@ -91,12 +96,28 @@ export function DailyDashboard({ initialDate }: Props) {
         <Button
           variant="contained"
           startIcon={<PrintIcon />}
-          onClick={() => {}}
+          onClick={() => setPrintMode('cleaning-board')}
           data-testid="print-cleaning-board"
         >
           清掃ボード印刷（{dateLabel}）
         </Button>
       </Box>
+
+      {/* 印刷コンテンツ（各コンポーネントが自身の Backdrop と印刷レイアウトを管理する） */}
+      {printMode === 'timetable' && (
+        <TimetablePrintContent
+          date={selectedDate}
+          onPrintReady={() => window.print()}
+          onAfterPrint={() => setPrintMode(null)}
+        />
+      )}
+      {printMode === 'cleaning-board' && (
+        <CleaningBoardPrintContent
+          date={selectedDate}
+          onPrintReady={() => window.print()}
+          onAfterPrint={() => setPrintMode(null)}
+        />
+      )}
     </Box>
   )
 }
