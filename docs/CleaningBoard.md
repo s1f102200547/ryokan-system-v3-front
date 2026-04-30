@@ -32,7 +32,10 @@
   - `th` 直接への `writing-mode` 適用はテーブル列順が逆転するバグのため span でラップ
 - `CleaningBoardFooter` — 共有エリアタスクチェックリスト（5Fトイレ〜アメニティセット）
 - `CleaningBoardNotes` — 備考／引継ぎセクション（autoNotes を一覧表示、`data-testid="auto-notes-box"`）
-- `page.tsx` — 日付ヘッダー・印刷ボタン・未割り当て警告・print-area 構成
+- `CleaningBoardPrintContent` — `/daily-dashboard` からインライン印刷するためのコンポーネント
+  - ロード中・エラーの Backdrop + 印刷レイアウト（`@media screen: display:none`）を管理
+  - 未割り当て予約がある場合は画面上に警告を表示（`data-testid="unassigned-warning"`）
+  - `/cleaning-board` ページルートは廃止済み
 
 ### E2E テスト
-- `e2e/cleaning-board.spec.ts` — チェックイン人数・連泊表示・備考欄・空室警告の主要フローを検証
+- `e2e/daily-dashboard.spec.ts` — 清掃ボード印刷コンテンツ E2E（チェックイン人数・連泊表示・備考欄・未割り当て警告）
