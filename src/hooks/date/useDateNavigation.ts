@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useSyncExternalStore } from 'react'
+import { useState } from 'react'
 import { getTodayJST, addDays, dateDiff, formatDateLabel } from '@/lib/dateUtils'
 import type { UseDateNavigationReturn } from '@/types/date'
 
@@ -13,27 +13,20 @@ function formatDiffLabel(today: string, selected: string): string {
   return `${Math.abs(diff)}日前`
 }
 
-export function useDateNavigation(): UseDateNavigationReturn {
-  // useSyncExternalStore: SSR時はgetServerSnapshot（空文字）、クライアントではgetSnapshot（今日の日付）を返す。
-  // hydration mismatchとuseEffect+setStateのアンチパターンを両方避けられる。
-  const clientToday = useSyncExternalStore(
-    () => () => {},
-    () => getTodayJST(),
-    () => '',
-  )
-
-  // ユーザー操作による日付変更。null = clientToday（今日）を使用。
+// initialDate: Server Component から渡されたサーバー確定の今日の日付 (YYYY-MM-DD)
+// Server Component が getTodayJST() を呼ぶため SSR/クライアント間で値が一致し、
+// useSyncExternalStore は不要になる。
+export function useDateNavigation(initialDate: string): UseDateNavigationReturn {
   const [override, setOverride] = useState<string | null>(null)
-  const selectedDate = override ?? clientToday
+  const selectedDate = override ?? initialDate
   const today = getTodayJST()
-
   return {
     selectedDate,
-    dateLabel: selectedDate ? formatDateLabel(selectedDate) : '',
-    diffLabel: selectedDate ? formatDiffLabel(today, selectedDate) : '',
+    dateLabel: formatDateLabel(selectedDate),
+    diffLabel: formatDiffLabel(today, selectedDate),
     setDate: (date: string) => { if (date) setOverride(date) },
-    goToPrevDay: () => setOverride((d) => addDays(d ?? clientToday, -1)),
-    goToNextDay: () => setOverride((d) => addDays(d ?? clientToday, 1)),
+    goToPrevDay: () => setOverride((d) => addDays(d ?? initialDate, -1)),
+    goToNextDay: () => setOverride((d) => addDays(d ?? initialDate, 1)),
     goToToday: () => setOverride(null),
   }
 }
