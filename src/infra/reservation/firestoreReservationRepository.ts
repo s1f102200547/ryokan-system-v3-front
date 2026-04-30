@@ -48,13 +48,13 @@ const FirestoreReservationSchema = z.object({
   late_out: z.number().int().nullish().transform((v) => (v === 1 ? 1 : 0)),
   // 欠損 or 不正 → ""
   guest_name: z.string().max(100).catch(''),
-  // 定義外 or 欠損 → null
-  arrival_time: z.enum(ARRIVAL_TIME_VALUES).nullable().catch(null),
+  // 定義外 or 欠損 → null（Zod v4 でキー欠損を吸収するため .default(null) が必要）
+  arrival_time: z.enum(ARRIVAL_TIME_VALUES).nullable().default(null).catch(null),
   // 配列フィールドは unknown で受け取り、normalizeArray で処理
-  dinner_time: z.unknown(),
-  breakfast_time: z.unknown(),
-  open_air_bath_time: z.unknown(),
-  timetable_info: z.unknown(),
+  dinner_time: z.unknown().optional(),
+  breakfast_time: z.unknown().optional(),
+  open_air_bath_time: z.unknown().optional(),
+  timetable_info: z.unknown().optional(),
 })
 
 export const firestoreReservationRepository: ReservationRepository = {
