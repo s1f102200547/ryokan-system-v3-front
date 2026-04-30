@@ -75,24 +75,6 @@ export function CleaningBoardPrintContent({ date, onPrintReady, onAfterPrint }: 
         )}
       </Backdrop>
 
-      {/* 未割り当て予約の警告（スクリーンのみ表示） */}
-      {data && data.unassignedReservations.length > 0 && (
-        <Box
-          sx={{
-            position: 'fixed',
-            top: 16,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: (theme) => theme.zIndex.drawer + 2,
-            '@media print': { display: 'none' },
-          }}
-        >
-          <Alert severity="warning" data-testid="unassigned-warning">
-            部屋が割り当てられていない予約があります（{data.unassignedReservations.length}件）
-          </Alert>
-        </Box>
-      )}
-
       {/* 印刷コンテンツ（スクリーンでは非表示、印刷時のみ表示） */}
       <Box
         sx={{

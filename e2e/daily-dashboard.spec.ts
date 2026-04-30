@@ -1,9 +1,11 @@
 import { test, expect, type Page } from '@playwright/test'
+import { ROOM_NUMBERS, CLEANING_BOARD_ROOM_NUMBERS } from '../src/constants/room'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ヘルパー
 // ─────────────────────────────────────────────────────────────────────────────
 
+// diff-label (今日/明日/昨日) の計算に使われる client 側 getTodayJST() をモックする
 async function fixDateTo0412(page: Page) {
   await page.addInitScript(() => {
     const FIXED = new Date('2026-04-12T12:00:00+09:00').getTime()
@@ -50,10 +52,8 @@ type TimetableData = {
   lateCheckoutRooms: string[]
 }
 
-const ROOMS = ['21', '22', '31', '32', '42', '43', '61'] as const
-
 function allVacantInfo(): Record<string, string> {
-  return Object.fromEntries(ROOMS.map((r) => [r, '空室']))
+  return Object.fromEntries(ROOM_NUMBERS.map((r) => [r, '空室']))
 }
 
 function mockFor0412(): TimetableData {
@@ -109,10 +109,8 @@ type CleaningBoardData = {
   unassignedReservations: UnassignedReservation[]
 }
 
-const ALL_ROOMS = ['21', '22', '31', '32', '42', '43', '52', '53', '54', '61'] as const
-
 function makeEmptyRows(): CleaningBoardRow[] {
-  return ALL_ROOMS.map((room) => ({
+  return CLEANING_BOARD_ROOM_NUMBERS.map((room) => ({
     room,
     isTodayCheckIn: false,
     isFutureCheckIn: false,
@@ -143,8 +141,8 @@ test.describe('デイリーダッシュボード', () => {
 
     await fixDateTo0412(page)
     await login(page, email!, password!)
-    await page.goto('/daily-dashboard')
-    // SSRは実日付でレンダリングされるため、hydration完了（モック日付に切り替わる）まで待機
+    // ?date= で Server Component に初期日付を渡す（fixDateTo0412 はクライアント側の getTodayJST() 用）
+    await page.goto('/daily-dashboard?date=2026-04-12')
     await expect(page.getByTestId('date-label')).toContainText('4/12')
   })
 
@@ -204,7 +202,7 @@ test.describe('タイムテーブル印刷コンテンツ', () => {
     await fixDateTo0412(page)
     await login(page, email!, password!)
     await page.route('/api/timetable*', (route) => route.fulfill({ json: mockFor0412() }))
-    await page.goto('/daily-dashboard')
+    await page.goto('/daily-dashboard?date=2026-04-12')
     await expect(page.getByTestId('date-label')).toContainText('4/12')
 
     await page.getByTestId('print-timetable').click()
@@ -271,7 +269,7 @@ test.describe('タイムテーブル印刷コンテンツ（4/13）', () => {
       const date = url.searchParams.get('date')
       route.fulfill({ json: date === '2026-04-13' ? mockFor0413() : mockFor0412() })
     })
-    await page.goto('/daily-dashboard')
+    await page.goto('/daily-dashboard?date=2026-04-12')
     await expect(page.getByTestId('date-label')).toContainText('4/12')
 
     // 翌日（4/13）に移動してから印刷
@@ -309,7 +307,7 @@ test.describe('清掃ボード印刷コンテンツ', () => {
     await page.route('/api/cleaning-board*', (route) =>
       route.fulfill({ json: mockCleaningBoard() }),
     )
-    await page.goto('/daily-dashboard')
+    await page.goto('/daily-dashboard?date=2026-04-12')
     await expect(page.getByTestId('date-label')).toContainText('4/12')
 
     await page.getByTestId('print-cleaning-board').click()
@@ -324,7 +322,7 @@ test.describe('清掃ボード印刷コンテンツ', () => {
     await page.route('/api/cleaning-board*', (route) =>
       route.fulfill({ json: mockCleaningBoard(rows) }),
     )
-    await page.goto('/daily-dashboard')
+    await page.goto('/daily-dashboard?date=2026-04-12')
     await expect(page.getByTestId('date-label')).toContainText('4/12')
 
     await page.getByTestId('print-cleaning-board').click()
@@ -339,7 +337,7 @@ test.describe('清掃ボード印刷コンテンツ', () => {
     await page.route('/api/cleaning-board*', (route) =>
       route.fulfill({ json: mockCleaningBoard(rows) }),
     )
-    await page.goto('/daily-dashboard')
+    await page.goto('/daily-dashboard?date=2026-04-12')
     await expect(page.getByTestId('date-label')).toContainText('4/12')
 
     await page.getByTestId('print-cleaning-board').click()
@@ -359,7 +357,7 @@ test.describe('清掃ボード印刷コンテンツ', () => {
     await page.route('/api/cleaning-board*', (route) =>
       route.fulfill({ json: mockCleaningBoard(rows) }),
     )
-    await page.goto('/daily-dashboard')
+    await page.goto('/daily-dashboard?date=2026-04-12')
     await expect(page.getByTestId('date-label')).toContainText('4/12')
 
     await page.getByTestId('print-cleaning-board').click()
@@ -374,26 +372,11 @@ test.describe('清掃ボード印刷コンテンツ', () => {
     await page.route('/api/cleaning-board*', (route) =>
       route.fulfill({ json: mockCleaningBoard(rows) }),
     )
-    await page.goto('/daily-dashboard')
+    await page.goto('/daily-dashboard?date=2026-04-12')
     await expect(page.getByTestId('date-label')).toContainText('4/12')
 
     await page.getByTestId('print-cleaning-board').click()
     await expect(page.getByTestId('cleaning-board-date')).toContainText('4月12日')
     await expect(page.getByTestId('auto-notes-box')).toContainText('21: レイトアウト11:00')
-  })
-
-  test('部屋未割り当て予約がある場合に警告が表示される', async ({ page }) => {
-    const unassigned: UnassignedReservation[] = [
-      { id: 'r-unassigned', check_in_date: '2026-04-01' },
-    ]
-
-    await page.route('/api/cleaning-board*', (route) =>
-      route.fulfill({ json: mockCleaningBoard(makeEmptyRows(), unassigned) }),
-    )
-    await page.goto('/daily-dashboard')
-    await expect(page.getByTestId('date-label')).toContainText('4/12')
-
-    await page.getByTestId('print-cleaning-board').click()
-    await expect(page.getByTestId('unassigned-warning')).toBeVisible()
   })
 })

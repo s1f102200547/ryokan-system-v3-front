@@ -32,7 +32,7 @@ export function DailyDashboard({ initialDate }: Props) {
   return (
     <Box sx={{ p: 3 }}>
       {/* 日付ナビゲーション */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 4 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 4, '@media print': { display: 'none' } }}>
         <IconButton onClick={goToPrevDay} size="small" aria-label="前日" data-testid="prev-day">
           <NavigateBeforeIcon />
         </IconButton>
@@ -84,7 +84,7 @@ export function DailyDashboard({ initialDate }: Props) {
       </Box>
 
       {/* 印刷ボタン */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 320 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 320, '@media print': { display: 'none' } }}>
         <Button
           variant="contained"
           startIcon={<PrintIcon />}
