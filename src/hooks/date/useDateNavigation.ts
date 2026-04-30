@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { getTodayJST, addDays, dateDiff, formatDateLabel } from '@/lib/dateUtils'
+import { addDays, dateDiff, formatDateLabel } from '@/lib/dateUtils'
 import type { UseDateNavigationReturn } from '@/types/date'
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
@@ -15,14 +15,15 @@ function formatDiffLabel(today: string, selected: string): string {
   return `${Math.abs(diff)}日前`
 }
 
-export function useDateNavigation(): UseDateNavigationReturn {
+// today: Server Component で getTodayJST() を呼び出し、props 経由で渡す。
+// SSR と CSR で同じ値を使うことで hydration mismatch を防ぐ。
+export function useDateNavigation(today: string): UseDateNavigationReturn {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
   const rawDate = searchParams.get('date')
-  const selectedDate = rawDate !== null && DATE_REGEX.test(rawDate) ? rawDate : getTodayJST()
-  const today = getTodayJST()
+  const selectedDate = rawDate !== null && DATE_REGEX.test(rawDate) ? rawDate : today
 
   const navigate = (date: string) => router.push(`${pathname}?date=${date}`)
 
