@@ -2,7 +2,7 @@
 
 ## Overview
 
-完全自動デプロイ（merge 駆動）を前提とした構成。未実装部分あり。
+完全自動デプロイ（merge 駆動）を前提とした構成。
 
 ## Standard Flow
 
