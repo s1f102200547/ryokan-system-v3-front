@@ -25,7 +25,18 @@ export function useDateNavigation(today: string): UseDateNavigationReturn {
   const rawDate = searchParams.get('date')
   const selectedDate = rawDate !== null && DATE_REGEX.test(rawDate) ? rawDate : today
 
-  const navigate = (date: string) => router.push(`${pathname}?date=${date}`)
+  const navigate = (date: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('date', date)
+    router.push(`${pathname}?${params.toString()}`)
+  }
+
+  const goToToday = () => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('date')
+    const query = params.toString()
+    router.push(query ? `${pathname}?${query}` : pathname)
+  }
 
   return {
     selectedDate,
@@ -34,6 +45,6 @@ export function useDateNavigation(today: string): UseDateNavigationReturn {
     setDate: (date: string) => { if (date) navigate(date) },
     goToPrevDay: () => navigate(addDays(selectedDate, -1)),
     goToNextDay: () => navigate(addDays(selectedDate, 1)),
-    goToToday: () => router.push(pathname),
+    goToToday,
   }
 }
