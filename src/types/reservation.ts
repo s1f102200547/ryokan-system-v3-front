@@ -22,7 +22,8 @@ export type Reservation = {
   booking_site: BookingSite             // 欠損 or 不正 → "other"
   mail_memo: MailMemoEntry[]            // 欠損 → []
   a_tax_received: boolean               // 欠損 → false
-  a_tax_received_by_staff_name: string  // 欠損 → ""
+  a_tax_received_by_staff_name: string  // 徴収スタッフ名　欠損 → ""
+  a_tax_closing_staff_name: string      // 締めスタッフ名（金庫照合確認者）欠損 → ""
   check_in_staff_name: string           // 欠損 → ""
   country: string                       // 欠損 → ""
   city: string                          // 欠損 → ""

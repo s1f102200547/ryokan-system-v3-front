@@ -22,6 +22,13 @@ export type NewReservationInput = {
   add_reason: string     // Slack通知にのみ使用、Firestoreには保存しない
 }
 
+// a_tax_table の 3フィールド独立更新ペイロード
+export type ATaxPatch = Partial<{
+  a_tax_received: boolean
+  a_tax_received_by_staff_name: string  // 徴収したスタッフ名
+  a_tax_closing_staff_name: string      // 締めスタッフ名（金庫照合確認者）
+}>
+
 // モーダルの保存ペイロード（部分更新）
 // check_out_date変更時は夜数連動フィールドも resizeNightFields で同時更新すること
 export type ReservationPatch = Partial<{
@@ -40,6 +47,7 @@ export type ReservationPatch = Partial<{
   mail_memo: MailMemoEntry[]
   a_tax_received: boolean
   a_tax_received_by_staff_name: string
+  a_tax_closing_staff_name: string
   check_in_staff_name: string
   country: string
   city: string

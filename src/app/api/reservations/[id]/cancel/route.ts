@@ -4,7 +4,7 @@ import { cancelReservationCommand } from '@/application/guestInfo/cancelReservat
 import { getSession, handleRouteError } from '@/lib/api/routeHelpers'
 
 const BodySchema = z.object({
-  guest_name: z.string(),
+  staff_name: z.string().min(1).max(100),
   target_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   reason: z.string().min(1).max(500),
 })
@@ -26,7 +26,7 @@ export async function PATCH(
   try {
     await cancelReservationCommand({
       id,
-      guestName: parsed.data.guest_name,
+      staffName: parsed.data.staff_name,
       targetDate: parsed.data.target_date,
       reason: parsed.data.reason,
     })

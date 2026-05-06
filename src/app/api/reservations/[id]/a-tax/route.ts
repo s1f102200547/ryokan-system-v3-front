@@ -4,9 +4,10 @@ import { firestoreReservationRepository } from '@/infra/reservation/firestoreRes
 import { getSession, handleRouteError } from '@/lib/api/routeHelpers'
 
 const BodySchema = z.object({
-  received: z.boolean(),
-  staffName: z.string().max(100),
-})
+  a_tax_received: z.boolean().optional(),
+  a_tax_received_by_staff_name: z.string().max(100).optional(),
+  a_tax_closing_staff_name: z.string().max(100).optional(),
+}).refine((d) => Object.keys(d).length > 0, { message: 'patch must not be empty' })
 
 export async function PATCH(
   request: Request,
@@ -23,9 +24,9 @@ export async function PATCH(
   }
 
   try {
-    await firestoreReservationRepository.updateATaxReceived(id, parsed.data.received, parsed.data.staffName)
+    await firestoreReservationRepository.updateATax(id, parsed.data)
     return NextResponse.json({ ok: true })
   } catch (e) {
-    return handleRouteError(e, 'A税受領更新')
+    return handleRouteError(e, 'A税更新')
   }
 }

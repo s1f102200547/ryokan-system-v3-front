@@ -4,19 +4,19 @@ import type { MailMemoEntry } from '@/types/guestInfo'
 
 type RestoreInput = {
   id: string           // Firestore doc ID = reservation_number
-  guestName: string
+  staffName: string    // 操作したスタッフ名（mailMemo.name に使用）
   targetDate: string   // YYYY-MM-DD
   reason: string
 }
 
 export async function restoreReservationCommand(input: RestoreInput): Promise<void> {
-  const { id, guestName, targetDate, reason } = input
+  const { id, staffName, targetDate, reason } = input
   const [, mm, dd] = targetDate.split('-')
 
   const mailMemoEntry: MailMemoEntry = {
     month: String(parseInt(mm, 10)),
     day: String(parseInt(dd, 10)),
-    name: guestName,
+    name: staffName,
     summary: 'キャンセル復活',
     text: reason,
     source: 'システム',

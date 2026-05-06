@@ -1,5 +1,5 @@
 import type { Reservation } from '@/types/reservation'
-import type { MailMemoEntry, NewReservationInput, ReservationPatch } from '@/types/guestInfo'
+import type { ATaxPatch, MailMemoEntry, NewReservationInput, ReservationPatch } from '@/types/guestInfo'
 
 export interface ReservationRepository {
   // from, to: YYYY-MM-DD
@@ -10,5 +10,6 @@ export interface ReservationRepository {
   // returns reservation_number（UUID v7）
   addReservation(input: NewReservationInput): Promise<string>
   updateReservation(id: string, patch: ReservationPatch): Promise<void>
-  updateATaxReceived(id: string, received: boolean, staffName: string): Promise<void>
+  // a_tax_table の 3フィールド独立更新
+  updateATax(id: string, patch: ATaxPatch): Promise<void>
 }

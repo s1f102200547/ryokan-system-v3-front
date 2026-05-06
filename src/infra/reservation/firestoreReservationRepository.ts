@@ -6,7 +6,7 @@ import { InfraError } from '@/types/errors'
 import { ROOM_NUMBERS } from '@/types/room'
 import type { ReservationRepository } from '@/domain/ports/reservationRepository'
 import type { Reservation } from '@/types/reservation'
-import type { BookingSite, MailMemoEntry, NewReservationInput, ReservationPatch } from '@/types/guestInfo'
+import type { ATaxPatch, BookingSite, MailMemoEntry, NewReservationInput, ReservationPatch } from '@/types/guestInfo'
 import { dateDiff } from '@/lib/dateUtils'
 
 // --- バリデーション用定数（Firestore 値の許容範囲） ---
@@ -144,12 +144,12 @@ export const firestoreReservationRepository: ReservationRepository = {
     })
   },
 
-  async updateATaxReceived(id, received, staffName) {
+  async updateATax(id, patch: ATaxPatch) {
+    if (Object.keys(patch).length === 0) return
     return withFirestoreError(async () => {
-      await adminDb.collection('guestInfoV2').doc(id).update({
-        a_tax_received: received,
-        a_tax_received_by_staff_name: staffName,
-      })
+      await adminDb.collection('guestInfoV2').doc(id).update(
+        patch as FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData>,
+      )
     })
   },
 }
@@ -253,6 +253,7 @@ function toReservation(id: string, data: FirebaseFirestore.DocumentData): Reserv
       }),
       a_tax_received: z.boolean().catch(false).parse(data.a_tax_received ?? false),
       a_tax_received_by_staff_name: z.string().max(100).catch('').parse(data.a_tax_received_by_staff_name ?? ''),
+      a_tax_closing_staff_name: z.string().max(100).catch('').parse(data.a_tax_closing_staff_name ?? ''),
       check_in_staff_name: z.string().max(100).catch('').parse(data.check_in_staff_name ?? ''),
       country: z.string().max(100).catch('').parse(data.country ?? ''),
       city: z.string().max(100).catch('').parse(data.city ?? ''),

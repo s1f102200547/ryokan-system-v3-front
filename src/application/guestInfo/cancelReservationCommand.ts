@@ -4,19 +4,19 @@ import type { MailMemoEntry } from '@/types/guestInfo'
 
 type CancelInput = {
   id: string           // Firestore doc ID = reservation_number
-  guestName: string
+  staffName: string    // 操作したスタッフ名（mailMemo.name に使用）
   targetDate: string   // YYYY-MM-DD（メールログの month/day に使用）
   reason: string
 }
 
 export async function cancelReservationCommand(input: CancelInput): Promise<void> {
-  const { id, guestName, targetDate, reason } = input
+  const { id, staffName, targetDate, reason } = input
   const [, mm, dd] = targetDate.split('-')
 
   const mailMemoEntry: MailMemoEntry = {
     month: String(parseInt(mm, 10)),
     day: String(parseInt(dd, 10)),
-    name: guestName,
+    name: staffName,
     summary: 'キャンセル',
     text: reason,
     source: 'システム',

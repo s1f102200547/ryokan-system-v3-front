@@ -14,9 +14,9 @@ vi.mock('@/lib/slack', () => ({ notifySlackFireAndForget: vi.fn() }))
 const mockRepo = vi.mocked(firestoreReservationRepository)
 const mockVerifySession = vi.mocked(verifySession)
 
-const validBody = { received: true, staffName: 'スタッフA' }
+const params = Promise.resolve({ id: 'doc1' })
 
-function makeRequest(body: unknown = validBody, withSession = true) {
+function makeRequest(body: unknown, withSession = true) {
   return new Request('http://localhost/api/reservations/doc1/a-tax', {
     method: 'PATCH',
     headers: {
@@ -27,35 +27,52 @@ function makeRequest(body: unknown = validBody, withSession = true) {
   })
 }
 
-const params = Promise.resolve({ id: 'doc1' })
-
 describe('PATCH /api/reservations/[id]/a-tax', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockVerifySession.mockResolvedValue({ uid: 'user-1' })
+    mockRepo.updateATax = vi.fn().mockResolvedValue(undefined)
   })
 
   it('未認証で401', async () => {
     mockVerifySession.mockResolvedValue(null)
-    const res = await PATCH(makeRequest(validBody, false), { params })
+    const res = await PATCH(makeRequest({ a_tax_received: true }, false), { params })
     expect(res.status).toBe(401)
   })
 
-  it('receivedがbooleanでなければ400', async () => {
-    const res = await PATCH(makeRequest({ received: 'yes', staffName: 'A' }), { params })
+  it('空ボディで400', async () => {
+    const res = await PATCH(makeRequest({}), { params })
     expect(res.status).toBe(400)
   })
 
-  it('正常リクエストで200', async () => {
-    mockRepo.updateATaxReceived = vi.fn().mockResolvedValue(undefined)
-    const res = await PATCH(makeRequest(), { params })
+  it('checkboxのみ更新で200', async () => {
+    const res = await PATCH(makeRequest({ a_tax_received: true }), { params })
     expect(res.status).toBe(200)
-    expect(mockRepo.updateATaxReceived).toHaveBeenCalledWith('doc1', true, 'スタッフA')
+    expect(mockRepo.updateATax).toHaveBeenCalledWith('doc1', { a_tax_received: true })
+  })
+
+  it('徴収スタッフ名のみ更新で200', async () => {
+    const res = await PATCH(makeRequest({ a_tax_received_by_staff_name: 'スタッフA' }), { params })
+    expect(res.status).toBe(200)
+    expect(mockRepo.updateATax).toHaveBeenCalledWith('doc1', { a_tax_received_by_staff_name: 'スタッフA' })
+  })
+
+  it('締めスタッフ名のみ更新で200', async () => {
+    const res = await PATCH(makeRequest({ a_tax_closing_staff_name: '締めスタッフB' }), { params })
+    expect(res.status).toBe(200)
+    expect(mockRepo.updateATax).toHaveBeenCalledWith('doc1', { a_tax_closing_staff_name: '締めスタッフB' })
+  })
+
+  it('3フィールド同時更新で200', async () => {
+    const body = { a_tax_received: true, a_tax_received_by_staff_name: 'A', a_tax_closing_staff_name: 'B' }
+    const res = await PATCH(makeRequest(body), { params })
+    expect(res.status).toBe(200)
+    expect(mockRepo.updateATax).toHaveBeenCalledWith('doc1', body)
   })
 
   it('InfraErrorで503', async () => {
-    mockRepo.updateATaxReceived = vi.fn().mockRejectedValue(new InfraError('FIRESTORE_UNAVAILABLE', 'down'))
-    const res = await PATCH(makeRequest(), { params })
+    mockRepo.updateATax = vi.fn().mockRejectedValue(new InfraError('FIRESTORE_UNAVAILABLE', 'down'))
+    const res = await PATCH(makeRequest({ a_tax_received: false }), { params })
     expect(res.status).toBe(503)
   })
 })
