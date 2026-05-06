@@ -15,7 +15,6 @@ const mockCommand = vi.mocked(cancelReservationCommand)
 const mockVerifySession = vi.mocked(verifySession)
 
 const validBody = {
-  reservation_number: 'res-001',
   guest_name: 'テストゲスト',
   target_date: '2026-04-01',
   reason: 'テストキャンセル',

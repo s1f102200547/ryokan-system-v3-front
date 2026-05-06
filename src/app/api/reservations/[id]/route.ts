@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { updateReservationCommand } from '@/application/guestInfo/updateReservationCommand'
-import { verifySession } from '@/lib/auth/verifySession'
-import { InfraError } from '@/types/errors'
-import { infraErrorToStatus } from '@/lib/infraErrorToHttpStatus'
-import { logger } from '@/lib/logger'
-import { notifySlackFireAndForget } from '@/lib/slack'
+import { getSession, handleRouteError } from '@/lib/api/routeHelpers'
 import { ROOM_NUMBERS } from '@/constants/room'
 
 // ReservationPatch の部分更新を受け付ける（全フィールドoptional）
@@ -35,25 +31,12 @@ const PatchBodySchema = z.object({
   other_note:                    z.string().optional(),
 }).refine((d) => Object.keys(d).length > 0, { message: 'patch must not be empty' })
 
-function parseCookieValue(cookieHeader: string | null, key: string): string | undefined {
-  if (!cookieHeader) return undefined
-  const prefix = `${key}=`
-  return cookieHeader
-    .split(';')
-    .map((c) => c.trim())
-    .find((c) => c.startsWith(prefix))
-    ?.slice(prefix.length)
-}
-
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const sessionCookie = parseCookieValue(request.headers.get('cookie'), 'session')
-  const session = await verifySession(sessionCookie)
-  if (!session) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  }
+  const session = await getSession(request)
+  if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const { id } = await params
   const body = await request.json().catch(() => null)
@@ -66,14 +49,6 @@ export async function PATCH(
     await updateReservationCommand(id, parsed.data)
     return NextResponse.json({ ok: true })
   } catch (e) {
-    if (e instanceof InfraError) {
-      const status = infraErrorToStatus(e.code)
-      logger.error('予約更新 InfraError', { infraErrorCode: e.code, message: e.message })
-      notifySlackFireAndForget(`[ALERT] 予約更新エラー(${e.code}): ${e.message}`)
-      return NextResponse.json({ error: 'internal server error' }, { status })
-    }
-    logger.error('予約更新 想定外エラー', { message: String(e) })
-    notifySlackFireAndForget(`[ALERT] 予約更新で想定外エラー: ${String(e)}`)
-    return NextResponse.json({ error: 'internal server error' }, { status: 500 })
+    return handleRouteError(e, '予約更新')
   }
 }
