@@ -1,9 +1,12 @@
 import { ZodError, z } from 'zod'
+import { FieldValue } from 'firebase-admin/firestore'
+import { v7 as uuidv7 } from 'uuid'
 import { adminDb } from '@/lib/firebase/admin'
 import { InfraError } from '@/types/errors'
 import { ROOM_NUMBERS } from '@/types/room'
 import type { ReservationRepository } from '@/domain/ports/reservationRepository'
 import type { Reservation } from '@/types/reservation'
+import type { BookingSite, MailMemoEntry, NewReservationInput, ReservationPatch } from '@/types/guestInfo'
 import { dateDiff } from '@/lib/dateUtils'
 
 // --- バリデーション用定数（Firestore 値の許容範囲） ---
@@ -30,6 +33,8 @@ const OPEN_AIR_BATH_TIME_VALUES = [
   // 朝
   '7:30', '8:00', '8:30', '9:00', '9:30',
 ] as const
+
+const KNOWN_BOOKING_SITES = ['chillnn', 'booking.com', 'expedia'] as const
 
 // --- Firestoreドキュメントのバリデーションスキーマ ---
 // 基本フィールド: ZodError になりうる（= FIRESTORE_DATA_CORRUPTION の対象）
@@ -58,26 +63,109 @@ const FirestoreReservationSchema = z.object({
   timetable_info: z.unknown().optional(),
 })
 
+const MailMemoEntrySchema = z.object({
+  month: z.string(),
+  day: z.string(),
+  name: z.string(),
+  summary: z.string(),
+  text: z.string(),
+  source: z.string(),
+}).transform((v): MailMemoEntry => v)
+
 export const firestoreReservationRepository: ReservationRepository = {
   async fetchByDateRange(from, to) {
-    try {
+    return withFirestoreError(async () => {
       const snapshot = await adminDb
         .collection('guestInfoV2')
         .where('check_in_date', '>=', toFirestoreDate(from))
         .where('check_in_date', '<=', toFirestoreDate(to))
         .get()
-
       return snapshot.docs.map((doc) => toReservation(doc.id, doc.data()))
-    } catch (e) {
-      if (e instanceof InfraError) throw e
-
-      const code = (e as { code?: number }).code
-      if (code === 14) throw new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unreachable', e)
-      if (code === 7) throw new InfraError('FIRESTORE_PERMISSION', 'Firestore permission denied', e)
-
-      throw new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unknown error', e)
-    }
+    })
   },
+
+  async fetchByMonth(year, month) {
+    return withFirestoreError(async () => {
+      const from = `${year}/${String(month).padStart(2, '0')}/01`
+      const nextMonth = month === 12
+        ? `${year + 1}/01/01`
+        : `${year}/${String(month + 1).padStart(2, '0')}/01`
+      const snapshot = await adminDb
+        .collection('guestInfoV2')
+        .where('check_in_date', '>=', from)
+        .where('check_in_date', '<', nextMonth)
+        .get()
+      return snapshot.docs.map((doc) => toReservation(doc.id, doc.data()))
+    })
+  },
+
+  async cancelReservation(id, mailMemoEntry) {
+    return withFirestoreError(async () => {
+      await adminDb.collection('guestInfoV2').doc(id).update({
+        cancel: 1,
+        mail_memo: FieldValue.arrayUnion(mailMemoEntry),
+      })
+    })
+  },
+
+  async restoreReservation(id, mailMemoEntry) {
+    return withFirestoreError(async () => {
+      await adminDb.collection('guestInfoV2').doc(id).update({
+        cancel: 0,
+        mail_memo: FieldValue.arrayUnion(mailMemoEntry),
+      })
+    })
+  },
+
+  async addReservation(input: NewReservationInput) {
+    return withFirestoreError(async () => {
+      const reservationNumber = uuidv7()
+      await adminDb.collection('guestInfoV2').add({
+        reservation_number: reservationNumber,
+        check_in_date: toFirestoreDate(input.check_in_date),
+        check_out_date: toFirestoreDate(input.check_out_date),
+        room: input.room,
+        adult_count: input.adult_count,
+        child_count: input.child_count,
+        guest_name: input.guest_name,
+        booking_site: input.booking_site,
+        cancel: 0,
+        source: 'manual',
+        mail_memo: [],
+      })
+      return reservationNumber
+    })
+  },
+
+  async updateReservation(id, patch: ReservationPatch) {
+    if (Object.keys(patch).length === 0) return
+    return withFirestoreError(async () => {
+      await adminDb.collection('guestInfoV2').doc(id).update(patch as FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData>)
+    })
+  },
+
+  async updateATaxReceived(id, received, staffName) {
+    return withFirestoreError(async () => {
+      await adminDb.collection('guestInfoV2').doc(id).update({
+        a_tax_received: received,
+        a_tax_received_by_staff_name: staffName,
+      })
+    })
+  },
+}
+
+// --- ユーティリティ ---
+
+async function withFirestoreError<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn()
+  } catch (e) {
+    if (e instanceof InfraError) throw e
+    const code = (e as { code?: number }).code
+    if (code === 14) throw new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unreachable', e)
+    if (code === 7) throw new InfraError('FIRESTORE_PERMISSION', 'Firestore permission denied', e)
+    throw new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unknown error', e)
+  }
 }
 
 // YYYY-MM-DD → YYYY/MM/DD（Firestoreのフォーマットに合わせる）
@@ -90,6 +178,13 @@ function toIsoDate(date: string): string {
   return date.replace(/\//g, '-')
 }
 
+function normalizeBookingSite(raw: unknown): BookingSite {
+  if (typeof raw !== 'string') return 'other'
+  const lower = raw.toLowerCase()
+  return (KNOWN_BOOKING_SITES as ReadonlyArray<string>).includes(lower)
+    ? (lower as BookingSite)
+    : 'other'
+}
 
 /**
  * 配列フィールドの正規化
@@ -127,27 +222,6 @@ const isOpenAirBathTime = (v: unknown): v is OpenAirBathTimeValue =>
 
 const isString = (v: unknown): v is string => typeof v === 'string'
 
-const KNOWN_BOOKING_SITES = ['chillnn', 'booking.com', 'expedia'] as const
-import type { BookingSite } from '@/types/guestInfo'
-import type { MailMemoEntry } from '@/types/guestInfo'
-
-function normalizeBookingSite(raw: unknown): BookingSite {
-  if (typeof raw !== 'string') return 'other'
-  const lower = raw.toLowerCase()
-  return (KNOWN_BOOKING_SITES as ReadonlyArray<string>).includes(lower)
-    ? (lower as BookingSite)
-    : 'other'
-}
-
-const MailMemoEntrySchema = z.object({
-  month: z.string(),
-  day: z.string(),
-  name: z.string(),
-  summary: z.string(),
-  text: z.string(),
-  source: z.string(),
-}).transform((v): MailMemoEntry => v)
-
 function toReservation(id: string, data: FirebaseFirestore.DocumentData): Reservation {
   try {
     const parsed = FirestoreReservationSchema.parse(data)
@@ -171,7 +245,6 @@ function toReservation(id: string, data: FirebaseFirestore.DocumentData): Reserv
       breakfast_time: normalizeArray(parsed.breakfast_time, nights, isBreakfastTime, null),
       open_air_bath_time: normalizeArray(parsed.open_air_bath_time, nights, isOpenAirBathTime, null),
       timetable_info: normalizeArray(parsed.timetable_info, nights, isString, ''),
-      // --- guestInfo / a_tax_table フィールド（ステップ11で本格実装） ---
       reservation_number: z.string().catch('').parse(data.reservation_number ?? ''),
       booking_site: normalizeBookingSite(data.booking_site),
       mail_memo: z.array(z.unknown()).catch([]).parse(data.mail_memo ?? []).flatMap((entry) => {
