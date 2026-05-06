@@ -3,15 +3,14 @@ import { notifySlackFireAndForget } from '@/lib/slack'
 import type { MailMemoEntry } from '@/types/guestInfo'
 
 type CancelInput = {
-  id: string
-  reservationNumber: string // Slack通知用（空なら "(番号なし)"）
+  id: string           // Firestore doc ID = reservation_number
   guestName: string
-  targetDate: string // YYYY-MM-DD（メールログの month/day に使用）
+  targetDate: string   // YYYY-MM-DD（メールログの month/day に使用）
   reason: string
 }
 
 export async function cancelReservationCommand(input: CancelInput): Promise<void> {
-  const { id, reservationNumber, guestName, targetDate, reason } = input
+  const { id, guestName, targetDate, reason } = input
   const [, mm, dd] = targetDate.split('-')
 
   const mailMemoEntry: MailMemoEntry = {
@@ -24,7 +23,5 @@ export async function cancelReservationCommand(input: CancelInput): Promise<void
   }
 
   await firestoreReservationRepository.cancelReservation(id, mailMemoEntry)
-
-  const number = reservationNumber || '(番号なし)'
-  notifySlackFireAndForget(`[キャンセル] ${number} - 理由: ${reason}`)
+  notifySlackFireAndForget(`[キャンセル] ${id} - 理由: ${reason}`)
 }

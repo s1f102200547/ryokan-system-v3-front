@@ -3,15 +3,14 @@ import { notifySlackFireAndForget } from '@/lib/slack'
 import type { MailMemoEntry } from '@/types/guestInfo'
 
 type RestoreInput = {
-  id: string
-  reservationNumber: string
+  id: string           // Firestore doc ID = reservation_number
   guestName: string
-  targetDate: string // YYYY-MM-DD
+  targetDate: string   // YYYY-MM-DD
   reason: string
 }
 
 export async function restoreReservationCommand(input: RestoreInput): Promise<void> {
-  const { id, reservationNumber, guestName, targetDate, reason } = input
+  const { id, guestName, targetDate, reason } = input
   const [, mm, dd] = targetDate.split('-')
 
   const mailMemoEntry: MailMemoEntry = {
@@ -24,7 +23,5 @@ export async function restoreReservationCommand(input: RestoreInput): Promise<vo
   }
 
   await firestoreReservationRepository.restoreReservation(id, mailMemoEntry)
-
-  const number = reservationNumber || '(番号なし)'
-  notifySlackFireAndForget(`[予約復活] ${number} - 理由: ${reason}`)
+  notifySlackFireAndForget(`[予約復活] ${id} - 理由: ${reason}`)
 }
