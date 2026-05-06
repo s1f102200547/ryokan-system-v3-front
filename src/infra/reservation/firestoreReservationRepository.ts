@@ -52,6 +52,7 @@ const FirestoreReservationSchema = z.object({
   arrival_time: z.enum(ARRIVAL_TIME_VALUES).nullable().default(null).catch(null),
   // 配列フィールドは unknown で受け取り、normalizeArray で処理
   dinner_time: z.unknown().optional(),
+  dinner_info: z.unknown().optional(),
   breakfast_time: z.unknown().optional(),
   open_air_bath_time: z.unknown().optional(),
   timetable_info: z.unknown().optional(),
@@ -126,6 +127,27 @@ const isOpenAirBathTime = (v: unknown): v is OpenAirBathTimeValue =>
 
 const isString = (v: unknown): v is string => typeof v === 'string'
 
+const KNOWN_BOOKING_SITES = ['chillnn', 'booking.com', 'expedia'] as const
+import type { BookingSite } from '@/types/guestInfo'
+import type { MailMemoEntry } from '@/types/guestInfo'
+
+function normalizeBookingSite(raw: unknown): BookingSite {
+  if (typeof raw !== 'string') return 'other'
+  const lower = raw.toLowerCase()
+  return (KNOWN_BOOKING_SITES as ReadonlyArray<string>).includes(lower)
+    ? (lower as BookingSite)
+    : 'other'
+}
+
+const MailMemoEntrySchema = z.object({
+  month: z.string(),
+  day: z.string(),
+  name: z.string(),
+  summary: z.string(),
+  text: z.string(),
+  source: z.string(),
+}).transform((v): MailMemoEntry => v)
+
 function toReservation(id: string, data: FirebaseFirestore.DocumentData): Reservation {
   try {
     const parsed = FirestoreReservationSchema.parse(data)
@@ -145,9 +167,28 @@ function toReservation(id: string, data: FirebaseFirestore.DocumentData): Reserv
       guest_name: parsed.guest_name,
       arrival_time: parsed.arrival_time,
       dinner_time: normalizeArray(parsed.dinner_time, nights, isDinnerTime, 'NONE' as DinnerTimeValue),
+      dinner_info: normalizeArray(parsed.dinner_info, nights, isString, ''),
       breakfast_time: normalizeArray(parsed.breakfast_time, nights, isBreakfastTime, null),
       open_air_bath_time: normalizeArray(parsed.open_air_bath_time, nights, isOpenAirBathTime, null),
       timetable_info: normalizeArray(parsed.timetable_info, nights, isString, ''),
+      // --- guestInfo / a_tax_table フィールド（ステップ11で本格実装） ---
+      reservation_number: z.string().catch('').parse(data.reservation_number ?? ''),
+      booking_site: normalizeBookingSite(data.booking_site),
+      mail_memo: z.array(z.unknown()).catch([]).parse(data.mail_memo ?? []).flatMap((entry) => {
+        const result = MailMemoEntrySchema.safeParse(entry)
+        return result.success ? [result.data] : []
+      }),
+      a_tax_received: z.boolean().catch(false).parse(data.a_tax_received ?? false),
+      a_tax_received_by_staff_name: z.string().max(100).catch('').parse(data.a_tax_received_by_staff_name ?? ''),
+      check_in_staff_name: z.string().max(100).catch('').parse(data.check_in_staff_name ?? ''),
+      country: z.string().max(100).catch('').parse(data.country ?? ''),
+      city: z.string().max(100).catch('').parse(data.city ?? ''),
+      age_groups: normalizeArray(data.age_groups, parsed.adult_count, isString, ''),
+      group_type: z.string().catch('').parse(data.group_type ?? ''),
+      purpose: z.string().catch('').parse(data.purpose ?? ''),
+      tourism_type: z.string().catch('').parse(data.tourism_type ?? ''),
+      profession: z.string().catch('').parse(data.profession ?? ''),
+      other_note: z.string().catch('').parse(data.other_note ?? ''),
     }
   } catch (e) {
     if (e instanceof ZodError) {
