@@ -676,30 +676,77 @@ src/components/aTaxTable/
 
 ## 実装順序
 
+AGENTS.md の方針: **E2E → domain unit test → domain → infra → application → hooks → integration test → UI**
+
 ```
+【準備】
 1.  パッケージ確認・追加（uuid, world-countries）
 2.  public/icons/ にアイコンをコピー（reference/v2/assets/icons/*.png）
-3.  e2e/guestInfo.spec.ts（空スケルトン）
-4.  src/constants/guestInfo.ts（A_TAX_RATE + 全選択肢 + DINNER定数を一元化）
+
+【E2E（最初に作成 → 実装後に通す）】
+3.  e2e/guestInfo.spec.ts（上記プランの具体的テストコードで作成）
+4.  e2e/atax.spec.ts（上記プランの具体的テストコードで作成）
+
+【型・定数】
+5.  src/constants/guestInfo.ts（A_TAX_RATE + 全選択肢 + DINNER定数を一元化）
     ※ src/constants/timetable.ts との重複確認・統合
-5.  src/types/guestInfo.ts（新規）
-6.  src/types/reservation.ts（フィールド追加）
-7.  domain unit test → src/domain/reservation/bookingSitePolicy.ts
-8.  domain unit test → src/domain/reservation/nightArrays.ts
-9.  src/domain/ports/reservationRepository.ts（メソッド追加）
-10. src/infra/reservation/firestoreReservationRepository.ts（読み取り + 書き込み）
-11. src/application/guestInfo/getGuestInfoUseCase.ts
-12. src/application/guestInfo/*Command.ts（cancel/restore/add/update）
-13. src/application/aTaxTable/getATaxTableUseCase.ts
-14. API Routes + integration tests（7本）
-15. Hooks（7本）
-16. UI: DailyDashboard印刷ボタン移動
-17. UI: GuestInfoSection + ReservationListCard + AddReservationCard
-18. UI: CancelledSection
-19. UI: ReservationModal（CardSet1 + CardSet2）
-20. UI: AddReservationDialog / CancelDialog / RestoreDialog
-21. src/app/a_tax_table/ ページ + ATaxTable コンポーネント群
-22. docs/Schema/Reservations.md に新フィールドを追記
+6.  src/types/guestInfo.ts（新規: BookingSite, MailMemoEntry, NewReservationInput, ReservationPatch）
+7.  src/types/reservation.ts（フィールド追加: 14フィールド）
+
+【Domain】
+8.  domain unit test → src/domain/reservation/bookingSitePolicy.ts
+9.  domain unit test → src/domain/reservation/nightArrays.ts
+10. src/domain/ports/reservationRepository.ts（メソッド追加: 6本）
+
+【Infra】
+11. src/infra/reservation/firestoreReservationRepository.ts
+    - FirestoreReservationSchema に新フィールド追加
+    - toReservation() に新フィールド追加
+    - 書き込みメソッド追加（cancel/restore/add/update/updateATaxReceived/fetchByMonth）
+
+【Application】
+12. src/application/guestInfo/getGuestInfoUseCase.ts
+13. src/application/guestInfo/cancelReservationCommand.ts
+14. src/application/guestInfo/restoreReservationCommand.ts
+15. src/application/guestInfo/addReservationCommand.ts
+16. src/application/guestInfo/updateReservationCommand.ts
+17. src/application/aTaxTable/getATaxTableUseCase.ts
+
+【API Routes + Integration Tests】
+18. GET  /api/guest-info + route.test.ts
+19. POST /api/reservations + route.test.ts
+20. PATCH /api/reservations/[id] + route.test.ts          ← auto-save
+21. PATCH /api/reservations/[id]/cancel + route.test.ts
+22. PATCH /api/reservations/[id]/restore + route.test.ts
+23. GET  /api/a-tax-table + route.test.ts
+24. PATCH /api/reservations/[id]/a-tax + route.test.ts
+
+【Hooks】
+25. hooks/guestInfo/useGuestInfo.ts
+26. hooks/guestInfo/useUpdateReservation.ts               ← auto-save用
+27. hooks/guestInfo/useCancelReservation.ts
+28. hooks/guestInfo/useRestoreReservation.ts
+29. hooks/guestInfo/useAddReservation.ts
+30. hooks/aTaxTable/useATaxTable.ts
+31. hooks/aTaxTable/useUpdateATaxReceived.ts
+
+【UI — daily-dashboard】
+32. DailyDashboard.tsx: 印刷ボタンをIconButtonに移動
+33. GuestInfoSection.tsx + ReservationListCard.tsx + AddReservationCard.tsx
+34. CancelledSection.tsx
+35. ReservationModal.tsx（2タブ骨格 + pendingPayloadRef auto-save）
+36. CardSet1: ReservationCardSet1.tsx + ReservationEditorList.tsx + MailMemo.tsx
+37. CardSet2: ReservationCardSet2.tsx（TaxSection + MarketingSection）
+38. AddReservationDialog.tsx
+39. CancelDialog.tsx + RestoreDialog.tsx
+
+【UI — /a_tax_table】
+40. src/app/a_tax_table/page.tsx
+41. ATaxTable.tsx + MonthSelector.tsx + ReservationTable.tsx + BalanceDisplay.tsx
+
+【後処理】
+42. docs/Schema/Reservations.md に新フィールドを追記
+43. npm run lint && npx vitest run && npm run build で最終確認
 ```
 
 ## Review.md 対応チェックリスト（計画段階で考慮済み）
