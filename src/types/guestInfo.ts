@@ -22,11 +22,11 @@ export type NewReservationInput = {
   add_reason: string     // Slack通知にのみ使用、Firestoreには保存しない
 }
 
-// a_tax_table の 3フィールド独立更新ペイロード
+// a_tax_table の per-reservation 更新ペイロード（checkbox + 徴収スタッフ名）
+// 締めスタッフ名（safeBalanceChecker）は daily/{YYYY-MM-DD} に保存するため別途処理
 export type ATaxPatch = Partial<{
   a_tax_received: boolean
-  a_tax_received_by_staff_name: string  // 徴収したスタッフ名
-  a_tax_closing_staff_name: string      // 締めスタッフ名（金庫照合確認者）
+  a_tax_received_by_staff_name: string
 }>
 
 // モーダルの保存ペイロード（部分更新）
@@ -47,7 +47,6 @@ export type ReservationPatch = Partial<{
   mail_memo: MailMemoEntry[]
   a_tax_received: boolean
   a_tax_received_by_staff_name: string
-  a_tax_closing_staff_name: string
   check_in_staff_name: string
   country: string
   city: string

@@ -6,7 +6,6 @@ import { getSession, handleRouteError } from '@/lib/api/routeHelpers'
 const BodySchema = z.object({
   a_tax_received: z.boolean().optional(),
   a_tax_received_by_staff_name: z.string().max(100).optional(),
-  a_tax_closing_staff_name: z.string().max(100).optional(),
 }).refine((d) => Object.keys(d).length > 0, { message: 'patch must not be empty' })
 
 export async function PATCH(

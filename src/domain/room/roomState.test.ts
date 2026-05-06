@@ -26,7 +26,6 @@ function makeReservation(overrides: Partial<Reservation>): Reservation {
     mail_memo: [],
     a_tax_received: false,
     a_tax_received_by_staff_name: '',
-    a_tax_closing_staff_name: '',
     check_in_staff_name: '',
     country: '',
     city: '',

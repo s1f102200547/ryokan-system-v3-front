@@ -57,14 +57,8 @@ describe('PATCH /api/reservations/[id]/a-tax', () => {
     expect(mockRepo.updateATax).toHaveBeenCalledWith('doc1', { a_tax_received_by_staff_name: 'スタッフA' })
   })
 
-  it('締めスタッフ名のみ更新で200', async () => {
-    const res = await PATCH(makeRequest({ a_tax_closing_staff_name: '締めスタッフB' }), { params })
-    expect(res.status).toBe(200)
-    expect(mockRepo.updateATax).toHaveBeenCalledWith('doc1', { a_tax_closing_staff_name: '締めスタッフB' })
-  })
-
-  it('3フィールド同時更新で200', async () => {
-    const body = { a_tax_received: true, a_tax_received_by_staff_name: 'A', a_tax_closing_staff_name: 'B' }
+  it('2フィールド同時更新で200', async () => {
+    const body = { a_tax_received: true, a_tax_received_by_staff_name: 'スタッフA' }
     const res = await PATCH(makeRequest(body), { params })
     expect(res.status).toBe(200)
     expect(mockRepo.updateATax).toHaveBeenCalledWith('doc1', body)

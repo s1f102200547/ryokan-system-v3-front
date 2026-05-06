@@ -253,7 +253,6 @@ function toReservation(id: string, data: FirebaseFirestore.DocumentData): Reserv
       }),
       a_tax_received: z.boolean().catch(false).parse(data.a_tax_received ?? false),
       a_tax_received_by_staff_name: z.string().max(100).catch('').parse(data.a_tax_received_by_staff_name ?? ''),
-      a_tax_closing_staff_name: z.string().max(100).catch('').parse(data.a_tax_closing_staff_name ?? ''),
       check_in_staff_name: z.string().max(100).catch('').parse(data.check_in_staff_name ?? ''),
       country: z.string().max(100).catch('').parse(data.country ?? ''),
       city: z.string().max(100).catch('').parse(data.city ?? ''),
