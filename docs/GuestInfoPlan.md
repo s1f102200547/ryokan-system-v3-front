@@ -745,8 +745,11 @@ AGENTS.md の方針: **E2E → domain unit test → domain → infra → applica
 41. ATaxTable.tsx + MonthSelector.tsx + ReservationTable.tsx + BalanceDisplay.tsx
 
 【後処理】
-42. docs/Schema/Reservations.md に新フィールドを追記
-43. npm run lint && npx vitest run && npm run build で最終確認
+42. e2e/guestInfo.spec.ts,e2e/atax.spec.tsが通るか確認
+43. docs/Schema/Reservations.md に新フィールドを追記
+44. npm run lint && npx vitest run && npm run build で最終確認
+45. GuestInfo.mdとGuestInfoplan.mdを削除(実装後は当初の計画とずれる可能性が高いので後で作り直す)
+45. Review.md に 沿ってコードレビュー
 ```
 
 ## Review.md 対応チェックリスト（計画段階で考慮済み）
