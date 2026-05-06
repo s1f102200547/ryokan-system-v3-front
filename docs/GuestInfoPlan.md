@@ -1,35 +1,9 @@
 # GuestInfo / a_tax_table 全体実装計画
 
-## ステージング中の新規ファイル
-
-```
-reference/v2/GuestInfo/csvUtils.js          # CSV出力（taxカラムあり）
-reference/v2/GuestInfo/dinnerTime.js        # DINNER定数（NONE/CANCEL/PENDING/時刻）
-reference/v2/GuestInfo/normalizeDinnerTime.js # dinner_time正規化関数
-reference/v2/GuestInfo/reservationOptions.js  # 全selectの選択肢 + world-countriesパッケージ
-reference/v2/assets/icons/*.png             # UI用アイコン10種
-  adultAndChild, door, info, landing, onsen, pen, rice, sleep, sukiyaki, takeOf
-```
-
----
-
 ## Context
 
-`docs/GuestInfo.md` に基づき `/daily-dashboard` へのguestInfo追加・キャンセル/復活/手動追加機能・`/a_tax_table` を実装する。
+`docs/GuestInfo.md` に基づき `/daily-dashboard` へのguestInfo追加・キャンセル/復活/手動予約追加機能・`/a_tax_table` を実装する。
 v2コードはUI/UXの参考のみ。v3アーキテクチャ（Layered Architecture + Repository Pattern）で設計し直す。
-
----
-
-## 0. パッケージ追加（実装前に確認）
-
-```bash
-npm install uuid          # UUID v7生成
-npm install world-countries  # 国名選択肢（reservationOptions参照）
-```
-
-- `uuid` は既にインストール済みの可能性あり → `package.json` で確認してから追加
-- `world-countries` は未インストールと想定
-
 ---
 
 ## 0. 決定事項
@@ -44,8 +18,19 @@ npm install world-countries  # 国名選択肢（reservationOptions参照）
 | モーダル保存 | auto saving（debounce 500ms、pendingPayloadRef蓄積方式）。保存ボタンなし |
 | キャンセル/復活/新規追加 | 明示的ボタン操作のみ（非auto-save） |
 | a_tax_table チェックボックス | 即時保存（debounce 0ms） |
-| `reservation_number`（手動追加） | UUID v7（`uuid` パッケージ） |
-| unit test | domain層のみ。infra層はテスト不要 |
+| `reservation_number`（手動予約追加時） | UUID v7（`uuid` パッケージ） |
+
+---
+
+## 0. 既存方針踏襲
+
+```
+Unit test（Domain層）  ← 「最も多く書く」
+Integration test       ← 「Route Handler（API）の"入口->出口"を検証」
+E2E test（Playwright） ← 「重要フローのみ」
+```
+
+ 機能ごとに E2E → domainの unit test -> domain → infra → application → hooks → integration test -> UI の順で縦断実装
 
 ---
 
@@ -170,11 +155,15 @@ age_groups: normalizeArray(parsed.age_groups, parsed.adult_count, isString, ''),
 
 ---
 
+## 2. ユーザーフロー
+
+### Step 1: E2E事前作成
+
+- AGENTS.mdの開発方針に従い、開発者とAI Agent の認識確認のために最初にE2Eテストを作成する。
+- `e2e/guestInfo.spec.ts` 
+- `e2e/atax.spec.ts` 
+
 ## 2. Domain層
-
-### Step 1: E2Eスケルトン
-
-`e2e/guestInfo.spec.ts` — 空ファイル（プレースホルダー）
 
 ### Step 2: domain unit test → 実装
 
