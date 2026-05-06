@@ -62,6 +62,60 @@ export const ageOptions = [...]
 
 既存 `src/constants/timetable.ts` の `ARRIVAL_TIME_VALUES` などと重複しないよう確認すること。
 
+**マーケティング情報の選択肢一覧（`reference/v2/GuestInfo/reservationOptions.js` より）:**
+
+```typescript
+// グループ種別
+export const groupOptions = [
+  { value: '',             label: '不明'    },
+  { value: 'couple',       label: 'カップル' },
+  { value: 'married',      label: '夫婦'    },
+  { value: 'parent_child', label: '親子'    },
+  { value: 'friends',      label: '友達'    },
+  { value: 'coworker',     label: '同僚'    },
+  { value: 'other',        label: 'その他'  },
+]
+
+// 来訪目的
+export const purposeOptions = [
+  { value: '',         label: '不明'     },
+  { value: 'tourism',  label: '観光'     },
+  { value: 'business', label: 'ビジネス' },
+]
+
+// 観光種別（purpose === 'tourism' のとき表示）
+export const tourismOptions = [
+  { value: '',            label: '未選択'     },
+  { value: 'normal',      label: '普通の観光' },
+  { value: 'honeymoon',   label: 'ハネムーン' },
+  { value: 'birthday',    label: '誕生日'     },
+  { value: 'anniversary', label: '結婚記念日' },
+]
+
+// 年齢層（adult_count 人分、各人に1つ選択）
+export const ageOptions = [
+  { value: '',     label: '未選択' },
+  { value: '~10',  label: '〜10歳' },
+  { value: '10s',  label: '10代'   },
+  { value: '20s',  label: '20代'   },
+  { value: '30s',  label: '30代'   },
+  { value: '40s',  label: '40代'   },
+  { value: '50s',  label: '50代'   },
+  { value: '60s',  label: '60代'   },
+  { value: '70~',  label: '70代〜' },
+]
+
+// 国籍（world-countries から生成。優先表示国リスト）
+const priorityCountryCodes = [
+  'US','FR','JP','GB','IT','KR','CA','CN','DE','ES',
+  'CH','AU','PL','RO','RU','AT','BE','DK','NZ','BR',
+  'SG','NL','NO','SA','TW','MX','ZA','AR','FI','HK',
+  'HR','ID','IE','IL','IN','LV','MY','PH','PT','SK','TH',
+]
+// TW は '台湾' に上書き（デフォルト「中華民国」）
+// export const countryOptions = [{ value: '', label: '不明' }, ...prioritized, ...remaining]
+```
+
 ---
 
 ### 新規 `src/types/guestInfo.ts`
@@ -159,9 +213,129 @@ age_groups: normalizeArray(parsed.age_groups, parsed.adult_count, isString, ''),
 
 ### Step 1: E2E事前作成
 
-- AGENTS.mdの開発方針に従い、開発者とAI Agent の認識確認のために最初にE2Eテストを作成する。
-- `e2e/guestInfo.spec.ts` 
-- `e2e/atax.spec.ts` 
+AGENTS.mdの開発方針に従い、開発者とAI Agentの認識確認のために最初にE2Eテストを作成する。
+既存の `e2e/` パターン（auth.setup.ts, storageState.json）を踏襲する。
+
+#### `e2e/guestInfo.spec.ts`
+
+```typescript
+import { test, expect } from '@playwright/test'
+
+// 認証済みセッション前提（storageState利用）
+test.use({ storageState: 'playwright/.auth/user.json' })
+
+test.describe('GuestInfo - 予約一覧表示', () => {
+  test('選択日のC/I予約カードが表示される', async ({ page }) => {
+    await page.goto('/daily-dashboard')
+    // 予約カード（room + guest_name）が存在することを確認
+    await expect(page.getByTestId('reservation-card')).toBeVisible()
+  })
+
+  test('キャンセル予約が通常予約の下部に表示される', async ({ page }) => {
+    await page.goto('/daily-dashboard')
+    await expect(page.getByTestId('cancelled-section')).toBeVisible()
+  })
+})
+
+test.describe('GuestInfo - モーダル（auto-save）', () => {
+  test('予約カードクリックでモーダルが開く', async ({ page }) => {
+    await page.goto('/daily-dashboard')
+    await page.getByTestId('reservation-card').first().click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+  })
+
+  test('C/I前タブ: テキスト入力後にSavedインジケーターが表示される', async ({ page }) => {
+    await page.goto('/daily-dashboard')
+    await page.getByTestId('reservation-card').first().click()
+    await page.getByLabel('ゲスト名').fill('テスト太郎')
+    // debounce後にSaved表示
+    await expect(page.getByText('Saved')).toBeVisible({ timeout: 3000 })
+  })
+
+  test('C/I後タブ: a_tax_received チェックボックスの変更が自動保存される', async ({ page }) => {
+    await page.goto('/daily-dashboard')
+    await page.getByTestId('reservation-card').first().click()
+    await page.getByRole('tab', { name: 'C/I後' }).click()
+    await page.getByLabel('受領済み').click()
+    await expect(page.getByText('Saved')).toBeVisible({ timeout: 3000 })
+  })
+
+  test('モーダルを閉じて再度開いたとき変更が反映されている', async ({ page }) => {
+    // flush + revalidate の確認
+    await page.goto('/daily-dashboard')
+    await page.getByTestId('reservation-card').first().click()
+    await page.getByLabel('ゲスト名').fill('フラッシュ確認')
+    await page.getByRole('button', { name: '閉じる' }).click()
+    await page.getByTestId('reservation-card').first().click()
+    await expect(page.getByLabel('ゲスト名')).toHaveValue('フラッシュ確認')
+  })
+})
+
+test.describe('GuestInfo - キャンセル（非auto-save）', () => {
+  test('キャンセルダイアログが2段階（確認 → 理由入力）で表示される', async ({ page }) => {
+    await page.goto('/daily-dashboard')
+    await page.getByTestId('cancel-button').first().click()
+    await expect(page.getByText('キャンセルしますか')).toBeVisible()
+    await page.getByRole('button', { name: '続ける' }).click()
+    await expect(page.getByLabel('キャンセル理由')).toBeVisible()
+  })
+})
+
+test.describe('GuestInfo - 新規追加（非auto-save）', () => {
+  test('＋カードクリックで追加ダイアログが開く', async ({ page }) => {
+    await page.goto('/daily-dashboard')
+    await page.getByTestId('add-reservation-card').click()
+    await expect(page.getByRole('dialog', { name: '新規予約' })).toBeVisible()
+  })
+
+  test('必須項目未入力時は作成ボタンが無効', async ({ page }) => {
+    await page.goto('/daily-dashboard')
+    await page.getByTestId('add-reservation-card').click()
+    await expect(page.getByRole('button', { name: '作成' })).toBeDisabled()
+  })
+})
+```
+
+#### `e2e/atax.spec.ts`
+
+```typescript
+import { test, expect } from '@playwright/test'
+
+test.use({ storageState: 'playwright/.auth/user.json' })
+
+test.describe('ATaxTable - 表示', () => {
+  test('ページが表示され予約行が存在する', async ({ page }) => {
+    await page.goto('/a_tax_table')
+    await expect(page.getByRole('table')).toBeVisible()
+  })
+
+  test('月切り替えで表示が更新される', async ({ page }) => {
+    await page.goto('/a_tax_table')
+    await page.getByRole('button', { name: '先月' }).click()
+    await expect(page.getByRole('table')).toBeVisible()
+  })
+})
+
+test.describe('ATaxTable - チェックボックス（即時保存）', () => {
+  test('受領済みチェックを切り替えると即時反映される', async ({ page }) => {
+    await page.goto('/a_tax_table')
+    const checkbox = page.getByRole('checkbox', { name: '受領済み' }).first()
+    const before = await checkbox.isChecked()
+    await checkbox.click()
+    // リロード後も反映されていること
+    await page.reload()
+    const after = page.getByRole('checkbox', { name: '受領済み' }).first()
+    await expect(after).toBeChecked({ checked: !before })
+  })
+})
+
+test.describe('ATaxTable - CSV出力', () => {
+  test('CSVダウンロードボタンが存在する', async ({ page }) => {
+    await page.goto('/a_tax_table')
+    await expect(page.getByRole('button', { name: /CSV/ })).toBeVisible()
+  })
+})
+```
 
 ## 2. Domain層
 
@@ -551,7 +725,7 @@ src/components/aTaxTable/
 ### UI（error / loading状態）
 - 各hookは `{ data, isLoading, error: string | null }` を返す
 - 書き込みhookは `{ execute, isPending, error: string | null }` を返す
-- モーダルの保存中は保存ボタンを `disabled` + `CircularProgress`
+- モーダルの保存中は `Saving...` インジケーターをヘッダーに表示（保存ボタンなし）
 - ダイアログのエラーはダイアログ内にインライン表示（Alertコンポーネント）
 - GuestInfoSection のエラー/ローディングはdaily-dashboard内に表示
 
