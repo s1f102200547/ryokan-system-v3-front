@@ -744,12 +744,73 @@ AGENTS.md の方針: **E2E → domain unit test → domain → infra → applica
 40. src/app/a_tax_table/page.tsx
 41. ATaxTable.tsx + MonthSelector.tsx + ReservationTable.tsx + BalanceDisplay.tsx
 
+【UI・UX ブラッシュアップ】
+
+# A. バグ修正（最優先）
+42. MailMemo.tsx: メールメモのテキスト編集時にエラーが発生するバグを修正
+
+# B. /a_tax_table 修正
+43. MonthSelector.tsx: 月表示からyear（年）を削除し月のみ表示にする
+44. ATaxTable.tsx: filterスイッチを削除（常に全件表示）
+
+# C. GuestInfoSection / カード表示
+45. GuestInfoSection.tsx: 部屋番号が若い順（昇順）にカードを左から並べる
+46. GuestInfoSection.tsx: ローディング中スピナーをページ中央表示に変更
+47. GuestInfoSection.tsx: キャンセル成功・新規追加成功時に右下 Snackbar で通知（"キャンセルしました" / "予約を追加しました"）
+48. CancelledSection.tsx + ReservationListCard.tsx:
+    - キャンセル済みカードを通常カードの半分サイズ（60×60px）で表示
+    - room を非表示、guest_name と復帰アイコンのみ表示
+    - 復帰アイコンを UpgradeIcon（`@mui/icons-material/Upgrade`）に変更
+49. ReservationListCard.tsx + AddReservationCard.tsx:
+    - キャンセルボタン・復帰ボタン・追加カードに Tooltip を追加し、ホバー時にアクション説明を表示
+      - キャンセルボタン: "キャンセル"
+      - 復帰ボタン: "キャンセル復帰"
+      - 追加カード: "新規予約追加"
+
+# D. ダイアログ改善
+50. CancelDialog.tsx: 確認ステップ（"はい/戻る"）を廃止し、ダイアログ表示直後からキャンセル理由入力画面を表示
+51. AddReservationDialog.tsx:
+    - フィールドレイアウトを2列グリッドに変更（追加理由のみ全幅・最下部）
+    - C/O日入力を DatePicker（カレンダーアイコン+カレンダー選択）に変更
+
+# E. ReservationModal 改善
+52. ReservationModal.tsx:
+    - ヘッダー縦幅を縮小（minHeight 48→32px 相当）
+    - バツアイコンを大きく表示・クリック/ホバー範囲を拡大（padding 増加）
+    - room 表示を太字でなく guest_name と同スタイルに変更
+    - C/I前・後タブにホバースタイルを追加
+53. ReservationModal.tsx + useUpdateReservation.ts:
+    - 保存失敗時のエラーを右下 Snackbar で表示（一定時間後に自動で消える）
+    - ヘッダー内の既存エラーテキスト表示を削除
+54. ReservationModal.tsx: テキスト入力中のタイピング体験改善
+    - TextField の onChange でdebounceをリセットしない（入力中は保存しない）
+    - 代わりに onBlur でも即時 flush する（フォーカスを外した瞬間に保存）
+
+# F. CardSet1（C/I前タブ）改善
+55. ReservationCardSet1.tsx: 左カラム幅を 30%→20% に縮小し右カラム（メールログ）を拡大
+56. ReservationEditorList.tsx:
+    - 展開フィールドのフォントサイズ・padding をより小さく（現 size="small" → さらにコンパクトに）
+    - timetable_info の TextField の minRows を 3 に変更
+    - room セレクトの未選択時ラベルを "未アサイン" に変更
+    - open_air_bath_time の未定ラベルを "未定" に変更（現状確認・修正）
+    - breakfast_time の未定ラベルを "未定" に変更（現状確認・修正）
+
+# G. CardSet2（C/I後タブ）改善
+57. ReservationCardSet2.tsx:
+    - マーケティング情報エリアのスクロールバーを白／透明に変更
+    - 宿泊税セクションの "（免除）" テキスト表示を削除
+    - a_tax_received_by_staff_name と check_in_staff_name のフィールドを
+      v2（ReservationCardSet2.sections.jsx）と同様の記入 UX に変更
+      （TextField を直接フォーム内に配置せずインライン編集スタイルに）
+    - マーケティング情報の各フィールドを3列グリッドに整列
+      （minWidth を統一し、その他 other_note はグリッド2列分の幅に変更）
+
 【後処理】
-42. e2e/guestInfo.spec.ts,e2e/atax.spec.tsが通るか確認
-43. docs/Schema/Reservations.md に新フィールドを追記
-44. npm run lint && npx vitest run && npm run build で最終確認
-45. GuestInfo.mdとGuestInfoplan.mdを削除(実装後は当初の計画とずれる可能性が高いので後で作り直す)
-45. Review.md に 沿ってコードレビュー
+58. e2e/guestInfo.spec.ts, e2e/atax.spec.ts が通るか確認
+59. docs/Schema/Reservations.md に新フィールドを追記
+60. npm run lint && npx vitest run && npm run build で最終確認
+61. GuestInfo.md と GuestInfoPlan.md を削除（実装後は内容が乖離するため後で作り直す）
+62. Review.md に沿ってコードレビュー
 ```
 
 ## Review.md 対応チェックリスト（計画段階で考慮済み）
