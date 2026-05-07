@@ -69,7 +69,7 @@ export function GuestInfoSection({ selectedDate }: Props) {
   return (
     <Box>
       {/* アクティブな予約カード列 */}
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, justifyContent: 'center' }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, justifyContent: 'center', mt: 10 }}>
         {normal.map((r) => (
           <ReservationListCard
             key={r.id}
