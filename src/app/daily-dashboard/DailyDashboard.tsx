@@ -44,27 +44,26 @@ export function DailyDashboard({ today }: Props) {
           '@media print': { display: 'none' },
         }}
       >
-        <IconButton onClick={goToPrevDay} size="small" aria-label="前日" data-testid="prev-day">
-          <NavigateBeforeIcon />
+        <IconButton onClick={goToPrevDay} aria-label="前日" data-testid="prev-day">
+          <NavigateBeforeIcon fontSize="medium" />
         </IconButton>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mx: 0.5 }}>
-          <Typography fontWeight="bold" data-testid="date-label">{dateLabel}</Typography>
-          <Typography variant="body2" color="text.secondary" data-testid="diff-label">
-            ({diffLabel})
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mx: 0.75 }}>
+          <Typography fontSize="1.15rem" data-testid="date-label">{dateLabel.replace('/', ' / ')}</Typography>
+          <Typography variant="body1" color="text.secondary" data-testid="diff-label">
+            ( {diffLabel} )
           </Typography>
         </Box>
 
-        <IconButton onClick={goToNextDay} size="small" aria-label="翌日" data-testid="next-day">
-          <NavigateNextIcon />
+        <IconButton onClick={goToNextDay} aria-label="翌日" data-testid="next-day">
+          <NavigateNextIcon fontSize="medium" />
         </IconButton>
 
         <IconButton
-          size="small"
           aria-label="日付を選択"
           onClick={(e) => setCalendarAnchor(e.currentTarget)}
         >
-          <CalendarMonthIcon fontSize="small" />
+          <CalendarMonthIcon fontSize="medium" />
         </IconButton>
 
         <Popover
@@ -88,7 +87,7 @@ export function DailyDashboard({ today }: Props) {
           variant="outlined"
           size="small"
           onClick={goToToday}
-          sx={{ borderRadius: '20px', ml: 1, textTransform: 'none' }}
+          sx={{ borderRadius: '20px', ml: 1, textTransform: 'none', fontSize: '0.9rem' }}
         >
           Today
         </Button>
@@ -100,26 +99,24 @@ export function DailyDashboard({ today }: Props) {
             href="/a_tax_table"
             size="small"
             variant="text"
-            sx={{ textTransform: 'none', fontSize: '0.8rem', color: 'text.secondary' }}
+            sx={{ textTransform: 'none', fontSize: '0.9rem', color: 'text.secondary' }}
           >
             宿泊税管理
           </Button>
           <Tooltip title={`タイムテーブル印刷（${dateLabel}）`} arrow>
             <IconButton
-              size="small"
               onClick={() => setPrintMode('timetable')}
               data-testid="print-timetable"
             >
-              <PrintIcon fontSize="small" />
+              <PrintIcon fontSize="medium" />
             </IconButton>
           </Tooltip>
           <Tooltip title={`清掃ボード印刷（${dateLabel}）`} arrow>
             <IconButton
-              size="small"
               onClick={() => setPrintMode('cleaning-board')}
               data-testid="print-cleaning-board"
             >
-              <PrintIcon fontSize="small" />
+              <PrintIcon fontSize="medium" />
             </IconButton>
           </Tooltip>
         </Box>
