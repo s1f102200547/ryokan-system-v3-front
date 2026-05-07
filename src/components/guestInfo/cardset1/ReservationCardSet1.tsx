@@ -21,8 +21,9 @@ export function ReservationCardSet1({ localData, nights, onFieldChange, onBlurFl
         onBlur={onBlurFlush}
         sx={{
           flex: '0 0 20%',
-          ml: 0.75,
-          pr: 0.75,
+          m: 2,
+          mr: 0,
+          pr: 1.25,
           borderRight: '1px solid',
           borderColor: 'divider',
           overflowY: 'auto',
