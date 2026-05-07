@@ -812,6 +812,32 @@ x. 新規追加フィールドUI："C/O 日", "部屋" ラベルが"新規予約
 x. - バツアイコンを大きく表示・クリック/ホバー範囲を拡大（padding 増加）ー＞もっと大きく
 x. C/I前・後タブにホバースタイルを追加->現在のやつではなくMUItoggleButtonにしてUI/UXを改善したい。
 
+機能
+y. a_tax_tableへの遷移でエラーが出るので原因特定して説明
+Functions cannot be passed directly to Client Components unless you explicitly expose it by marking it with "use server". Or maybe you meant to call this function rather than return it.
+  <... component={function LinkComponent} href=... size=... variant=... sx=... children=...>
+                 ^^^^^^^^^^^^^^^^^^^^^^^^
+src/app/a_tax_table/page.tsx (11:7) @ ATaxTablePage
+
+
+   9 |   return (
+  10 |     <Container maxWidth="xl" sx={{ py: 3 }}>
+> 11 |       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2 }}>
+     |       ^
+  12 |         <Typography variant="h6" fontWeight={700}>
+  13 |           宿泊税管理
+y. maillogの編集でエラーが出るので原因特定して説明
+y. 新規予約追加モーダルについて、スタッフ名も記入させて、追加理由とともにメールログに追加するようにしたい
+
+見た目
+y. C/I後モーダルの各フィールドの横幅を現在の70%ほどにする。
+y. モーダルヘッダーのC/I前/C/I後はabsolute配置で横中央に表示
+y. C/I前モーダルの左側(name, room, ...)の右端に立ての境界線, 左端に小さなmargin余白を入れたい。また、各項目の書き込み欄やSelectが全体的に大きすぎるので今よりかなり小さく表示したい。
+y. 新規追加モーダルについて、追加理由のdefault labelは”slack通知にのみ追加されます”ではなく"ログに追加されます"にしたい。
+y. キャンセルモーダルについて、スタッフ名のラベルがヘッダーに被って一部表示されてないのでpadding余白を多めに入れたい。
+y. cancel iconがhoverされているときはゲストカード全体はhoverでグレーにならないでほしい。
+y. キャンセル済み予約も中心寄せで表示
+
 【後処理】
 58. e2e/guestInfo.spec.ts, e2e/atax.spec.ts が通るか確認
 59. docs/Schema/Reservations.md に新フィールドを追記

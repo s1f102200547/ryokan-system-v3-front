@@ -166,7 +166,7 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
             fullWidth
             multiline
             minRows={1}
-            placeholder="Slack通知にのみ使用されます"
+            placeholder="ログに追加されます"
             sx={{ gridColumn: '1 / -1' }}
           />
         </Box>

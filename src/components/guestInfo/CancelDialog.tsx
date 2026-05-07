@@ -50,7 +50,7 @@ export function CancelDialog({ reservation, onClose, onCancelled }: Props) {
       <DialogTitle>
         キャンセル — {reservation?.room} ／ {reservation?.guest_name}
       </DialogTitle>
-      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '30px !important' }}>
         {error && <Alert severity="error">{error}</Alert>}
         <TextField
           label="スタッフ名"

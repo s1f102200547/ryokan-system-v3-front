@@ -112,7 +112,7 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
       fullWidth
       slotProps={{ paper: { sx: { height: 600, display: 'flex', flexDirection: 'column' } } }}
     >
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', py: 0.5, px: 2, minHeight: 32 }}>
+      <DialogTitle sx={{ position: 'relative', display: 'flex', alignItems: 'center', py: 0.5, px: 2, minHeight: 32 }}>
         {/* 左: 部屋 / ゲスト名 */}
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, minWidth: 0 }}>
           <Typography variant="body2" color="text.secondary" noWrap>
@@ -129,7 +129,12 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
           exclusive
           onChange={(_, v: number | null) => { if (v !== null) setTab(v) }}
           size="small"
-          sx={{ mx: 'auto' }}
+          sx={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+          }}
         >
           <ToggleButton value={0} sx={{ px: 2, py: 0.25, fontSize: '0.8rem' }}>
             C/I前

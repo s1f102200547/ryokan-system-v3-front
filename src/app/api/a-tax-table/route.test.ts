@@ -46,7 +46,7 @@ describe('GET /api/a-tax-table', () => {
   })
 
   it('正常リクエストで200とrowsを返す', async () => {
-    mockUseCase.mockResolvedValue({ rows: [] })
+    mockUseCase.mockResolvedValue({ rows: [], safeBalanceCheckers: {} })
     const res = await GET(makeRequest('2026', '4'))
     expect(res.status).toBe(200)
     const body = await res.json()

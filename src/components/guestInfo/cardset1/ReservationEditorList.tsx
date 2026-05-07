@@ -68,17 +68,24 @@ const roomOptions = ROOM_NUMBERS.map((r) => ({ value: r, label: r }))
 const countOptions = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({ value: n, label: String(n) }))
 
 const menuProps = {
-  PaperProps: { sx: { '& .MuiMenuItem-root': { py: 0.25, fontSize: '0.75rem' } } },
+  PaperProps: { sx: { '& .MuiMenuItem-root': { minHeight: 24, py: 0.1, fontSize: '0.68rem' } } },
+}
+
+const compactInputSx = {
+  '& .MuiInputBase-root': { minHeight: 28, fontSize: '0.68rem' },
+  '& .MuiInputBase-input': { py: 0.35, px: 0.75, fontSize: '0.68rem' },
+  '& .MuiSelect-select': { minHeight: 'unset !important', py: '4px !important', px: '8px !important', fontSize: '0.68rem' },
+  '& .MuiInputLabel-root': { fontSize: '0.68rem' },
 }
 
 function SectionHeader({ sectionKey, open, onToggle }: { sectionKey: SectionKey; open: boolean; onToggle: () => void }) {
   return (
-    <ListItemButton dense onClick={onToggle} disableRipple sx={{ py: 0.5 }}>
+    <ListItemButton dense onClick={onToggle} disableRipple sx={{ py: 0.25, px: 1 }}>
       <ListItemText
         primary={
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Box component="img" src={ICONS[sectionKey]} alt={sectionKey} sx={{ width: 16, height: 16 }} />
-            <Typography sx={{ fontSize: '0.75rem' }}>{LABELS[sectionKey]}</Typography>
+            <Box component="img" src={ICONS[sectionKey]} alt={sectionKey} sx={{ width: 14, height: 14 }} />
+            <Typography sx={{ fontSize: '0.68rem' }}>{LABELS[sectionKey]}</Typography>
           </Box>
         }
       />
@@ -97,7 +104,7 @@ function FieldSelect({ label, value, options, onChange }: {
   onChange: (v: unknown) => void
 }) {
   return (
-    <FormControl fullWidth size="small" sx={{ px: 2, pb: 1 }}>
+    <FormControl fullWidth size="small" sx={{ px: 1, pb: 0.5, ...compactInputSx }}>
       {label && <InputLabel shrink>{label}</InputLabel>}
       <Select
         value={value ?? ''}
@@ -106,6 +113,7 @@ function FieldSelect({ label, value, options, onChange }: {
         onChange={(e) => onChange(e.target.value)}
         MenuProps={menuProps}
         size="small"
+        sx={compactInputSx}
       >
         {options.map((opt) => (
           <MenuItem key={String(opt.value)} value={opt.value as string | number}>
@@ -130,17 +138,18 @@ export function ReservationEditorList({ localData, nights, onFieldChange }: Prop
   const minCheckout = dayjs(localData.check_in_date).add(1, 'day')
 
   return (
-    <Card sx={{ background: '#ffffff', minHeight: '100%' }}>
+    <Card elevation={0} sx={{ background: '#ffffff', minHeight: '100%' }}>
       <List dense disablePadding sx={{ fontSize: '0.75rem' }}>
 
         {/* ゲスト名 */}
         <SectionHeader sectionKey="guestName" open={open.guestName} onToggle={() => toggle('guestName')} />
         <Collapse in={open.guestName} timeout="auto" unmountOnExit>
-          <Box sx={{ px: 2, pb: 1 }}>
+          <Box sx={{ px: 1, pb: 0.5 }}>
             <TextField
               value={localData.guest_name}
               onChange={(e) => onFieldChange('guest_name', e.target.value)}
               size="small" fullWidth variant="outlined"
+              sx={compactInputSx}
             />
           </Box>
         </Collapse>
@@ -161,17 +170,17 @@ export function ReservationEditorList({ localData, nights, onFieldChange }: Prop
         {/* C/O date */}
         <SectionHeader sectionKey="checkout" open={open.checkout} onToggle={() => toggle('checkout')} />
         <Collapse in={open.checkout} timeout="auto" unmountOnExit>
-          <Box sx={{ px: 2, pb: 1 }}>
+          <Box sx={{ px: 1, pb: 0.5 }}>
             <DatePicker
               value={dayjs(localData.check_out_date)}
               minDate={minCheckout}
               onChange={(v) => v && onFieldChange('check_out_date', v.format('YYYY-MM-DD'))}
-              slotProps={{ textField: { size: 'small', fullWidth: true } }}
+              slotProps={{ textField: { size: 'small', fullWidth: true, sx: compactInputSx } }}
             />
           </Box>
         </Collapse>
 
-        <Divider sx={{ my: 1, borderColor: 'rgba(0,0,0,0.12)' }} />
+        <Divider sx={{ my: 0.5, borderColor: 'rgba(0,0,0,0.12)' }} />
 
         {/* arrival */}
         <SectionHeader sectionKey="arrival" open={open.arrival} onToggle={() => toggle('arrival')} />
@@ -206,7 +215,7 @@ export function ReservationEditorList({ localData, nights, onFieldChange }: Prop
                   onFieldChange('dinner_time', arr)
                 }} />
               {(localData.dinner_time[i] ?? DINNER_NONE) !== DINNER_NONE && (
-                <Box sx={{ px: 2, pb: 1 }}>
+                <Box sx={{ px: 1, pb: 0.5 }}>
                   <TextField
                     value={localData.dinner_info[i] ?? ''}
                     onChange={(e) => {
@@ -216,6 +225,7 @@ export function ReservationEditorList({ localData, nights, onFieldChange }: Prop
                     }}
                     size="small" fullWidth multiline minRows={1}
                     placeholder="dinner_info"
+                    sx={compactInputSx}
                   />
                 </Box>
               )}
@@ -243,13 +253,13 @@ export function ReservationEditorList({ localData, nights, onFieldChange }: Prop
           <FieldSelect value={localData.late_out} options={lateCOOptions} onChange={(v) => onFieldChange('late_out', Number(v))} />
         </Collapse>
 
-        <Divider sx={{ my: 1, borderColor: 'rgba(0,0,0,0.12)' }} />
+        <Divider sx={{ my: 0.5, borderColor: 'rgba(0,0,0,0.12)' }} />
 
         {/* timetable */}
         <SectionHeader sectionKey="timetable" open={open.timetable} onToggle={() => toggle('timetable')} />
         <Collapse in={open.timetable} timeout="auto" unmountOnExit>
           {Array.from({ length: nights }).map((_, i) => (
-            <Box key={i} sx={{ px: 2, pb: 1 }}>
+            <Box key={i} sx={{ px: 1, pb: 0.5 }}>
               <TextField
                 label={`Day ${i + 1}`}
                 slotProps={{ inputLabel: { shrink: true } }}
@@ -260,6 +270,7 @@ export function ReservationEditorList({ localData, nights, onFieldChange }: Prop
                   onFieldChange('timetable_info', arr)
                 }}
                 size="small" fullWidth multiline minRows={3}
+                sx={compactInputSx}
               />
             </Box>
           ))}

@@ -21,6 +21,10 @@ export function ReservationCardSet1({ localData, nights, onFieldChange, onBlurFl
         onBlur={onBlurFlush}
         sx={{
           flex: '0 0 20%',
+          ml: 0.75,
+          pr: 0.75,
+          borderRight: '1px solid',
+          borderColor: 'divider',
           overflowY: 'auto',
           scrollbarWidth: 'thin',
           scrollbarColor: 'rgba(0,0,0,0.2) transparent',

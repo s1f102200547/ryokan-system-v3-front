@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import IconButton from '@mui/material/IconButton'
@@ -17,6 +18,8 @@ type Props = {
 }
 
 export function ReservationListCard({ reservation, onClick, onCancelOrRestore, isCancelled = false }: Props) {
+  const [isActionHovered, setIsActionHovered] = useState(false)
+
   if (isCancelled) {
     return (
       <Card
@@ -31,7 +34,7 @@ export function ReservationListCard({ reservation, onClick, onCancelOrRestore, i
           bgcolor: 'grey.100',
           opacity: 0.7,
           transition: 'background-color 0.2s',
-          '&:hover': { bgcolor: 'grey.200' },
+          '&:hover': { bgcolor: isActionHovered ? 'grey.100' : 'grey.200' },
           '&:active': { bgcolor: 'grey.300' },
         }}
       >
@@ -39,6 +42,8 @@ export function ReservationListCard({ reservation, onClick, onCancelOrRestore, i
           <IconButton
             size="small"
             data-testid="restore-button"
+            onMouseEnter={() => setIsActionHovered(true)}
+            onMouseLeave={() => setIsActionHovered(false)}
             onClick={(e) => {
               e.stopPropagation()
               onCancelOrRestore(reservation)
@@ -69,7 +74,7 @@ export function ReservationListCard({ reservation, onClick, onCancelOrRestore, i
         cursor: 'pointer',
         bgcolor: 'background.paper',
         transition: 'background-color 0.2s',
-        '&:hover': { bgcolor: 'grey.100' },
+        '&:hover': { bgcolor: isActionHovered ? 'background.paper' : 'grey.100' },
         '&:active': { bgcolor: 'grey.200' },
       }}
     >
@@ -77,6 +82,8 @@ export function ReservationListCard({ reservation, onClick, onCancelOrRestore, i
         <IconButton
           size="small"
           data-testid="cancel-button"
+          onMouseEnter={() => setIsActionHovered(true)}
+          onMouseLeave={() => setIsActionHovered(false)}
           onClick={(e) => {
             e.stopPropagation()
             onCancelOrRestore(reservation)
