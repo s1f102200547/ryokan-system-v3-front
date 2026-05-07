@@ -5,11 +5,24 @@ import type { DailyRepository } from '@/domain/ports/dailyRepository'
 export const firestoreDailyRepository: DailyRepository = {
   async updateSafeBalanceChecker(date, staffName) {
     return withFirestoreError(async () => {
-      // ドキュメント未存在時は新規作成、存在時はフィールドをマージ
       await adminDb.collection('daily').doc(date).set(
         { safeBalanceChecker: staffName, updated_at: new Date().toISOString() },
         { merge: true },
       )
+    })
+  },
+
+  async fetchSafeBalanceCheckers(dates) {
+    if (dates.length === 0) return {}
+    return withFirestoreError(async () => {
+      const refs = dates.map((d) => adminDb.collection('daily').doc(d))
+      const snaps = await adminDb.getAll(...refs)
+      const result: Record<string, string> = {}
+      for (let i = 0; i < dates.length; i++) {
+        const data = snaps[i].data()
+        result[dates[i]] = typeof data?.safeBalanceChecker === 'string' ? data.safeBalanceChecker : ''
+      }
+      return result
     })
   },
 }

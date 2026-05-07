@@ -1,4 +1,5 @@
 import { firestoreReservationRepository } from '@/infra/reservation/firestoreReservationRepository'
+import { firestoreDailyRepository } from '@/infra/daily/firestoreDailyRepository'
 import { isATaxExempt, calcATax } from '@/domain/reservation/bookingSitePolicy'
 import { dateDiff } from '@/lib/dateUtils'
 import { A_TAX_RATE_PER_PERSON_PER_NIGHT } from '@/constants/guestInfo'
@@ -11,6 +12,7 @@ export type ATaxTableRow = Reservation & {
 
 export type ATaxTableData = {
   rows: ATaxTableRow[]
+  safeBalanceCheckers: Record<string, string> // check_in_date -> staffName
 }
 
 export async function getATaxTableUseCase(year: number, month: number): Promise<ATaxTableData> {
@@ -24,5 +26,8 @@ export async function getATaxTableUseCase(year: number, month: number): Promise<
     return { ...r, nights, tax }
   })
 
-  return { rows }
+  const uniqueDates = [...new Set(rows.map((r) => r.check_in_date))]
+  const safeBalanceCheckers = await firestoreDailyRepository.fetchSafeBalanceCheckers(uniqueDates)
+
+  return { rows, safeBalanceCheckers }
 }

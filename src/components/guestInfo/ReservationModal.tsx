@@ -63,7 +63,11 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
   const handleClose = useCallback(() => {
     const fn = debouncedUpdateRef.current
     if (fn) {
-      Object.keys(pendingPayloadRef.current).length > 0 ? fn.flush() : fn.cancel()
+      if (Object.keys(pendingPayloadRef.current).length > 0) {
+        fn.flush()
+      } else {
+        fn.cancel()
+      }
     }
     onClose()
   }, [onClose])
@@ -105,7 +109,7 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
       onClose={handleClose}
       maxWidth="md"
       fullWidth
-      PaperProps={{ sx: { height: 600, display: 'flex', flexDirection: 'column' } }}
+      slotProps={{ paper: { sx: { height: 600, display: 'flex', flexDirection: 'column' } } }}
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', py: 1, px: 2, minHeight: 48 }}>
         {/* 左: 部屋 / ゲスト名 */}
