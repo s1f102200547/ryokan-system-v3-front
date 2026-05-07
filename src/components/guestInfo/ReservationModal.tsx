@@ -16,7 +16,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import { debounce } from '@/lib/debounce'
 import { dateDiff } from '@/lib/dateUtils'
-import { resizeNightFields } from '@/domain/reservation/nightArrays'
+import { resizeNightFields, resizeNightArray } from '@/domain/reservation/nightArrays'
 import { useUpdateReservation } from '@/hooks/guestInfo/useUpdateReservation'
 import { ReservationCardSet1 } from './cardset1/ReservationCardSet1'
 import { ReservationCardSet2 } from './cardset2/ReservationCardSet2'
@@ -93,6 +93,10 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
           )
           patch = { ...patch, ...resized }
         }
+      }
+
+      if (field === 'adult_count' && typeof value === 'number') {
+        patch = { ...patch, age_groups: resizeNightArray<string | null>(localData.age_groups, value, null) }
       }
 
       pendingPayloadRef.current = { ...pendingPayloadRef.current, ...patch }

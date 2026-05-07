@@ -4,11 +4,20 @@ import { updateReservationCommand } from '@/application/guestInfo/updateReservat
 import { getSession, handleRouteError } from '@/lib/api/routeHelpers'
 import { ROOM_NUMBERS } from '@/constants/room'
 
+const MailMemoEntrySchema = z.object({
+  month:   z.string(),
+  day:     z.string(),
+  name:    z.string(),
+  summary: z.string(),
+  text:    z.string(),
+  source:  z.string(),
+})
+
 // ReservationPatch の部分更新を受け付ける（全フィールドoptional）
 const PatchBodySchema = z.object({
   guest_name:                    z.string().max(100).optional(),
-  room:                          z.enum(ROOM_NUMBERS).optional(),
-  adult_count:                   z.number().int().min(1).max(9).optional(),
+  room:                          z.enum(ROOM_NUMBERS).nullable().optional(),
+  adult_count:                   z.number().int().min(0).max(9).optional(),
   child_count:                   z.number().int().min(0).max(9).optional(),
   check_out_date:                z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   arrival_time:                  z.string().nullable().optional(),
@@ -18,15 +27,16 @@ const PatchBodySchema = z.object({
   breakfast_time:                z.array(z.string().nullable()).optional(),
   open_air_bath_time:            z.array(z.string().nullable()).optional(),
   timetable_info:                z.array(z.string()).optional(),
+  mail_memo:                     z.array(MailMemoEntrySchema).optional(),
   a_tax_received:                z.boolean().optional(),
   a_tax_received_by_staff_name:  z.string().max(100).optional(),
   check_in_staff_name:           z.string().max(100).optional(),
-  country:                       z.string().max(100).optional(),
+  country:                       z.string().max(100).nullable().optional(),
   city:                          z.string().max(100).optional(),
-  age_groups:                    z.array(z.string()).optional(),
-  group_type:                    z.string().optional(),
-  purpose:                       z.string().optional(),
-  tourism_type:                  z.string().optional(),
+  age_groups:                    z.array(z.string().nullable()).optional(),
+  group_type:                    z.string().nullable().optional(),
+  purpose:                       z.string().nullable().optional(),
+  tourism_type:                  z.string().nullable().optional(),
   profession:                    z.string().optional(),
   other_note:                    z.string().optional(),
 }).refine((d) => Object.keys(d).length > 0, { message: 'patch must not be empty' })

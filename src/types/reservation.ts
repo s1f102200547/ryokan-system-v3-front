@@ -24,12 +24,12 @@ export type Reservation = {
   a_tax_received: boolean               // 欠損 → false
   a_tax_received_by_staff_name: string  // 徴収スタッフ名　欠損 → ""
   check_in_staff_name: string           // 欠損 → ""
-  country: string                       // 欠損 → ""
+  country: string | null                // 欠損 → null
   city: string                          // 欠損 → ""
-  age_groups: string[]                  // 長さ = adult_count、欠損 → []
-  group_type: string                    // 欠損 → ""
-  purpose: string                       // 欠損 → ""
-  tourism_type: string                  // 欠損 → ""
+  age_groups: (string | null)[]         // 長さ = adult_count、欠損 → []、未選択要素 → null
+  group_type: string | null             // 欠損 → null
+  purpose: string | null                // 欠損 → null
+  tourism_type: string | null           // 欠損 → null
   profession: string                    // 欠損 → ""
   other_note: string                    // 欠損 → ""
 }

@@ -91,7 +91,7 @@ export function GuestInfoSection({ selectedDate }: Props) {
       {/* モーダル / ダイアログ */}
       <ReservationModal
         reservation={modalReservation}
-        onClose={() => setModalReservation(null)}
+        onClose={() => { setModalReservation(null); refresh() }}
       />
 
       <CancelDialog

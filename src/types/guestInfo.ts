@@ -33,7 +33,7 @@ export type ATaxPatch = Partial<{
 // check_out_date変更時は夜数連動フィールドも resizeNightFields で同時更新すること
 export type ReservationPatch = Partial<{
   guest_name: string
-  room: RoomNumber
+  room: RoomNumber | null
   adult_count: number
   child_count: number
   check_out_date: string
@@ -48,12 +48,12 @@ export type ReservationPatch = Partial<{
   a_tax_received: boolean
   a_tax_received_by_staff_name: string
   check_in_staff_name: string
-  country: string
+  country: string | null
   city: string
-  age_groups: string[]   // 長さ = adult_count（夜数とは独立）
-  group_type: string
-  purpose: string
-  tourism_type: string
+  age_groups: (string | null)[]  // 長さ = adult_count（夜数とは独立）、未選択要素 → null
+  group_type: string | null
+  purpose: string | null
+  tourism_type: string | null
   profession: string
   other_note: string
 }>

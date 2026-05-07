@@ -43,7 +43,7 @@ const KNOWN_BOOKING_SITES = ['chillnn', 'booking.com', 'expedia'] as const
 const FirestoreReservationSchema = z.object({
   check_in_date: z.string().regex(/^\d{4}\/\d{2}\/\d{2}$/),
   check_out_date: z.string().regex(/^\d{4}\/\d{2}\/\d{2}$/),
-  adult_count: z.number().int().min(1).max(9),
+  adult_count: z.number().int().min(0).max(9),
   child_count: z.number().int().min(0).max(9),
   // "" は未割り当てとして null に変換し、7部屋番号 or null のみ許可
   room: z
@@ -80,7 +80,17 @@ export const firestoreReservationRepository: ReservationRepository = {
         .where('check_in_date', '>=', toFirestoreDate(from))
         .where('check_in_date', '<=', toFirestoreDate(to))
         .get()
-      return snapshot.docs.map((doc) => toReservation(doc.id, doc.data()))
+      return snapshot.docs.flatMap((doc) => {
+        try {
+          return [toReservation(doc.id, doc.data())]
+        } catch (e) {
+          if (e instanceof InfraError && e.code === 'FIRESTORE_DATA_CORRUPTION') {
+            console.error(`Skipping corrupted doc ${doc.id}:`, e.message)
+            return []
+          }
+          throw e
+        }
+      })
     })
   },
 
@@ -95,7 +105,17 @@ export const firestoreReservationRepository: ReservationRepository = {
         .where('check_in_date', '>=', from)
         .where('check_in_date', '<', nextMonth)
         .get()
-      return snapshot.docs.map((doc) => toReservation(doc.id, doc.data()))
+      return snapshot.docs.flatMap((doc) => {
+        try {
+          return [toReservation(doc.id, doc.data())]
+        } catch (e) {
+          if (e instanceof InfraError && e.code === 'FIRESTORE_DATA_CORRUPTION') {
+            console.error(`Skipping corrupted doc ${doc.id}:`, e.message)
+            return []
+          }
+          throw e
+        }
+      })
     })
   },
 
@@ -140,7 +160,11 @@ export const firestoreReservationRepository: ReservationRepository = {
   async updateReservation(id, patch: ReservationPatch) {
     if (Object.keys(patch).length === 0) return
     return withFirestoreError(async () => {
-      await adminDb.collection('guestInfoV2').doc(id).update(patch as FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData>)
+      const firestorePatch: Record<string, unknown> = { ...patch }
+      if (patch.check_out_date !== undefined) {
+        firestorePatch.check_out_date = toFirestoreDate(patch.check_out_date)
+      }
+      await adminDb.collection('guestInfoV2').doc(id).update(firestorePatch as FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData>)
     })
   },
 
@@ -221,6 +245,7 @@ const isOpenAirBathTime = (v: unknown): v is OpenAirBathTimeValue =>
   v === null || (OPEN_AIR_BATH_TIME_VALUES as ReadonlyArray<unknown>).includes(v)
 
 const isString = (v: unknown): v is string => typeof v === 'string'
+const isStringOrNull = (v: unknown): v is string | null => v === null || typeof v === 'string'
 
 function toReservation(id: string, data: FirebaseFirestore.DocumentData): Reservation {
   try {
@@ -254,12 +279,12 @@ function toReservation(id: string, data: FirebaseFirestore.DocumentData): Reserv
       a_tax_received: z.boolean().catch(false).parse(data.a_tax_received ?? false),
       a_tax_received_by_staff_name: z.string().max(100).catch('').parse(data.a_tax_received_by_staff_name ?? ''),
       check_in_staff_name: z.string().max(100).catch('').parse(data.check_in_staff_name ?? ''),
-      country: z.string().max(100).catch('').parse(data.country ?? ''),
+      country: z.string().nullable().catch(null).parse(data.country ?? null),
       city: z.string().max(100).catch('').parse(data.city ?? ''),
-      age_groups: normalizeArray(data.age_groups, parsed.adult_count, isString, ''),
-      group_type: z.string().catch('').parse(data.group_type ?? ''),
-      purpose: z.string().catch('').parse(data.purpose ?? ''),
-      tourism_type: z.string().catch('').parse(data.tourism_type ?? ''),
+      age_groups: normalizeArray(data.age_groups, parsed.adult_count, isStringOrNull, null),
+      group_type: z.string().nullable().catch(null).parse(data.group_type ?? null),
+      purpose: z.string().nullable().catch(null).parse(data.purpose ?? null),
+      tourism_type: z.string().nullable().catch(null).parse(data.tourism_type ?? null),
       profession: z.string().catch('').parse(data.profession ?? ''),
       other_note: z.string().catch('').parse(data.other_note ?? ''),
     }

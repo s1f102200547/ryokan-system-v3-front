@@ -123,7 +123,7 @@ function FieldSelect({ label, value, options, onChange }: {
       <Select
         value={value ?? ''}
         label={label}
-        displayEmpty={!label}
+        displayEmpty={true}
         onChange={(e) => onChange(e.target.value)}
         MenuProps={menuProps}
         size="small"
@@ -171,7 +171,7 @@ export function ReservationEditorList({ localData, nights, onFieldChange }: Prop
         {/* 部屋 */}
         <SectionHeader sectionKey="room" open={open.room} onToggle={() => toggle('room')} />
         <Collapse in={open.room} timeout="auto" unmountOnExit>
-          <FieldSelect value={localData.room ?? ''} options={[{ value: '', label: '未アサイン' }, ...roomOptions]} onChange={(v) => onFieldChange('room', v)} />
+          <FieldSelect value={localData.room ?? ''} options={[{ value: '', label: '未アサイン' }, ...roomOptions]} onChange={(v) => onFieldChange('room', (v as string) || null)} />
         </Collapse>
 
         {/* 人数 */}
@@ -210,7 +210,7 @@ export function ReservationEditorList({ localData, nights, onFieldChange }: Prop
               options={[{ value: '', label: '未定' }, ...rotenOptions]}
               onChange={(v) => {
                 const arr = [...localData.open_air_bath_time]
-                arr[i] = v as string | null
+                arr[i] = (v as string) || null
                 onFieldChange('open_air_bath_time', arr)
               }} />
           ))}
@@ -255,7 +255,7 @@ export function ReservationEditorList({ localData, nights, onFieldChange }: Prop
               options={[{ value: '', label: '未定' }, ...breakfastOptions]}
               onChange={(v) => {
                 const arr = [...localData.breakfast_time]
-                arr[i] = v as string | null
+                arr[i] = (v as string) || null
                 onFieldChange('breakfast_time', arr)
               }} />
           ))}
