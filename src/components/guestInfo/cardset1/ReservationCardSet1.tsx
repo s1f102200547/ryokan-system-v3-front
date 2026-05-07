@@ -20,7 +20,7 @@ export function ReservationCardSet1({ localData, nights, onFieldChange, onBlurFl
       <Box
         onBlur={onBlurFlush}
         sx={{
-          flex: '0 0 20%',
+          flex: '0 0 23%',
           m: 2,
           mr: 0,
           pr: 1.25,

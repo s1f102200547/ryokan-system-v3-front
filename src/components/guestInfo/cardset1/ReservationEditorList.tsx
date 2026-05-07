@@ -82,6 +82,15 @@ const compactInputSx = {
   '& .MuiInputLabel-root': { fontSize: '0.67rem' },
 }
 
+const timetableMemoInputSx = {
+  ...compactInputSx,
+  '& .MuiInputBase-input': {
+    py: 0,
+    px: 0,
+    fontSize: '0.64rem',
+  },
+}
+
 function SectionHeader({ sectionKey, open, onToggle }: { sectionKey: SectionKey; open: boolean; onToggle: () => void }) {
   return (
     <ListItemButton dense onClick={onToggle} disableRipple sx={{ py: 0.25, px: 1 }}>
@@ -284,7 +293,7 @@ export function ReservationEditorList({ localData, nights, onFieldChange }: Prop
                   onFieldChange('timetable_info', arr)
                 }}
                 size="small" fullWidth multiline minRows={3}
-                sx={compactInputSx}
+                sx={timetableMemoInputSx}
               />
             </Box>
           ))}
