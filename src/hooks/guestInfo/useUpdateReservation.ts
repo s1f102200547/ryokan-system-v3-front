@@ -9,6 +9,11 @@ export function useUpdateReservation() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [error, setError] = useState<string | null>(null)
 
+  const clearError = useCallback(() => {
+    setError(null)
+    setSaveStatus('idle')
+  }, [])
+
   const execute = useCallback(async (id: string, patch: ReservationPatch): Promise<void> => {
     setSaveStatus('saving')
     setError(null)
@@ -28,7 +33,6 @@ export function useUpdateReservation() {
         return
       }
       setSaveStatus('saved')
-      // 2秒後に idle に戻す
       setTimeout(() => setSaveStatus('idle'), 2000)
     } catch {
       setError('通信エラーが発生しました。ネットワーク接続を確認してください')
@@ -36,5 +40,5 @@ export function useUpdateReservation() {
     }
   }, [])
 
-  return { execute, saveStatus, error }
+  return { execute, saveStatus, error, clearError }
 }

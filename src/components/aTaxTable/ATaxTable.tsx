@@ -5,8 +5,6 @@ import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
-import FormControlLabel from '@mui/material/FormControlLabel'
-import Switch from '@mui/material/Switch'
 import { useATaxTable } from '@/hooks/aTaxTable/useATaxTable'
 import { MonthSelector } from './MonthSelector'
 import { BalanceDisplay } from './BalanceDisplay'
@@ -24,8 +22,8 @@ function useMonthlyTarget(option: MonthOption) {
   return {
     targetYear: option === 'current' ? year : prevYear,
     targetMonth: option === 'current' ? month : prevMonth,
-    previousLabel: `${prevYear}年${prevMonth}月`,
-    currentLabel: `${year}年${month}月`,
+    previousLabel: `${prevMonth}月`,
+    currentLabel: `${month}月`,
   }
 }
 
@@ -65,8 +63,6 @@ type BodyProps = {
   rows: ATaxTableRow[]
   safeBalanceCheckers: Record<string, string>
   option: MonthOption
-  enableFilter: boolean
-  onFilterChange: (v: boolean) => void
   targetYear: number
   targetMonth: number
 }
@@ -75,8 +71,6 @@ function ATaxTableBody({
   rows,
   safeBalanceCheckers,
   option,
-  enableFilter,
-  onFilterChange,
   targetYear,
   targetMonth,
 }: BodyProps) {
@@ -89,8 +83,8 @@ function ATaxTableBody({
   )
 
   const processedRows = useMemo(
-    () => computeProcessedRows(displayRows, safeBalanceCheckers, option, enableFilter),
-    [displayRows, safeBalanceCheckers, option, enableFilter],
+    () => computeProcessedRows(displayRows, safeBalanceCheckers, option, false),
+    [displayRows, safeBalanceCheckers, option],
   )
 
   const handleToggle = useCallback((id: string, checked: boolean) => {
@@ -121,25 +115,8 @@ function ATaxTableBody({
         </Box>
       )}
 
-      <Box sx={{ position: 'relative', mb: 2, px: 1 }}>
-        {option === 'current' && (
-          <Box sx={{ position: 'absolute', left: '1%', top: '50%', transform: 'translateY(-50%)' }}>
-            <FormControlLabel
-              control={
-                <Switch
-                  size="small"
-                  checked={enableFilter}
-                  onChange={(e) => onFilterChange(e.target.checked)}
-                  color="primary"
-                />
-              }
-              label="filter"
-            />
-          </Box>
-        )}
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-          <BalanceDisplay totalReceived={totalReceived} monthlyAdultNightSum={monthlyAdultNightSum} />
-        </Box>
+      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+        <BalanceDisplay totalReceived={totalReceived} monthlyAdultNightSum={monthlyAdultNightSum} />
       </Box>
 
       <ReservationTable
@@ -155,13 +132,11 @@ function ATaxTableBody({
 
 export function ATaxTable() {
   const [selectedOption, setSelectedOption] = useState<MonthOption>('current')
-  const [enableFilter, setEnableFilter] = useState(true)
   const { targetYear, targetMonth, previousLabel, currentLabel } = useMonthlyTarget(selectedOption)
   const { data, isLoading, error } = useATaxTable(targetYear, targetMonth)
 
   const handleOptionChange = (opt: MonthOption) => {
     setSelectedOption(opt)
-    setEnableFilter(true)
   }
 
   return (
@@ -186,8 +161,6 @@ export function ATaxTable() {
           rows={data?.rows ?? []}
           safeBalanceCheckers={data?.safeBalanceCheckers ?? {}}
           option={selectedOption}
-          enableFilter={enableFilter}
-          onFilterChange={setEnableFilter}
           targetYear={targetYear}
           targetMonth={targetMonth}
         />

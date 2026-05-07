@@ -6,6 +6,7 @@ import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import IconButton from '@mui/material/IconButton'
+import Snackbar from '@mui/material/Snackbar'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import Typography from '@mui/material/Typography'
@@ -44,7 +45,7 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
   const [localData, setLocalData] = useState<Reservation>(reservation)
 
   const pendingPayloadRef = useRef<ReservationPatch>({})
-  const { execute, saveStatus, error } = useUpdateReservation()
+  const { execute, saveStatus, error, clearError } = useUpdateReservation()
 
   // Initialize debounce in effect to avoid refs-in-render lint error
   const debouncedUpdateRef = useRef<DebouncedFn | null>(null)
@@ -111,10 +112,10 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
       fullWidth
       slotProps={{ paper: { sx: { height: 600, display: 'flex', flexDirection: 'column' } } }}
     >
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', py: 1, px: 2, minHeight: 48 }}>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', py: 0.5, px: 2, minHeight: 32 }}>
         {/* 左: 部屋 / ゲスト名 */}
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, minWidth: 0 }}>
-          <Typography variant="subtitle1" fontWeight={700} noWrap>
+          <Typography variant="body2" color="text.secondary" noWrap>
             {localData.room ?? '部屋未定'}
           </Typography>
           <Typography variant="body2" color="text.secondary" noWrap>
@@ -130,15 +131,33 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
           textColor="primary"
           indicatorColor="primary"
         >
-          <Tab label="C/I前" sx={{ minHeight: 40, py: 0.5 }} />
-          <Tab label="C/I後" sx={{ minHeight: 40, py: 0.5 }} />
+          <Tab
+            label="C/I前"
+            sx={{
+              minHeight: 32,
+              py: 0.25,
+              '&:hover': { bgcolor: 'action.hover', borderRadius: 1 },
+            }}
+          />
+          <Tab
+            label="C/I後"
+            sx={{
+              minHeight: 32,
+              py: 0.25,
+              '&:hover': { bgcolor: 'action.hover', borderRadius: 1 },
+            }}
+          />
         </Tabs>
 
         {/* 右: 保存ステータス + 閉じるボタン */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <SaveStatusIcon status={saveStatus} />
-          <IconButton size="small" onClick={handleClose} aria-label="閉じる">
-            <CloseIcon fontSize="small" />
+          <IconButton
+            onClick={handleClose}
+            aria-label="閉じる"
+            sx={{ p: 1.5 }}
+          >
+            <CloseIcon />
           </IconButton>
         </Box>
       </DialogTitle>
@@ -146,12 +165,6 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
       <DialogContent
         sx={{ flex: 1, p: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
       >
-        {error && (
-          <Typography variant="caption" color="error" sx={{ px: 2, pt: 0.5 }}>
-            {error}
-          </Typography>
-        )}
-
         <Box sx={{ flex: 1, overflow: 'hidden' }}>
           {tab === 0 && (
             <ReservationCardSet1
@@ -168,6 +181,15 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
           )}
         </Box>
       </DialogContent>
+
+      {/* 保存エラー Snackbar */}
+      <Snackbar
+        open={saveStatus === 'error' && error !== null}
+        autoHideDuration={5000}
+        onClose={clearError}
+        message={error}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      />
     </Dialog>
   )
 }

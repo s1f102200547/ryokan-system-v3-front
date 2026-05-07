@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
+import Snackbar from '@mui/material/Snackbar'
 import { useGuestInfo } from '@/hooks/guestInfo/useGuestInfo'
 import { ReservationListCard } from './ReservationListCard'
 import { AddReservationCard } from './AddReservationCard'
@@ -18,26 +19,41 @@ type Props = {
   selectedDate: string
 }
 
+function sortByRoom(reservations: Reservation[]): Reservation[] {
+  return [...reservations].sort((a, b) => {
+    const ra = a.room ?? '9999'
+    const rb = b.room ?? '9999'
+    return ra.localeCompare(rb, undefined, { numeric: true })
+  })
+}
+
 export function GuestInfoSection({ selectedDate }: Props) {
   const [refreshKey, setRefreshKey] = useState(0)
   const [modalReservation, setModalReservation] = useState<Reservation | null>(null)
   const [cancelTarget, setCancelTarget] = useState<Reservation | null>(null)
   const [restoreTarget, setRestoreTarget] = useState<Reservation | null>(null)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null)
 
   const { data, isLoading, error } = useGuestInfo(selectedDate, refreshKey)
 
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), [])
 
-  const handleMutation = useCallback(() => {
-    setModalReservation(null)
+  const handleCancelled = useCallback(() => {
+    setCancelTarget(null)
     refresh()
+    setSnackbarMessage('キャンセルしました')
+  }, [refresh])
+
+  const handleAdded = useCallback(() => {
+    refresh()
+    setSnackbarMessage('予約を追加しました')
   }, [refresh])
 
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 2 }}>
-        <CircularProgress size={20} />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
+        <CircularProgress />
       </Box>
     )
   }
@@ -46,7 +62,7 @@ export function GuestInfoSection({ selectedDate }: Props) {
     return <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>
   }
 
-  const normal = data?.normal ?? []
+  const normal = sortByRoom(data?.normal ?? [])
   const cancelled = data?.cancelled ?? []
 
   return (
@@ -80,20 +96,28 @@ export function GuestInfoSection({ selectedDate }: Props) {
       <CancelDialog
         reservation={cancelTarget}
         onClose={() => setCancelTarget(null)}
-        onCancelled={handleMutation}
+        onCancelled={handleCancelled}
       />
 
       <RestoreDialog
         reservation={restoreTarget}
         onClose={() => setRestoreTarget(null)}
-        onRestored={handleMutation}
+        onRestored={() => { setRestoreTarget(null); refresh() }}
       />
 
       <AddReservationDialog
         open={addDialogOpen}
         checkInDate={selectedDate}
         onClose={() => setAddDialogOpen(false)}
-        onAdded={refresh}
+        onAdded={handleAdded}
+      />
+
+      <Snackbar
+        open={snackbarMessage !== null}
+        autoHideDuration={3000}
+        onClose={() => setSnackbarMessage(null)}
+        message={snackbarMessage}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       />
     </Box>
   )
