@@ -24,6 +24,16 @@ const tinyInput = {
   '& .MuiInputBase-input': { fontSize: '0.7rem', lineHeight: 1.1, color: 'grey.500', padding: 0 },
 }
 
+const tinyDateInput = {
+  '& .MuiInputBase-input': {
+    fontSize: '0.7rem',
+    lineHeight: 1.1,
+    color: 'grey.500',
+    padding: 0,
+    textAlign: 'center',
+  },
+}
+
 export function MailMemo({ bookingSite, items, onChange }: Props) {
   const addItem = () => {
     const now = new Date()
@@ -76,35 +86,35 @@ export function MailMemo({ bookingSite, items, onChange }: Props) {
               )}
             </Box>
             {idx < items.length - 1 && (
-              <Box sx={{ width: 2, height: 24, bgcolor: 'grey.400', mt: 1 }} />
+              <Box sx={{ width: 1.5, height: 24, bgcolor: 'grey.400', mt: 1 }} />
             )}
           </Box>
 
           {/* 入力フィールド群 */}
           <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '0.5ch' }}>
             {/* 日付・source・名前 */}
-            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, mb: '0.5ch' }}>
+            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.15, mt: 0.5, mb: '0.5ch', pb: 0.3 }}>
               <TextField
                 placeholder="MM" value={item.month}
                 onChange={(e) => updateField(idx, 'month', e.target.value)}
                 size="small" variant="standard"
                 slotProps={{ input: { disableUnderline: true } }}
-                sx={{ width: '2ch', ...tinyInput }}
+                sx={{ width: '1.4ch', ...tinyDateInput }}
               />
-              <Box sx={{ fontSize: '0.7rem', color: 'grey.500', lineHeight: 1.1 }}>/</Box>
+              <Box sx={{ fontSize: '0.7rem', color: 'grey.500', lineHeight: 1.1, mx: 0 }}>/</Box>
               <TextField
                 placeholder="DD" value={item.day}
                 onChange={(e) => updateField(idx, 'day', e.target.value)}
                 size="small" variant="standard"
                 slotProps={{ input: { disableUnderline: true } }}
-                sx={{ width: '2ch', ...tinyInput }}
+                sx={{ width: '2ch', ...tinyDateInput }}
               />
               <TextField
                 placeholder="source" value={item.source}
                 onChange={(e) => updateField(idx, 'source', e.target.value)}
                 size="small" variant="standard"
                 slotProps={{ input: { disableUnderline: true } }}
-                sx={{ width: '6ch', ...tinyInput }}
+                sx={{ width: '6ch', ...tinyInput, ml: 0.5 }}
               />
               <TextField
                 placeholder="Name" value={item.name}

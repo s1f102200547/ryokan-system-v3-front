@@ -42,7 +42,7 @@ export function ReservationCardSet1({ localData, nights, onFieldChange, onBlurFl
       </Box>
 
       {/* 右: メールメモ */}
-      <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
+      <Box sx={{ flex: 1, overflowY: 'auto', px: 2, pt: 4, pb: 2 }}>
         <MailMemo
           bookingSite={localData.booking_site}
           items={localData.mail_memo}
