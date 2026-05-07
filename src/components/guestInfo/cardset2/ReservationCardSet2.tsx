@@ -36,7 +36,7 @@ export function ReservationCardSet2({ localData, onFieldChange, onBlurFlush }: P
   const exempt = isATaxExempt(localData.booking_site)
   const tax = exempt ? 0 : calcATax(localData.adult_count, nights, A_TAX_RATE_PER_PERSON_PER_NIGHT)
 
-  const selectedCountry = countryOptions.find((o) => o.value === localData.country) ?? countryOptions[0]
+  const selectedCountry = countryOptions.find((o) => o.value === (localData.country ?? '')) ?? countryOptions[0]
   const showGroupType = localData.age_groups.length >= 2
   const showTourismDetail = localData.purpose === 'tourism'
   const showProfession = localData.purpose === 'business'
@@ -133,7 +133,7 @@ export function ReservationCardSet2({ localData, onFieldChange, onBlurFlush }: P
                 options={countryOptions}
                 getOptionLabel={(o) => o.label}
                 value={selectedCountry}
-                onChange={(_, v) => onFieldChange('country', v?.value ?? '')}
+                onChange={(_, v) => onFieldChange('country', v?.value || null)}
                 renderInput={(params) => (
                   <TextField {...params} label="国名" slotProps={{ inputLabel: { shrink: true } }} size="small" />
                 )}
@@ -152,13 +152,14 @@ export function ReservationCardSet2({ localData, onFieldChange, onBlurFlush }: P
           <FormControl size="small" fullWidth>
             <InputLabel shrink>目的</InputLabel>
             <Select
-              value={localData.purpose}
+              value={localData.purpose ?? ''}
               label="目的"
               displayEmpty
               onChange={(e) => {
-                onFieldChange('purpose', e.target.value)
-                if (e.target.value !== 'tourism') onFieldChange('tourism_type', '')
-                if (e.target.value !== 'business') onFieldChange('profession', '')
+                const val = e.target.value || null
+                onFieldChange('purpose', val)
+                if (val !== 'tourism') onFieldChange('tourism_type', null)
+                if (val !== 'business') onFieldChange('profession', '')
               }}
               sx={!localData.purpose ? { '& .MuiSelect-select': { color: 'text.disabled' } } : undefined}
             >
@@ -170,10 +171,10 @@ export function ReservationCardSet2({ localData, onFieldChange, onBlurFlush }: P
             <FormControl size="small" fullWidth>
               <InputLabel shrink>詳細（観光）</InputLabel>
               <Select
-                value={localData.tourism_type}
+                value={localData.tourism_type ?? ''}
                 label="詳細（観光）"
                 displayEmpty
-                onChange={(e) => onFieldChange('tourism_type', e.target.value)}
+                onChange={(e) => onFieldChange('tourism_type', e.target.value || null)}
                 sx={!localData.tourism_type ? { '& .MuiSelect-select': { color: 'text.disabled' } } : undefined}
               >
                 {tourismOptions.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
@@ -200,12 +201,12 @@ export function ReservationCardSet2({ localData, onFieldChange, onBlurFlush }: P
                 <FormControl size="small" fullWidth>
                   <InputLabel shrink>{`大人${i + 1}の年齢`}</InputLabel>
                   <Select
-                    value={age}
+                    value={age ?? ''}
                     label={`大人${i + 1}の年齢`}
                     displayEmpty
                     onChange={(e) => {
                       const arr = [...localData.age_groups]
-                      arr[i] = e.target.value
+                      arr[i] = e.target.value || null
                       onFieldChange('age_groups', arr)
                     }}
                     sx={!age ? { '& .MuiSelect-select': { color: 'text.disabled' } } : undefined}
@@ -219,10 +220,10 @@ export function ReservationCardSet2({ localData, onFieldChange, onBlurFlush }: P
               <FormControl size="small" fullWidth>
                 <InputLabel shrink>グループ構成</InputLabel>
                 <Select
-                  value={localData.group_type}
+                  value={localData.group_type ?? ''}
                   label="グループ構成"
                   displayEmpty
-                  onChange={(e) => onFieldChange('group_type', e.target.value)}
+                  onChange={(e) => onFieldChange('group_type', e.target.value || null)}
                   sx={!localData.group_type ? { '& .MuiSelect-select': { color: 'text.disabled' } } : undefined}
                 >
                   {groupOptions.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
