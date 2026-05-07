@@ -108,9 +108,21 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
     <Dialog
       open={true}
       onClose={handleClose}
-      maxWidth="md"
+      maxWidth={tab === 0 ? 'md' : 'sm'}
       fullWidth
-      slotProps={{ paper: { sx: { height: 600, display: 'flex', flexDirection: 'column' } } }}
+      slotProps={{
+        paper: {
+          sx: (theme) => ({
+            height: 600,
+            display: 'flex',
+            flexDirection: 'column',
+            transition: theme.transitions.create(['max-width', 'width'], {
+              duration: theme.transitions.duration.shorter,
+              easing: theme.transitions.easing.easeInOut,
+            }),
+          }),
+        },
+      }}
     >
       <DialogTitle sx={{ position: 'relative', display: 'flex', alignItems: 'center', py: 0.5, px: 2, minHeight: 32 }}>
         {/* 左: 部屋 / ゲスト名 */}

@@ -46,7 +46,7 @@ export function ReservationCardSet2({ localData, onFieldChange, onBlurFlush }: P
     gridTemplateColumns: 'repeat(3, 1fr)',
     gap: 2,
     mb: 2,
-    width: '70%',
+    width: '100%',
   }
 
   return (
@@ -57,6 +57,7 @@ export function ReservationCardSet2({ localData, onFieldChange, onBlurFlush }: P
         flexDirection: 'column',
         gap: 2,
         p: 2,
+        alignItems: 'center',
         overflowY: 'auto',
         height: '100%',
         scrollbarWidth: 'thin',
@@ -71,8 +72,8 @@ export function ReservationCardSet2({ localData, onFieldChange, onBlurFlush }: P
       }}
     >
       {/* ① 宿泊税 */}
-      <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
-        <Typography variant="subtitle2" fontWeight={600} mb={1}>
+      <Box sx={{ width: '95%', p: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
+        <Typography variant="subtitle2" fontWeight={600} mb={2}>
           ① 宿泊税 {!exempt && `¥${tax.toLocaleString()}`}
         </Typography>
         <Box sx={compactGridSx}>
@@ -107,14 +108,23 @@ export function ReservationCardSet2({ localData, onFieldChange, onBlurFlush }: P
         )}
       </Box>
 
-      <Divider />
+      <Divider sx={{ width: '80%' }} />
 
       {/* ② マーケティング情報 */}
-      <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
-        <Typography variant="subtitle2" fontWeight={600} mb={1}>② マーケティング情報</Typography>
+      <Box sx={{ width: '95%', p: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
+        <Typography variant="subtitle2" fontWeight={600} mb={2}>② マーケティング情報</Typography>
 
         {/* 3列グリッド */}
         <Box sx={compactGridSx}>
+            <TextField
+              label="C/I 担当スタッフ名"
+              value={localData.check_in_staff_name}
+              onChange={(e) => onFieldChange('check_in_staff_name', e.target.value)}
+              size="small"
+              fullWidth
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+          
           <Tooltip title="スクロールまたはタイピングで検索" placement="top" arrow>
             <Box>
               <Autocomplete
@@ -136,15 +146,6 @@ export function ReservationCardSet2({ localData, onFieldChange, onBlurFlush }: P
             value={localData.city}
             onChange={(e) => onFieldChange('city', e.target.value)}
             size="small"
-            slotProps={{ inputLabel: { shrink: true } }}
-          />
-
-          <TextField
-            label="C/I 担当スタッフ名"
-            value={localData.check_in_staff_name}
-            onChange={(e) => onFieldChange('check_in_staff_name', e.target.value)}
-            size="small"
-            fullWidth
             slotProps={{ inputLabel: { shrink: true } }}
           />
 
@@ -238,7 +239,7 @@ export function ReservationCardSet2({ localData, onFieldChange, onBlurFlush }: P
           size="small" fullWidth multiline minRows={1}
           slotProps={{ inputLabel: { shrink: true } }}
           placeholder="上記以外で伺ったことがあれば記述（改行可能）"
-          sx={{ width: '70%' }}
+          sx={{ width: '100%' }}
         />
       </Box>
     </Box>
