@@ -35,7 +35,7 @@ export function ReservationListCard({ reservation, onClick, onCancelOrRestore, i
           '&:active': { bgcolor: 'grey.300' },
         }}
       >
-        <Tooltip title="キャンセル復帰" placement="top">
+        <Tooltip title="キャンセル復帰する" placement="top">
           <IconButton
             size="small"
             data-testid="restore-button"
@@ -73,7 +73,7 @@ export function ReservationListCard({ reservation, onClick, onCancelOrRestore, i
         '&:active': { bgcolor: 'grey.200' },
       }}
     >
-      <Tooltip title="キャンセル" placement="top">
+      <Tooltip title="キャンセルする" placement="top">
         <IconButton
           size="small"
           data-testid="cancel-button"

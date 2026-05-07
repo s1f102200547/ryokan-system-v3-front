@@ -86,9 +86,10 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>新規予約追加（C/I: {checkInDate}）</DialogTitle>
-      <DialogContent sx={{ pt: 2 }}>
+      <DialogContent sx={{ pt: '24px !important' }}>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
+        {/* フィールド順: C/O日→ゲスト名→大人人数→子供人数→部屋→予約サイト→追加理由 */}
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
           <DatePicker
             label="C/O 日"
@@ -97,21 +98,6 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
             minDate={dayjs(checkInDate).add(1, 'day')}
             slotProps={{ textField: { size: 'small', fullWidth: true } }}
           />
-
-          <FormControl size="small" fullWidth>
-            <InputLabel shrink>部屋</InputLabel>
-            <Select
-              value={room}
-              label="部屋"
-              onChange={(e) => setRoom(e.target.value)}
-              displayEmpty
-            >
-              <MenuItem value=""><em>選択してください</em></MenuItem>
-              {ROOM_NUMBERS.map((r) => (
-                <MenuItem key={r} value={r}>{r}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
 
           <TextField
             label="ゲスト名"
@@ -145,6 +131,21 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
           </FormControl>
 
           <FormControl size="small" fullWidth>
+            <InputLabel shrink>部屋</InputLabel>
+            <Select
+              value={room}
+              label="部屋"
+              onChange={(e) => setRoom(e.target.value)}
+              displayEmpty
+            >
+              <MenuItem value=""><em>選択してください</em></MenuItem>
+              {ROOM_NUMBERS.map((r) => (
+                <MenuItem key={r} value={r}>{r}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" fullWidth>
             <InputLabel shrink>予約サイト（A税の有無に影響）</InputLabel>
             <Select
               value={bookingSite}
@@ -164,7 +165,7 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
             size="small"
             fullWidth
             multiline
-            minRows={2}
+            minRows={1}
             placeholder="Slack通知にのみ使用されます"
             sx={{ gridColumn: '1 / -1' }}
           />

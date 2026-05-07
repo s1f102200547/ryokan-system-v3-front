@@ -148,7 +148,7 @@ export function ReservationEditorList({ localData, nights, onFieldChange }: Prop
         {/* 部屋 */}
         <SectionHeader sectionKey="room" open={open.room} onToggle={() => toggle('room')} />
         <Collapse in={open.room} timeout="auto" unmountOnExit>
-          <FieldSelect value={localData.room ?? ''} options={roomOptions} onChange={(v) => onFieldChange('room', v)} />
+          <FieldSelect value={localData.room ?? ''} options={[{ value: '', label: '未アサイン' }, ...roomOptions]} onChange={(v) => onFieldChange('room', v)} />
         </Collapse>
 
         {/* 人数 */}
@@ -252,14 +252,14 @@ export function ReservationEditorList({ localData, nights, onFieldChange }: Prop
             <Box key={i} sx={{ px: 2, pb: 1 }}>
               <TextField
                 label={`Day ${i + 1}`}
-                InputLabelProps={{ shrink: true }}
+                slotProps={{ inputLabel: { shrink: true } }}
                 value={localData.timetable_info[i] ?? ''}
                 onChange={(e) => {
                   const arr = [...localData.timetable_info]
                   arr[i] = e.target.value
                   onFieldChange('timetable_info', arr)
                 }}
-                size="small" fullWidth multiline minRows={1}
+                size="small" fullWidth multiline minRows={3}
               />
             </Box>
           ))}

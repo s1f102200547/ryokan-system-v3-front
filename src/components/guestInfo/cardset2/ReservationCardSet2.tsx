@@ -28,9 +28,10 @@ import type { ReservationPatch } from '@/types/guestInfo'
 type Props = {
   localData: Reservation
   onFieldChange: (field: keyof ReservationPatch, value: unknown) => void
+  onBlurFlush: () => void
 }
 
-export function ReservationCardSet2({ localData, onFieldChange }: Props) {
+export function ReservationCardSet2({ localData, onFieldChange, onBlurFlush }: Props) {
   const nights = dateDiff(localData.check_in_date, localData.check_out_date)
   const exempt = isATaxExempt(localData.booking_site)
   const tax = exempt ? 0 : calcATax(localData.adult_count, nights, A_TAX_RATE_PER_PERSON_PER_NIGHT)
@@ -40,15 +41,33 @@ export function ReservationCardSet2({ localData, onFieldChange }: Props) {
   const showTourismDetail = localData.purpose === 'tourism'
   const showProfession = localData.purpose === 'business'
 
-  const fieldSx = { minWidth: 160 }
+  const fieldSx = { minWidth: 140 }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2, overflowY: 'auto', height: '100%' }}>
-
+    <Box
+      onBlur={onBlurFlush}
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        p: 2,
+        overflowY: 'auto',
+        height: '100%',
+        scrollbarWidth: 'thin',
+        scrollbarColor: 'transparent transparent',
+        '&::-webkit-scrollbar': { width: '4px' },
+        '&::-webkit-scrollbar-track': { background: 'transparent' },
+        '&::-webkit-scrollbar-thumb': { backgroundColor: 'transparent', borderRadius: '2px' },
+        '&:hover': {
+          scrollbarColor: 'rgba(0,0,0,0.15) transparent',
+          '&::-webkit-scrollbar-thumb': { backgroundColor: 'rgba(0,0,0,0.15)' },
+        },
+      }}
+    >
       {/* ① 宿泊税 */}
       <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
         <Typography variant="subtitle2" fontWeight={600} mb={1}>
-          ① 宿泊税 {exempt ? '（免除）' : `¥${tax.toLocaleString()}`}
+          ① 宿泊税 {!exempt && `¥${tax.toLocaleString()}`}
         </Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
           <FormControlLabel
@@ -72,7 +91,15 @@ export function ReservationCardSet2({ localData, onFieldChange }: Props) {
             size="small"
             disabled={exempt}
             sx={fieldSx}
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+          <TextField
+            label="C/I 担当スタッフ名"
+            value={localData.check_in_staff_name}
+            onChange={(e) => onFieldChange('check_in_staff_name', e.target.value)}
+            size="small"
+            sx={fieldSx}
+            slotProps={{ inputLabel: { shrink: true } }}
           />
         </Box>
         {exempt && (
@@ -88,15 +115,10 @@ export function ReservationCardSet2({ localData, onFieldChange }: Props) {
       <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
         <Typography variant="subtitle2" fontWeight={600} mb={1}>② マーケティング情報</Typography>
 
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-          <TextField
-            label="C/I 担当スタッフ名"
-            value={localData.check_in_staff_name}
-            onChange={(e) => onFieldChange('check_in_staff_name', e.target.value)}
-            size="small" sx={fieldSx} InputLabelProps={{ shrink: true }}
-          />
+        {/* 3列グリッド */}
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2, mb: 2 }}>
           <Tooltip title="スクロールまたはタイピングで検索" placement="top" arrow>
-            <Box sx={fieldSx}>
+            <Box>
               <Autocomplete
                 disableClearable
                 size="small"
@@ -105,59 +127,21 @@ export function ReservationCardSet2({ localData, onFieldChange }: Props) {
                 value={selectedCountry}
                 onChange={(_, v) => onFieldChange('country', v?.value ?? '')}
                 renderInput={(params) => (
-                  <TextField {...params} label="国名" InputLabelProps={{ shrink: true }} size="small" />
+                  <TextField {...params} label="国名" slotProps={{ inputLabel: { shrink: true } }} size="small" />
                 )}
               />
             </Box>
           </Tooltip>
+
           <TextField
             label="都市名"
             value={localData.city}
             onChange={(e) => onFieldChange('city', e.target.value)}
-            size="small" sx={fieldSx} InputLabelProps={{ shrink: true }}
+            size="small"
+            slotProps={{ inputLabel: { shrink: true } }}
           />
-        </Box>
 
-        {/* 年齢グループ（adult_count 分） */}
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-          {localData.age_groups.map((age, i) => (
-            <Tooltip key={i} title="大体の年齢を選択" placement="top" arrow>
-              <FormControl size="small" sx={fieldSx}>
-                <InputLabel shrink>{`大人${i + 1}の年齢`}</InputLabel>
-                <Select
-                  value={age}
-                  label={`大人${i + 1}の年齢`}
-                  displayEmpty
-                  onChange={(e) => {
-                    const arr = [...localData.age_groups]
-                    arr[i] = e.target.value
-                    onFieldChange('age_groups', arr)
-                  }}
-                  sx={!age ? { '& .MuiSelect-select': { color: 'text.disabled' } } : undefined}
-                >
-                  {ageOptions.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
-                </Select>
-              </FormControl>
-            </Tooltip>
-          ))}
-          {showGroupType && (
-            <FormControl size="small" sx={fieldSx}>
-              <InputLabel shrink>グループ構成</InputLabel>
-              <Select
-                value={localData.group_type}
-                label="グループ構成"
-                displayEmpty
-                onChange={(e) => onFieldChange('group_type', e.target.value)}
-                sx={!localData.group_type ? { '& .MuiSelect-select': { color: 'text.disabled' } } : undefined}
-              >
-                {groupOptions.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
-              </Select>
-            </FormControl>
-          )}
-        </Box>
-
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-          <FormControl size="small" sx={fieldSx}>
+          <FormControl size="small" fullWidth>
             <InputLabel shrink>目的</InputLabel>
             <Select
               value={localData.purpose}
@@ -173,12 +157,13 @@ export function ReservationCardSet2({ localData, onFieldChange }: Props) {
               {purposeOptions.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
             </Select>
           </FormControl>
+
           {showTourismDetail && (
-            <FormControl size="small" sx={fieldSx}>
-              <InputLabel shrink>詳細</InputLabel>
+            <FormControl size="small" fullWidth>
+              <InputLabel shrink>詳細（観光）</InputLabel>
               <Select
                 value={localData.tourism_type}
-                label="詳細"
+                label="詳細（観光）"
                 displayEmpty
                 onChange={(e) => onFieldChange('tourism_type', e.target.value)}
                 sx={!localData.tourism_type ? { '& .MuiSelect-select': { color: 'text.disabled' } } : undefined}
@@ -187,22 +172,64 @@ export function ReservationCardSet2({ localData, onFieldChange }: Props) {
               </Select>
             </FormControl>
           )}
+
           {showProfession && (
             <TextField
               label="職業"
               value={localData.profession}
               onChange={(e) => onFieldChange('profession', e.target.value)}
-              size="small" sx={fieldSx} InputLabelProps={{ shrink: true }}
+              size="small"
+              slotProps={{ inputLabel: { shrink: true } }}
             />
           )}
         </Box>
+
+        {/* 年齢グループ（adult_count 分）3列グリッド */}
+        {localData.age_groups.length > 0 && (
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2, mb: 2 }}>
+            {localData.age_groups.map((age, i) => (
+              <Tooltip key={i} title="大体の年齢を選択" placement="top" arrow>
+                <FormControl size="small" fullWidth>
+                  <InputLabel shrink>{`大人${i + 1}の年齢`}</InputLabel>
+                  <Select
+                    value={age}
+                    label={`大人${i + 1}の年齢`}
+                    displayEmpty
+                    onChange={(e) => {
+                      const arr = [...localData.age_groups]
+                      arr[i] = e.target.value
+                      onFieldChange('age_groups', arr)
+                    }}
+                    sx={!age ? { '& .MuiSelect-select': { color: 'text.disabled' } } : undefined}
+                  >
+                    {ageOptions.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </Tooltip>
+            ))}
+            {showGroupType && (
+              <FormControl size="small" fullWidth>
+                <InputLabel shrink>グループ構成</InputLabel>
+                <Select
+                  value={localData.group_type}
+                  label="グループ構成"
+                  displayEmpty
+                  onChange={(e) => onFieldChange('group_type', e.target.value)}
+                  sx={!localData.group_type ? { '& .MuiSelect-select': { color: 'text.disabled' } } : undefined}
+                >
+                  {groupOptions.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+                </Select>
+              </FormControl>
+            )}
+          </Box>
+        )}
 
         <TextField
           label="その他"
           value={localData.other_note}
           onChange={(e) => onFieldChange('other_note', e.target.value)}
           size="small" fullWidth multiline minRows={1}
-          InputLabelProps={{ shrink: true }}
+          slotProps={{ inputLabel: { shrink: true } }}
           placeholder="上記以外で伺ったことがあれば記述（改行可能）"
         />
       </Box>

@@ -11,7 +11,7 @@ type Props = {
 
 export function AddReservationCard({ onClick }: Props) {
   return (
-    <Tooltip title="新規予約追加" placement="top">
+    <Tooltip title="新規追加する" placement="top">
       <Card
         onClick={onClick}
         data-testid="add-reservation-card"

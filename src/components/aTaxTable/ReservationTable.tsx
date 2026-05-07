@@ -138,9 +138,18 @@ function SafeBalanceCheckerCell({ date, value }: { date: string; value: string }
 
 // -------- main table component --------
 
-const HEADERS = [
-  '受領済み', 'C/I日', '部屋', 'ゲスト名', '大人人数', '泊数',
-  '予約サイト', '宿泊税', '受領スタッフ名', '締めスタッフ名', '大人人数×泊数',
+const HEADERS: { label: string; width?: number | string; align?: 'center' | 'left' }[] = [
+  { label: '受領済み',    width: 52,   align: 'center' },
+  { label: 'C/I日',      width: 110,  align: 'center' },
+  { label: '部屋',       width: 52,   align: 'center' },
+  { label: 'ゲスト名',   align: 'left' },
+  { label: '大人人数',   width: 60,   align: 'center' },
+  { label: '泊数',       width: 44,   align: 'center' },
+  { label: '予約サイト', width: 100,  align: 'center' },
+  { label: '宿泊税',     width: 72,   align: 'center' },
+  { label: '受領スタッフ名', width: 100, align: 'center' },
+  { label: '締めスタッフ名', width: 100, align: 'center' },
+  { label: '大人×泊',   width: 56,   align: 'center' },
 ]
 
 type Props = {
@@ -171,8 +180,12 @@ export function ReservationTable({ processedRows, loading, onToggle }: Props) {
           <TableHead>
             <TableRow>
               {HEADERS.map((h) => (
-                <TableCell key={h} sx={{ fontWeight: 600, fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
-                  {h}
+                <TableCell
+                  key={h.label}
+                  align={h.align ?? 'left'}
+                  sx={{ fontWeight: 600, fontSize: '0.75rem', whiteSpace: 'nowrap', width: h.width }}
+                >
+                  {h.label}
                 </TableCell>
               ))}
             </TableRow>
@@ -180,29 +193,29 @@ export function ReservationTable({ processedRows, loading, onToggle }: Props) {
           <TableBody>
             {processedRows.map((row) => (
               <TableRow key={row.id} hover>
-                <TableCell sx={cellSx}>
+                <TableCell sx={cellSx} align="center">
                   {row.booking_site !== 'chillnn' && (
                     <ATaxCheckboxCell id={row.id} checked={row.a_tax_received} onToggle={onToggle} />
                   )}
                 </TableCell>
-                <TableCell sx={cellSx}>{row.check_in_date}</TableCell>
-                <TableCell sx={cellSx}>{row.room ?? '—'}</TableCell>
+                <TableCell sx={cellSx} align="center">{row.check_in_date}</TableCell>
+                <TableCell sx={cellSx} align="center">{row.room ?? '—'}</TableCell>
                 <TableCell sx={cellSx}>{row.guest_name}</TableCell>
-                <TableCell sx={cellSx}>{row.adult_count}</TableCell>
-                <TableCell sx={cellSx}>{row.nights}</TableCell>
-                <TableCell sx={cellSx}>{row.booking_site}</TableCell>
-                <TableCell sx={cellSx}>{row.tax === 0 ? '免除' : `¥${row.tax.toLocaleString()}`}</TableCell>
-                <TableCell sx={cellSx}>
+                <TableCell sx={cellSx} align="center">{row.adult_count}</TableCell>
+                <TableCell sx={cellSx} align="center">{row.nights}</TableCell>
+                <TableCell sx={cellSx} align="center">{row.booking_site}</TableCell>
+                <TableCell sx={cellSx} align="center">{row.tax === 0 ? '免除' : `¥${row.tax.toLocaleString()}`}</TableCell>
+                <TableCell sx={cellSx} align="center">
                   {row.booking_site !== 'chillnn' && (
                     <StaffNameCell id={row.id} value={row.a_tax_received_by_staff_name} />
                   )}
                 </TableCell>
-                <TableCell sx={cellSx}>
+                <TableCell sx={cellSx} align="center">
                   {row.isLastDate && (
                     <SafeBalanceCheckerCell date={row.check_in_date} value={row.safeBalanceChecker} />
                   )}
                 </TableCell>
-                <TableCell sx={cellSx}>
+                <TableCell sx={cellSx} align="center">
                   {row.isLastDate ? row.adultNightSum : null}
                 </TableCell>
               </TableRow>

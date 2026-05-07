@@ -7,8 +7,8 @@ import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import IconButton from '@mui/material/IconButton'
 import Snackbar from '@mui/material/Snackbar'
-import Tab from '@mui/material/Tab'
-import Tabs from '@mui/material/Tabs'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import CloseIcon from '@mui/icons-material/Close'
 import CloudDoneIcon from '@mui/icons-material/CloudDone'
@@ -29,7 +29,6 @@ type Props = {
   onClose: () => void
 }
 
-// Outer shell: guard null and provide key= to reset all inner state when reservation changes
 export function ReservationModal({ reservation, onClose }: Props) {
   if (!reservation) return null
   return <ModalBody key={reservation.id} reservation={reservation} onClose={onClose} />
@@ -40,14 +39,11 @@ const SAVE_DEBOUNCE_MS = 500
 type DebouncedFn = ((id: string) => void) & { flush: () => void; cancel: () => void }
 
 function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose: () => void }) {
-  const [tab, setTab] = useState(0)
-  // Initialize from prop; key= resets this when reservation changes, so no effect needed
+  const [tab, setTab] = useState<number>(0)
   const [localData, setLocalData] = useState<Reservation>(reservation)
 
   const pendingPayloadRef = useRef<ReservationPatch>({})
   const { execute, saveStatus, error, clearError } = useUpdateReservation()
-
-  // Initialize debounce in effect to avoid refs-in-render lint error
   const debouncedUpdateRef = useRef<DebouncedFn | null>(null)
 
   useEffect(() => {
@@ -73,11 +69,15 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
     onClose()
   }, [onClose])
 
+  // Step 54: onBlur on any input field immediately flushes pending debounced save
+  const handleBlurFlush = useCallback(() => {
+    debouncedUpdateRef.current?.flush()
+  }, [])
+
   const handleFieldChange = useCallback(
     (field: keyof ReservationPatch, value: unknown) => {
       let patch: ReservationPatch = { [field]: value }
 
-      // check_out_date 変更時は夜数連動フィールドもリサイズ
       if (field === 'check_out_date' && typeof value === 'string') {
         const newNights = dateDiff(localData.check_in_date, value)
         if (newNights > 0) {
@@ -123,31 +123,21 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
           </Typography>
         </Box>
 
-        {/* 中央: タブ */}
-        <Tabs
+        {/* 中央: ToggleButton タブ */}
+        <ToggleButtonGroup
           value={tab}
-          onChange={(_, v: number) => setTab(v)}
+          exclusive
+          onChange={(_, v: number | null) => { if (v !== null) setTab(v) }}
+          size="small"
           sx={{ mx: 'auto' }}
-          textColor="primary"
-          indicatorColor="primary"
         >
-          <Tab
-            label="C/I前"
-            sx={{
-              minHeight: 32,
-              py: 0.25,
-              '&:hover': { bgcolor: 'action.hover', borderRadius: 1 },
-            }}
-          />
-          <Tab
-            label="C/I後"
-            sx={{
-              minHeight: 32,
-              py: 0.25,
-              '&:hover': { bgcolor: 'action.hover', borderRadius: 1 },
-            }}
-          />
-        </Tabs>
+          <ToggleButton value={0} sx={{ px: 2, py: 0.25, fontSize: '0.8rem' }}>
+            C/I前
+          </ToggleButton>
+          <ToggleButton value={1} sx={{ px: 2, py: 0.25, fontSize: '0.8rem' }}>
+            C/I後
+          </ToggleButton>
+        </ToggleButtonGroup>
 
         {/* 右: 保存ステータス + 閉じるボタン */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -155,9 +145,9 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
           <IconButton
             onClick={handleClose}
             aria-label="閉じる"
-            sx={{ p: 1.5 }}
+            sx={{ p: 2 }}
           >
-            <CloseIcon />
+            <CloseIcon fontSize="medium" />
           </IconButton>
         </Box>
       </DialogTitle>
@@ -171,18 +161,19 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
               localData={localData}
               nights={nights}
               onFieldChange={handleFieldChange}
+              onBlurFlush={handleBlurFlush}
             />
           )}
           {tab === 1 && (
             <ReservationCardSet2
               localData={localData}
               onFieldChange={handleFieldChange}
+              onBlurFlush={handleBlurFlush}
             />
           )}
         </Box>
       </DialogContent>
 
-      {/* 保存エラー Snackbar */}
       <Snackbar
         open={saveStatus === 'error' && error !== null}
         autoHideDuration={5000}

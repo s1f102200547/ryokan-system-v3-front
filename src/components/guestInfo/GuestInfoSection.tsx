@@ -52,7 +52,7 @@ export function GuestInfoSection({ selectedDate }: Props) {
 
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
+      <Box sx={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9 }}>
         <CircularProgress />
       </Box>
     )
@@ -68,7 +68,7 @@ export function GuestInfoSection({ selectedDate }: Props) {
   return (
     <Box>
       {/* アクティブな予約カード列 */}
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, justifyContent: 'center' }}>
         {normal.map((r) => (
           <ReservationListCard
             key={r.id}
