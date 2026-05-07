@@ -124,7 +124,18 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
         },
       }}
     >
-      <DialogTitle sx={{ position: 'relative', display: 'flex', alignItems: 'center', py: 0.5, px: 2, minHeight: 32 }}>
+      <DialogTitle
+        sx={{
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          py: 1,
+          px: 2,
+          minHeight: 44,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
         {/* 左: 部屋 / ゲスト名 */}
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, minWidth: 0 }}>
           <Typography variant="body2" color="text.secondary" noWrap>
@@ -156,17 +167,25 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
           </ToggleButton>
         </ToggleButtonGroup>
 
-        {/* 右: 保存ステータス + 閉じるボタン */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 'auto' }}>
+        {/* 右: 保存ステータス */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 'auto', pr: 4 }}>
           <SaveStatusIcon status={saveStatus} />
-          <IconButton
-            onClick={handleClose}
-            aria-label="閉じる"
-            sx={{ p: 2 }}
-          >
-            <CloseIcon fontSize="medium" />
-          </IconButton>
         </Box>
+        <IconButton
+          onClick={handleClose}
+          aria-label="閉じる"
+          sx={{
+            position: 'absolute',
+            top: -20,
+            right: -15,
+            width: 85,
+            height: 85,
+            p: 1.75,
+            zIndex: 2,
+          }}
+        >
+          <CloseIcon sx={{ fontSize: 28 }} />
+        </IconButton>
       </DialogTitle>
 
       <DialogContent
