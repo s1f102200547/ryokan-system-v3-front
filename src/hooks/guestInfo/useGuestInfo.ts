@@ -5,14 +5,16 @@ import type { GuestInfoData } from '@/application/guestInfo/getGuestInfoUseCase'
 
 type State = {
   data: GuestInfoData | null
-  fetchedDate: string | null
+  stateKey: string | null
   error: string | null
 }
 
-export function useGuestInfo(targetDate: string) {
+export function useGuestInfo(targetDate: string, refreshKey = 0) {
+  const stateKey = `${targetDate}-${refreshKey}`
+
   const [state, setState] = useState<State>({
     data: null,
-    fetchedDate: null,
+    stateKey: null,
     error: null,
   })
 
@@ -28,16 +30,16 @@ export function useGuestInfo(targetDate: string) {
             res.status === 503
               ? '一時的に通信に失敗しました。しばらく待ってから再度お試しください。'
               : 'データの取得に失敗しました。管理者に通知済みです。'
-          setState({ data: null, fetchedDate: targetDate, error: message })
+          setState({ data: null, stateKey, error: message })
           return
         }
         const data = (await res.json()) as GuestInfoData
-        if (!cancelled) setState({ data, fetchedDate: targetDate, error: null })
+        if (!cancelled) setState({ data, stateKey, error: null })
       } catch {
         if (!cancelled)
           setState({
             data: null,
-            fetchedDate: targetDate,
+            stateKey,
             error: '通信エラーが発生しました。ネットワーク接続を確認してください',
           })
       }
@@ -47,9 +49,9 @@ export function useGuestInfo(targetDate: string) {
     return () => {
       cancelled = true
     }
-  }, [targetDate])
+  }, [targetDate, refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isLoading = state.fetchedDate !== targetDate
+  const isLoading = state.stateKey !== stateKey
 
   return { data: state.data, isLoading, error: state.error }
 }

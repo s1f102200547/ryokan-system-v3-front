@@ -28,6 +28,8 @@ export function useUpdateReservation() {
         return
       }
       setSaveStatus('saved')
+      // 2秒後に idle に戻す
+      setTimeout(() => setSaveStatus('idle'), 2000)
     } catch {
       setError('通信エラーが発生しました。ネットワーク接続を確認してください')
       setSaveStatus('error')
