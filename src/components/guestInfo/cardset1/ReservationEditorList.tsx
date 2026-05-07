@@ -162,7 +162,7 @@ export function ReservationEditorList({ localData, nights, onFieldChange }: Prop
             <TextField
               value={localData.guest_name}
               onChange={(e) => onFieldChange('guest_name', e.target.value)}
-              size="small" fullWidth variant="outlined"
+              size="small" fullWidth variant="standard"
               sx={compactInputSx}
             />
           </Box>
