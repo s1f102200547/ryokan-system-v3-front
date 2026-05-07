@@ -50,7 +50,8 @@ export function GuestInfoSection({ selectedDate }: Props) {
     setSnackbarMessage('予約を追加しました')
   }, [refresh])
 
-  if (isLoading) {
+  // data === null は初回ロードのみ。refresh 中は data が残るので UI を保持し Snackbar を消さない
+  if (isLoading && data === null) {
     return (
       <Box sx={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9 }}>
         <CircularProgress />
@@ -58,7 +59,7 @@ export function GuestInfoSection({ selectedDate }: Props) {
     )
   }
 
-  if (error) {
+  if (!isLoading && error) {
     return <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>
   }
 

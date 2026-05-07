@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import NextLink from 'next/link'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
@@ -93,7 +94,16 @@ export function DailyDashboard({ today }: Props) {
         </Button>
 
         {/* 印刷ボタン（右端） */}
-        <Box sx={{ ml: 'auto', display: 'flex', gap: 0.5 }}>
+        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Button
+            component={NextLink}
+            href="/a_tax_table"
+            size="small"
+            variant="text"
+            sx={{ textTransform: 'none', fontSize: '0.8rem', color: 'text.secondary' }}
+          >
+            宿泊税管理
+          </Button>
           <Tooltip title={`タイムテーブル印刷（${dateLabel}）`} arrow>
             <IconButton
               size="small"
