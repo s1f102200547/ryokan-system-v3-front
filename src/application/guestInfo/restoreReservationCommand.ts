@@ -17,7 +17,7 @@ export async function restoreReservationCommand(input: RestoreInput): Promise<vo
     month: String(parseInt(mm, 10)),
     day: String(parseInt(dd, 10)),
     name: staffName,
-    summary: 'キャンセル復活',
+    summary: '手動キャンセル復活',
     text: reason,
     source: 'システム',
   }
