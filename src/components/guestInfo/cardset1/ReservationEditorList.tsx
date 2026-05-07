@@ -74,6 +74,10 @@ const menuProps = {
 const compactInputSx = {
   '& .MuiInputBase-root': { minHeight: 28, fontSize: '0.68rem' },
   '& .MuiInputBase-input': { py: 0.35, px: 0.75, fontSize: '0.68rem' },
+  '& .MuiPickersInputBase-root': { minHeight: 28, fontSize: '0.68rem' },
+  '& .MuiPickersInputBase-sectionsContainer': { py: 0.35, px: 0.75, fontSize: '0.68rem' },
+  '& .MuiInputAdornment-root .MuiIconButton-root': { p: 0.25 },
+  '& .MuiSvgIcon-root': { fontSize: '0.9rem' },
   '& .MuiSelect-select': { minHeight: 'unset !important', py: '4px !important', px: '8px !important', fontSize: '0.68rem' },
   '& .MuiInputLabel-root': { fontSize: '0.68rem' },
 }
@@ -104,7 +108,7 @@ function FieldSelect({ label, value, options, onChange }: {
   onChange: (v: unknown) => void
 }) {
   return (
-    <FormControl fullWidth size="small" sx={{ px: 1, pb: 0.5, ...compactInputSx }}>
+    <FormControl fullWidth size="small" sx={{ px: 1, py: 0.35, ...compactInputSx }}>
       {label && <InputLabel shrink>{label}</InputLabel>}
       <Select
         value={value ?? ''}
@@ -144,7 +148,7 @@ export function ReservationEditorList({ localData, nights, onFieldChange }: Prop
         {/* ゲスト名 */}
         <SectionHeader sectionKey="guestName" open={open.guestName} onToggle={() => toggle('guestName')} />
         <Collapse in={open.guestName} timeout="auto" unmountOnExit>
-          <Box sx={{ px: 1, pb: 0.5 }}>
+          <Box sx={{ px: 1, py: 0.35 }}>
             <TextField
               value={localData.guest_name}
               onChange={(e) => onFieldChange('guest_name', e.target.value)}
@@ -170,7 +174,7 @@ export function ReservationEditorList({ localData, nights, onFieldChange }: Prop
         {/* C/O date */}
         <SectionHeader sectionKey="checkout" open={open.checkout} onToggle={() => toggle('checkout')} />
         <Collapse in={open.checkout} timeout="auto" unmountOnExit>
-          <Box sx={{ px: 1, pb: 0.5 }}>
+          <Box sx={{ px: 1, py: 0.35 }}>
             <DatePicker
               value={dayjs(localData.check_out_date)}
               minDate={minCheckout}
@@ -215,7 +219,7 @@ export function ReservationEditorList({ localData, nights, onFieldChange }: Prop
                   onFieldChange('dinner_time', arr)
                 }} />
               {(localData.dinner_time[i] ?? DINNER_NONE) !== DINNER_NONE && (
-                <Box sx={{ px: 1, pb: 0.5 }}>
+                <Box sx={{ px: 1, py: 0.35 }}>
                   <TextField
                     value={localData.dinner_info[i] ?? ''}
                     onChange={(e) => {
@@ -259,7 +263,7 @@ export function ReservationEditorList({ localData, nights, onFieldChange }: Prop
         <SectionHeader sectionKey="timetable" open={open.timetable} onToggle={() => toggle('timetable')} />
         <Collapse in={open.timetable} timeout="auto" unmountOnExit>
           {Array.from({ length: nights }).map((_, i) => (
-            <Box key={i} sx={{ px: 1, pb: 0.5 }}>
+            <Box key={i} sx={{ px: 1, py: 0.35 }}>
               <TextField
                 label={`Day ${i + 1}`}
                 slotProps={{ inputLabel: { shrink: true } }}

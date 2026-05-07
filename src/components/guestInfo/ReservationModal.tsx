@@ -145,7 +145,7 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
         </ToggleButtonGroup>
 
         {/* 右: 保存ステータス + 閉じるボタン */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 'auto' }}>
           <SaveStatusIcon status={saveStatus} />
           <IconButton
             onClick={handleClose}

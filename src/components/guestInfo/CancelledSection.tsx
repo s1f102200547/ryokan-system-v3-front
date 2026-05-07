@@ -15,11 +15,11 @@ export function CancelledSection({ reservations, onCardClick, onRestore }: Props
   if (reservations.length === 0) return null
 
   return (
-    <Box sx={{ mt: 3 }}>
+    <Box sx={{ mt: 3, width: '50%', mx: 'auto' }}>
       <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
         キャンセル済み
       </Typography>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, justifyContent: 'center' }}>
         {reservations.map((r) => (
           <ReservationListCard
             key={r.id}
