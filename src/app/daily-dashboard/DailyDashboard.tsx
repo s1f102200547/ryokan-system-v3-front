@@ -8,7 +8,6 @@ import CircularProgress from '@mui/material/CircularProgress'
 import IconButton from '@mui/material/IconButton'
 import Popover from '@mui/material/Popover'
 import TextField from '@mui/material/TextField'
-import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import NavigateNextIcon from '@mui/icons-material/NavigateNext'
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
@@ -163,22 +162,26 @@ export function DailyDashboard({ today }: Props) {
           >
             宿泊税管理
           </Button>
-          <Tooltip title={`タイムテーブル印刷（${dateLabel}）`} arrow>
-            <IconButton
-              onClick={() => setPrintMode('timetable')}
-              data-testid="print-timetable"
-            >
-              <PrintIcon fontSize="medium" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title={`清掃ボード印刷（${dateLabel}）`} arrow>
-            <IconButton
-              onClick={() => setPrintMode('cleaning-board')}
-              data-testid="print-cleaning-board"
-            >
-              <PrintIcon fontSize="medium" />
-            </IconButton>
-          </Tooltip>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<PrintIcon fontSize="small" />}
+            onClick={() => setPrintMode('timetable')}
+            data-testid="print-timetable"
+            sx={{ textTransform: 'none', fontSize: '0.8rem' }}
+          >
+            タイムテーブル
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<PrintIcon fontSize="small" />}
+            onClick={() => setPrintMode('cleaning-board')}
+            data-testid="print-cleaning-board"
+            sx={{ textTransform: 'none', fontSize: '0.8rem' }}
+          >
+            清掃ボード
+          </Button>
         </Box>
       </Box>
 
