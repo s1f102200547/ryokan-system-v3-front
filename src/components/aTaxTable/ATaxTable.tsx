@@ -29,7 +29,7 @@ function useMonthlyTarget(option: MonthOption) {
 
 function buildCSVContent(processedRows: ReturnType<typeof computeProcessedRows>): string {
   if (processedRows.length === 0) return ''
-  const BOM = '﻿'
+  const BOM = '\uFEFF'
   const headers = [
     '受領済み', 'C/I日', '部屋', 'ゲスト名', '大人人数', '泊数',
     '予約サイト', '宿泊税', '受領スタッフ名', '締めスタッフ名', '大人人数×泊数',
