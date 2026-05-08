@@ -23,6 +23,7 @@ const validBody = {
   guest_name: 'テストゲスト',
   booking_site: 'booking.com',
   add_reason: '電話予約',
+  staff_name: '田中',
 }
 
 function makeRequest(body: unknown = validBody, withSession = true) {
