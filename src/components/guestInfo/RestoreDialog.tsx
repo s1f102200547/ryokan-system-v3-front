@@ -48,7 +48,7 @@ export function RestoreDialog({ reservation, onClose, onRestored }: Props) {
   return (
     <Dialog open={Boolean(reservation)} onClose={handleClose} maxWidth="xs" fullWidth>
       <DialogTitle>キャンセル復活</DialogTitle>
-      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '20px !important' }}>
         {error && <Alert severity="error">{error}</Alert>}
         <TextField
           label="スタッフ名"
