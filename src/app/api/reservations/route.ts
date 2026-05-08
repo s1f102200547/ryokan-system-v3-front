@@ -10,7 +10,7 @@ const BodySchema = z.object({
   check_in_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   check_out_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   room: z.enum(ROOM_NUMBERS),
-  adult_count: z.number().int().min(1).max(9),
+  adult_count: z.number().int().min(0).max(9),
   child_count: z.number().int().min(0).max(9),
   guest_name: z.string().min(1).max(100),
   booking_site: z.enum(BOOKING_SITES),
