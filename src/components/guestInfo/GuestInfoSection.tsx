@@ -35,7 +35,7 @@ export function GuestInfoSection({ selectedDate }: Props) {
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null)
 
-  const { data, isLoading, error } = useGuestInfo(selectedDate, refreshKey)
+  const { data, isLoading, error, loadedKey } = useGuestInfo(selectedDate, refreshKey)
 
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), [])
 
@@ -65,28 +65,42 @@ export function GuestInfoSection({ selectedDate }: Props) {
 
   const normal = sortByRoom(data?.normal ?? [])
   const cancelled = data?.cancelled ?? []
+  const isShowingStaleData = isLoading && data !== null
 
   return (
     <Box>
-      {/* アクティブな予約カード列 */}
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, justifyContent: 'center', mt: 10 }}>
-        {normal.map((r) => (
-          <ReservationListCard
-            key={r.id}
-            reservation={r}
-            onClick={setModalReservation}
-            onCancelOrRestore={setCancelTarget}
-          />
-        ))}
-        <AddReservationCard onClick={() => setAddDialogOpen(true)} />
-      </Box>
+      <Box
+        key={loadedKey ?? 'guest-info-empty'}
+        sx={{
+          opacity: isShowingStaleData ? 0.35 : 1,
+          animation: isShowingStaleData ? 'none' : 'guestInfoFadeIn 180ms ease-out',
+          transition: 'opacity 120ms ease-out',
+          '@keyframes guestInfoFadeIn': {
+            from: { opacity: 0.35, transform: 'translateY(4px)' },
+            to: { opacity: 1, transform: 'translateY(0)' },
+          },
+        }}
+      >
+        {/* アクティブな予約カード列 */}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, justifyContent: 'center', mt: 10 }}>
+          {normal.map((r) => (
+            <ReservationListCard
+              key={r.id}
+              reservation={r}
+              onClick={setModalReservation}
+              onCancelOrRestore={setCancelTarget}
+            />
+          ))}
+          <AddReservationCard onClick={() => setAddDialogOpen(true)} />
+        </Box>
 
-      {/* キャンセル済み */}
-      <CancelledSection
-        reservations={cancelled}
-        onCardClick={setModalReservation}
-        onRestore={setRestoreTarget}
-      />
+        {/* キャンセル済み */}
+        <CancelledSection
+          reservations={cancelled}
+          onCardClick={setModalReservation}
+          onRestore={setRestoreTarget}
+        />
+      </Box>
 
       {/* モーダル / ダイアログ */}
       <ReservationModal

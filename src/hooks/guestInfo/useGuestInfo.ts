@@ -53,5 +53,5 @@ export function useGuestInfo(targetDate: string, refreshKey = 0) {
 
   const isLoading = state.stateKey !== stateKey
 
-  return { data: state.data, isLoading, error: state.error }
+  return { data: state.data, isLoading, error: state.error, loadedKey: state.stateKey }
 }
