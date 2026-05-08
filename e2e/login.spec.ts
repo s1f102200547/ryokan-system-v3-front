@@ -110,6 +110,6 @@ test.describe('ログイン', () => {
     await page.getByLabel('メールアドレス').fill('test@example.com')
     await page.getByLabel('パスワード').fill('password')
     await page.getByRole('button', { name: 'ログイン' }).click()
-    await expect(page).toHaveURL('/')
+    await expect(page).toHaveURL('/daily-dashboard')
   })
 })

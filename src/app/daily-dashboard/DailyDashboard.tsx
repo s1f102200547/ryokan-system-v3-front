@@ -1,10 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import NextLink from 'next/link'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
 import Popover from '@mui/material/Popover'
+import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import NavigateNextIcon from '@mui/icons-material/NavigateNext'
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
@@ -13,6 +15,7 @@ import PrintIcon from '@mui/icons-material/Print'
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar'
 import dayjs from 'dayjs'
 import { useDateNavigation } from '@/hooks/date/useDateNavigation'
+import { GuestInfoSection } from '@/components/guestInfo/GuestInfoSection'
 import { TimetablePrintContent } from './TimetablePrintContent'
 import { CleaningBoardPrintContent } from './CleaningBoardPrintContent'
 
@@ -32,28 +35,35 @@ export function DailyDashboard({ today }: Props) {
   return (
     <Box sx={{ p: 3 }}>
       {/* 日付ナビゲーション */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 4, '@media print': { display: 'none' } }}>
-        <IconButton onClick={goToPrevDay} size="small" aria-label="前日" data-testid="prev-day">
-          <NavigateBeforeIcon />
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.5,
+          mb: 4,
+          '@media print': { display: 'none' },
+        }}
+      >
+        <IconButton onClick={goToPrevDay} aria-label="前日" data-testid="prev-day">
+          <NavigateBeforeIcon fontSize="medium" />
         </IconButton>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mx: 0.5 }}>
-          <Typography fontWeight="bold" data-testid="date-label">{dateLabel}</Typography>
-          <Typography variant="body2" color="text.secondary" data-testid="diff-label">
-            ({diffLabel})
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mx: 0.75 }}>
+          <Typography fontSize="1.15rem" data-testid="date-label">{dateLabel.replace('/', ' / ')}</Typography>
+          <Typography variant="body1" color="text.secondary" data-testid="diff-label">
+            ( {diffLabel} )
           </Typography>
         </Box>
 
-        <IconButton onClick={goToNextDay} size="small" aria-label="翌日" data-testid="next-day">
-          <NavigateNextIcon />
+        <IconButton onClick={goToNextDay} aria-label="翌日" data-testid="next-day">
+          <NavigateNextIcon fontSize="medium" />
         </IconButton>
 
         <IconButton
-          size="small"
           aria-label="日付を選択"
           onClick={(e) => setCalendarAnchor(e.currentTarget)}
         >
-          <CalendarMonthIcon fontSize="small" />
+          <CalendarMonthIcon fontSize="medium" />
         </IconButton>
 
         <Popover
@@ -77,33 +87,47 @@ export function DailyDashboard({ today }: Props) {
           variant="outlined"
           size="small"
           onClick={goToToday}
-          sx={{ borderRadius: '20px', ml: 1, textTransform: 'none' }}
+          sx={{ borderRadius: '20px', ml: 1, textTransform: 'none', fontSize: '0.9rem' }}
         >
           Today
         </Button>
+
+        {/* 印刷ボタン（右端） */}
+        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Button
+            component={NextLink}
+            href="/a_tax_table"
+            size="small"
+            variant="text"
+            sx={{ textTransform: 'none', fontSize: '0.9rem', color: 'text.secondary' }}
+          >
+            宿泊税管理
+          </Button>
+          <Tooltip title={`タイムテーブル印刷（${dateLabel}）`} arrow>
+            <IconButton
+              onClick={() => setPrintMode('timetable')}
+              data-testid="print-timetable"
+            >
+              <PrintIcon fontSize="medium" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={`清掃ボード印刷（${dateLabel}）`} arrow>
+            <IconButton
+              onClick={() => setPrintMode('cleaning-board')}
+              data-testid="print-cleaning-board"
+            >
+              <PrintIcon fontSize="medium" />
+            </IconButton>
+          </Tooltip>
+        </Box>
       </Box>
 
-      {/* 印刷ボタン */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 320, '@media print': { display: 'none' } }}>
-        <Button
-          variant="contained"
-          startIcon={<PrintIcon />}
-          onClick={() => setPrintMode('timetable')}
-          data-testid="print-timetable"
-        >
-          タイムテーブル印刷（{dateLabel}）
-        </Button>
-        <Button
-          variant="contained"
-          startIcon={<PrintIcon />}
-          onClick={() => setPrintMode('cleaning-board')}
-          data-testid="print-cleaning-board"
-        >
-          清掃ボード印刷（{dateLabel}）
-        </Button>
+      {/* GuestInfo セクション */}
+      <Box sx={{ '@media print': { display: 'none' } }}>
+        <GuestInfoSection selectedDate={selectedDate} />
       </Box>
 
-      {/* 印刷コンテンツ（各コンポーネントが自身の Backdrop と印刷レイアウトを管理する） */}
+      {/* 印刷コンテンツ */}
       {printMode === 'timetable' && (
         <TimetablePrintContent
           date={selectedDate}

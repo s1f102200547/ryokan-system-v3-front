@@ -77,3 +77,7 @@ route.ts の QuerySchema は /^\d{4}-\d{2}-\d{2}$/ のみ。2026-13-45 のよう
 - どの環境でやるか検討すべき
 
 ## ciが通らなくてもdeployが実行されてしまう
+
+## Ataxのエラー処理が不十分
+ src/components/aTaxTable/ReservationTable.tsx の const [error, setError] = useState<string | null>(null) — error は {error && <Alert>} で表示されているが、setError はコンポーネント内で一度も呼ばれていない（void setError で警告を無効化するのみ）。つまり ATaxCheckboxCell / StaffNameCell / SafeBalanceCheckerCell のセーブが失敗しても ユーザーには何も通知されない。
+ 上記3セルは useUpdateATax / useUpdateSafeBalanceChecker の error を持つが UI に渡していない。

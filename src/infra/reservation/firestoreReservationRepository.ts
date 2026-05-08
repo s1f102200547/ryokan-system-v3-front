@@ -1,9 +1,12 @@
 import { ZodError, z } from 'zod'
+import { FieldValue } from 'firebase-admin/firestore'
+import { v7 as uuidv7 } from 'uuid'
 import { adminDb } from '@/lib/firebase/admin'
 import { InfraError } from '@/types/errors'
 import { ROOM_NUMBERS } from '@/types/room'
 import type { ReservationRepository } from '@/domain/ports/reservationRepository'
 import type { Reservation } from '@/types/reservation'
+import type { ATaxPatch, BookingSite, MailMemoEntry, NewReservationInput, ReservationPatch } from '@/types/guestInfo'
 import { dateDiff } from '@/lib/dateUtils'
 
 // --- バリデーション用定数（Firestore 値の許容範囲） ---
@@ -31,6 +34,8 @@ const OPEN_AIR_BATH_TIME_VALUES = [
   '7:30', '8:00', '8:30', '9:00', '9:30',
 ] as const
 
+const KNOWN_BOOKING_SITES = ['chillnn', 'booking.com', 'expedia'] as const
+
 // --- Firestoreドキュメントのバリデーションスキーマ ---
 // 基本フィールド: ZodError になりうる（= FIRESTORE_DATA_CORRUPTION の対象）
 // 配列フィールド: 後述の normalizeArray で明示的に補完・変換する
@@ -38,7 +43,7 @@ const OPEN_AIR_BATH_TIME_VALUES = [
 const FirestoreReservationSchema = z.object({
   check_in_date: z.string().regex(/^\d{4}\/\d{2}\/\d{2}$/),
   check_out_date: z.string().regex(/^\d{4}\/\d{2}\/\d{2}$/),
-  adult_count: z.number().int().min(1).max(9),
+  adult_count: z.number().int().min(0).max(9),
   child_count: z.number().int().min(0).max(9),
   // "" は未割り当てとして null に変換し、7部屋番号 or null のみ許可
   room: z
@@ -52,31 +57,139 @@ const FirestoreReservationSchema = z.object({
   arrival_time: z.enum(ARRIVAL_TIME_VALUES).nullable().default(null).catch(null),
   // 配列フィールドは unknown で受け取り、normalizeArray で処理
   dinner_time: z.unknown().optional(),
+  dinner_info: z.unknown().optional(),
   breakfast_time: z.unknown().optional(),
   open_air_bath_time: z.unknown().optional(),
   timetable_info: z.unknown().optional(),
 })
 
+const MailMemoEntrySchema = z.object({
+  month: z.string(),
+  day: z.string(),
+  name: z.string(),
+  summary: z.string(),
+  text: z.string(),
+  source: z.string(),
+}).transform((v): MailMemoEntry => v)
+
 export const firestoreReservationRepository: ReservationRepository = {
   async fetchByDateRange(from, to) {
-    try {
+    return withFirestoreError(async () => {
       const snapshot = await adminDb
         .collection('guestInfoV2')
         .where('check_in_date', '>=', toFirestoreDate(from))
         .where('check_in_date', '<=', toFirestoreDate(to))
         .get()
-
-      return snapshot.docs.map((doc) => toReservation(doc.id, doc.data()))
-    } catch (e) {
-      if (e instanceof InfraError) throw e
-
-      const code = (e as { code?: number }).code
-      if (code === 14) throw new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unreachable', e)
-      if (code === 7) throw new InfraError('FIRESTORE_PERMISSION', 'Firestore permission denied', e)
-
-      throw new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unknown error', e)
-    }
+      return snapshot.docs.flatMap((doc) => {
+        try {
+          return [toReservation(doc.id, doc.data())]
+        } catch (e) {
+          if (e instanceof InfraError && e.code === 'FIRESTORE_DATA_CORRUPTION') {
+            console.error(`Skipping corrupted doc ${doc.id}:`, e.message)
+            return []
+          }
+          throw e
+        }
+      })
+    })
   },
+
+  async fetchByMonth(year, month) {
+    return withFirestoreError(async () => {
+      const from = `${year}/${String(month).padStart(2, '0')}/01`
+      const nextMonth = month === 12
+        ? `${year + 1}/01/01`
+        : `${year}/${String(month + 1).padStart(2, '0')}/01`
+      const snapshot = await adminDb
+        .collection('guestInfoV2')
+        .where('check_in_date', '>=', from)
+        .where('check_in_date', '<', nextMonth)
+        .get()
+      return snapshot.docs.flatMap((doc) => {
+        try {
+          return [toReservation(doc.id, doc.data())]
+        } catch (e) {
+          if (e instanceof InfraError && e.code === 'FIRESTORE_DATA_CORRUPTION') {
+            console.error(`Skipping corrupted doc ${doc.id}:`, e.message)
+            return []
+          }
+          throw e
+        }
+      })
+    })
+  },
+
+  async cancelReservation(id, mailMemoEntry) {
+    return withFirestoreError(async () => {
+      await adminDb.collection('guestInfoV2').doc(id).update({
+        cancel: 1,
+        mail_memo: FieldValue.arrayUnion(mailMemoEntry),
+      })
+    })
+  },
+
+  async restoreReservation(id, mailMemoEntry) {
+    return withFirestoreError(async () => {
+      await adminDb.collection('guestInfoV2').doc(id).update({
+        cancel: 0,
+        mail_memo: FieldValue.arrayUnion(mailMemoEntry),
+      })
+    })
+  },
+
+  async addReservation(input: NewReservationInput, initialMailMemo: MailMemoEntry) {
+    return withFirestoreError(async () => {
+      const reservationNumber = uuidv7()
+      await adminDb.collection('guestInfoV2').add({
+        reservation_number: reservationNumber,
+        check_in_date: toFirestoreDate(input.check_in_date),
+        check_out_date: toFirestoreDate(input.check_out_date),
+        room: input.room,
+        adult_count: input.adult_count,
+        child_count: input.child_count,
+        guest_name: input.guest_name,
+        booking_site: input.booking_site,
+        cancel: 0,
+        source: 'manual',
+        mail_memo: [initialMailMemo],
+      })
+      return reservationNumber
+    })
+  },
+
+  async updateReservation(id, patch: ReservationPatch) {
+    if (Object.keys(patch).length === 0) return
+    return withFirestoreError(async () => {
+      const firestorePatch: Record<string, unknown> = { ...patch }
+      if (patch.check_out_date !== undefined) {
+        firestorePatch.check_out_date = toFirestoreDate(patch.check_out_date)
+      }
+      await adminDb.collection('guestInfoV2').doc(id).update(firestorePatch as FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData>)
+    })
+  },
+
+  async updateATax(id, patch: ATaxPatch) {
+    if (Object.keys(patch).length === 0) return
+    return withFirestoreError(async () => {
+      await adminDb.collection('guestInfoV2').doc(id).update(
+        patch as FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData>,
+      )
+    })
+  },
+}
+
+// --- ユーティリティ ---
+
+async function withFirestoreError<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn()
+  } catch (e) {
+    if (e instanceof InfraError) throw e
+    const code = (e as { code?: number }).code
+    if (code === 14) throw new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unreachable', e)
+    if (code === 7) throw new InfraError('FIRESTORE_PERMISSION', 'Firestore permission denied', e)
+    throw new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unknown error', e)
+  }
 }
 
 // YYYY-MM-DD → YYYY/MM/DD（Firestoreのフォーマットに合わせる）
@@ -89,6 +202,13 @@ function toIsoDate(date: string): string {
   return date.replace(/\//g, '-')
 }
 
+function normalizeBookingSite(raw: unknown): BookingSite {
+  if (typeof raw !== 'string') return 'other'
+  const lower = raw.toLowerCase()
+  return (KNOWN_BOOKING_SITES as ReadonlyArray<string>).includes(lower)
+    ? (lower as BookingSite)
+    : 'other'
+}
 
 /**
  * 配列フィールドの正規化
@@ -125,6 +245,7 @@ const isOpenAirBathTime = (v: unknown): v is OpenAirBathTimeValue =>
   v === null || (OPEN_AIR_BATH_TIME_VALUES as ReadonlyArray<unknown>).includes(v)
 
 const isString = (v: unknown): v is string => typeof v === 'string'
+const isStringOrNull = (v: unknown): v is string | null => v === null || typeof v === 'string'
 
 function toReservation(id: string, data: FirebaseFirestore.DocumentData): Reservation {
   try {
@@ -145,9 +266,27 @@ function toReservation(id: string, data: FirebaseFirestore.DocumentData): Reserv
       guest_name: parsed.guest_name,
       arrival_time: parsed.arrival_time,
       dinner_time: normalizeArray(parsed.dinner_time, nights, isDinnerTime, 'NONE' as DinnerTimeValue),
+      dinner_info: normalizeArray(parsed.dinner_info, nights, isString, ''),
       breakfast_time: normalizeArray(parsed.breakfast_time, nights, isBreakfastTime, null),
       open_air_bath_time: normalizeArray(parsed.open_air_bath_time, nights, isOpenAirBathTime, null),
       timetable_info: normalizeArray(parsed.timetable_info, nights, isString, ''),
+      reservation_number: z.string().catch('').parse(data.reservation_number ?? ''),
+      booking_site: normalizeBookingSite(data.booking_site),
+      mail_memo: z.array(z.unknown()).catch([]).parse(data.mail_memo ?? []).flatMap((entry) => {
+        const result = MailMemoEntrySchema.safeParse(entry)
+        return result.success ? [result.data] : []
+      }),
+      a_tax_received: z.boolean().catch(false).parse(data.a_tax_received ?? false),
+      a_tax_received_by_staff_name: z.string().max(100).catch('').parse(data.a_tax_received_by_staff_name ?? ''),
+      check_in_staff_name: z.string().max(100).catch('').parse(data.check_in_staff_name ?? ''),
+      country: z.string().nullable().catch(null).parse(data.country || null),
+      city: z.string().max(100).catch('').parse(data.city ?? ''),
+      age_groups: normalizeArray(data.age_groups, parsed.adult_count, isStringOrNull, null),
+      group_type: z.string().nullable().catch(null).parse(data.group_type || null),
+      purpose: z.string().nullable().catch(null).parse(data.purpose || null),
+      tourism_type: z.string().nullable().catch(null).parse(data.tourism_type || null),
+      profession: z.string().catch('').parse(data.profession ?? ''),
+      other_note: z.string().catch('').parse(data.other_note ?? ''),
     }
   } catch (e) {
     if (e instanceof ZodError) {
