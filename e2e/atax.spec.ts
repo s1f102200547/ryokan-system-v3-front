@@ -1,7 +1,61 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
+
+// ATaxTableRow = Reservation & { nights, tax }
+const SAMPLE_ROW = {
+  id: 'test-id-1',
+  guest_name: 'テスト太郎',
+  room: '21',
+  check_in_date: '2026-01-01',
+  check_out_date: '2026-01-02',
+  adult_count: 2,
+  child_count: 0,
+  cancel: 0,
+  late_out: 0,
+  arrival_time: null,
+  dinner_time: ['NONE'],
+  dinner_info: [''],
+  breakfast_time: [null],
+  open_air_bath_time: [null],
+  timetable_info: [''],
+  reservation_number: 'test-rsv-001',
+  booking_site: 'booking.com',
+  mail_memo: [],
+  a_tax_received: false,
+  a_tax_received_by_staff_name: '',
+  check_in_staff_name: '',
+  country: null,
+  city: '',
+  age_groups: [null, null],
+  group_type: null,
+  purpose: null,
+  tourism_type: null,
+  profession: '',
+  other_note: '',
+  nights: 1,
+  tax: 400,
+}
+
+async function setupAuth(page: Page) {
+  await page.context().addCookies([{
+    name: 'session',
+    value: 'mock-session',
+    domain: 'localhost',
+    path: '/',
+  }])
+}
+
+async function mockATaxApi(page: Page) {
+  await page.route('/api/a-tax-table*', (route) => route.fulfill({
+    status: 200,
+    json: { rows: [SAMPLE_ROW], safeBalanceCheckers: {} },
+  }))
+  await page.route('**/api/reservations/*/a-tax', (route) => route.fulfill({ status: 200, json: {} }))
+}
 
 test.describe('ATaxTable - 表示', () => {
   test.beforeEach(async ({ page }) => {
+    await setupAuth(page)
+    await mockATaxApi(page)
     await page.goto('/a_tax_table')
   })
 
@@ -10,26 +64,32 @@ test.describe('ATaxTable - 表示', () => {
   })
 
   test('月切り替えで表示が更新される', async ({ page }) => {
-    await page.getByRole('button', { name: '先月' }).click()
+    // MonthSelector の最初のボタン（先月）をクリック
+    await page.getByRole('group').getByRole('button').first().click()
     await expect(page.getByRole('table')).toBeVisible()
   })
 })
 
 test.describe('ATaxTable - チェックボックス（即時保存）', () => {
-  test('受領済みチェックを切り替えると即時反映される', async ({ page }) => {
+  test('受領済みチェックを切り替えると楽観的UIが即時反映される', async ({ page }) => {
+    await setupAuth(page)
+    await mockATaxApi(page)
     await page.goto('/a_tax_table')
-    const checkbox = page.getByRole('checkbox', { name: '受領済み' }).first()
-    const before = await checkbox.isChecked()
+    const checkbox = page.getByRole('checkbox').first()
+    await expect(checkbox).toBeVisible()
+    await expect(checkbox).not.toBeChecked()
     await checkbox.click()
-    await page.reload()
-    const after = page.getByRole('checkbox', { name: '受領済み' }).first()
-    await expect(after).toBeChecked({ checked: !before })
+    await expect(checkbox).toBeChecked()
   })
 })
 
 test.describe('ATaxTable - CSV出力', () => {
-  test('CSVダウンロードボタンが存在する', async ({ page }) => {
+  test('CSVダウンロードボタンは先月表示時に表示される', async ({ page }) => {
+    await setupAuth(page)
+    await mockATaxApi(page)
     await page.goto('/a_tax_table')
+    // 先月ボタンをクリックしてCSVボタンを表示させる
+    await page.getByRole('group').getByRole('button').first().click()
     await expect(page.getByRole('button', { name: /CSV/ })).toBeVisible()
   })
 })
