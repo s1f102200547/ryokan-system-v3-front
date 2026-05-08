@@ -4,8 +4,10 @@ import { useState } from 'react'
 import NextLink from 'next/link'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import CircularProgress from '@mui/material/CircularProgress'
 import IconButton from '@mui/material/IconButton'
 import Popover from '@mui/material/Popover'
+import TextField from '@mui/material/TextField'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import NavigateNextIcon from '@mui/icons-material/NavigateNext'
@@ -15,11 +17,69 @@ import PrintIcon from '@mui/icons-material/Print'
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar'
 import dayjs from 'dayjs'
 import { useDateNavigation } from '@/hooks/date/useDateNavigation'
+import { useSafeBalanceChecker } from '@/hooks/daily/useSafeBalanceChecker'
 import { GuestInfoSection } from '@/components/guestInfo/GuestInfoSection'
 import { TimetablePrintContent } from './TimetablePrintContent'
 import { CleaningBoardPrintContent } from './CleaningBoardPrintContent'
 
 type PrintMode = 'timetable' | 'cleaning-board' | null
+
+// ロード完了後に initialValue で初期化し、key で再マウントする
+function SafeBalanceCheckerInput({
+  initialValue,
+  onSave,
+  disabled,
+}: {
+  initialValue: string
+  onSave: (v: string) => Promise<void>
+  disabled: boolean
+}) {
+  const [draft, setDraft] = useState(initialValue)
+
+  const handleBlur = async () => {
+    if (draft === initialValue) return
+    await onSave(draft)
+  }
+
+  return (
+    <TextField
+      variant="standard"
+      size="small"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => void handleBlur()}
+      disabled={disabled}
+      placeholder="スタッフ名"
+      sx={{ width: 160 }}
+    />
+  )
+}
+
+function SafeBalanceCheckerField({ date }: { date: string }) {
+  const { staffName, isLoading, isPending, update } = useSafeBalanceChecker(date)
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        mb: 2,
+        '@media print': { display: 'none' },
+      }}
+    >
+      <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+        宿泊税締め担当
+      </Typography>
+      {isLoading ? (
+        <CircularProgress size={16} />
+      ) : (
+        // key=staffName: fetch完了時に正しい initialValue で再マウント
+        <SafeBalanceCheckerInput key={staffName} initialValue={staffName} onSave={update} disabled={isPending} />
+      )}
+    </Box>
+  )
+}
 
 type Props = {
   today: string
@@ -121,6 +181,9 @@ export function DailyDashboard({ today }: Props) {
           </Tooltip>
         </Box>
       </Box>
+
+      {/* safeBalanceChecker */}
+      <SafeBalanceCheckerField date={selectedDate} />
 
       {/* GuestInfo セクション */}
       <Box sx={{ '@media print': { display: 'none' } }}>

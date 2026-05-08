@@ -9,6 +9,26 @@ const BodySchema = z.object({
 
 const DateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ date: string }> },
+) {
+  const session = await getSession(request)
+  if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+
+  const { date } = await params
+  if (!DateSchema.safeParse(date).success) {
+    return NextResponse.json({ error: 'invalid date' }, { status: 400 })
+  }
+
+  try {
+    const checkers = await firestoreDailyRepository.fetchSafeBalanceCheckers([date])
+    return NextResponse.json({ staffName: checkers[date] ?? '' })
+  } catch (e) {
+    return handleRouteError(e, '締めスタッフ取得')
+  }
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ date: string }> },
