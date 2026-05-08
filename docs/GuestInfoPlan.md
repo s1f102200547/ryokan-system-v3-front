@@ -838,6 +838,51 @@ y. キャンセルモーダルについて、スタッフ名のラベルがヘ�
 y. cancel iconがhoverされているときはゲストカード全体はhoverでグレーにならないでほしい。
 y. キャンセル済み予約も中心寄せで表示
 
+最終修正
+z. 新規予約追加について、操作しているスタッフ名も記入させ、maillogに追加するようにしたい
+z. a_tax_tableに遷移しようとすると以下のエラーが起きるので修正せよ。
+Functions cannot be passed directly to Client Components unless you explicitly expose it by marking it with "use server". Or maybe you meant to call this function rather than return it.
+  <... component={function LinkComponent} href=... size=... variant=... sx=... children=...>
+z. E2Eテストが通るようにしたい。
+37 failed
+    [chromium] › e2e/atax.spec.ts:8:7 › ATaxTable - 表示 › ページが表示され予約行が存在する ──────────────────────────
+    [chromium] › e2e/atax.spec.ts:12:7 › ATaxTable - 表示 › 月切り替えで表示が更新される ───────────────────────────
+    [chromium] › e2e/atax.spec.ts:19:7 › ATaxTable - チェックボックス（即時保存） › 受領済みチェックを切り替えると即時反映される ───────
+    [chromium] › e2e/atax.spec.ts:31:7 › ATaxTable - CSV出力 › CSVダウンロードボタンが存在する ─────────────────────
+    [chromium] › e2e/daily-dashboard.spec.ts:130:7 › デイリーダッシュボード › 今日の日付（4/12）が表示される ───────────────
+    [chromium] › e2e/daily-dashboard.spec.ts:134:7 › デイリーダッシュボード › 「今日」ラベルが表示される ───────────────────
+    [chromium] › e2e/daily-dashboard.spec.ts:138:7 › デイリーダッシュボード › タイムテーブル印刷ボタンが表示される ──────────────
+    [chromium] › e2e/daily-dashboard.spec.ts:142:7 › デイリーダッシュボード › 清掃ボード印刷ボタンが表示される ────────────────
+    [chromium] › e2e/daily-dashboard.spec.ts:148:7 › デイリーダッシュボード › 翌日ボタンで 4/13「明日」に移動する ────────────
+    [chromium] › e2e/daily-dashboard.spec.ts:155:7 › デイリーダッシュボード › 前日ボタンで 4/11「昨日」に移動する ────────────
+    [chromium] › e2e/daily-dashboard.spec.ts:162:7 › デイリーダッシュボード › Today ボタンで今日（4/12）に戻る ───────────
+    [chromium] › e2e/daily-dashboard.spec.ts:194:7 › タイムテーブル印刷コンテンツ › 印刷エリアに日付と曜日が表示される ────────────
+    [chromium] › e2e/daily-dashboard.spec.ts:199:7 › タイムテーブル印刷コンテンツ › 印刷エリアに曜日チェック欄が表示される ──────────
+    [chromium] › e2e/daily-dashboard.spec.ts:205:7 › タイムテーブル印刷コンテンツ › 印刷エリアのCheckInに㉑・田中太郎・-2が表示される 
+    [chromium] › e2e/daily-dashboard.spec.ts:211:7 › タイムテーブル印刷コンテンツ › 印刷エリアの夕方露天に㉑が表示される ───────────
+    [chromium] › e2e/daily-dashboard.spec.ts:215:7 › タイムテーブル印刷コンテンツ › 印刷エリアの夕食に㉑・田中太郎・-2が表示される ─────
+    [chromium] › e2e/daily-dashboard.spec.ts:221:7 › タイムテーブル印刷コンテンツ › 印刷エリアのGuestInfoにmemoが表示される ───
+    [chromium] › e2e/daily-dashboard.spec.ts:225:7 › タイムテーブル印刷コンテンツ › 印刷エリアの空室部屋が6件表示される ───────────
+    [chromium] › e2e/daily-dashboard.spec.ts:229:7 › タイムテーブル印刷コンテンツ › 印刷エリアの朝食に㉑が表示される ─────────────
+    [chromium] › e2e/daily-dashboard.spec.ts:233:7 › タイムテーブル印刷コンテンツ › 印刷エリアに連泊ゲストラベルが表示される ─────────
+    [chromium] › e2e/daily-dashboard.spec.ts:262:7 › タイムテーブル印刷コンテンツ（4/13） › 4/13印刷エリアのCheckoutNoticeに㉑が表示される 
+    [chromium] › e2e/daily-dashboard.spec.ts:266:7 › タイムテーブル印刷コンテンツ（4/13） › 4/13印刷エリアのLateCheckoutに㉑が表示される 
+    [chromium] › e2e/daily-dashboard.spec.ts:285:7 › 清掃ボード印刷コンテンツ › 印刷エリアに日付ヘッダーが表示される ─────────────
+    [chromium] › e2e/daily-dashboard.spec.ts:297:7 › 清掃ボード印刷コンテンツ › 当日CIの印刷エリアにadult_count(child_count)が表示される 
+    [chromium] › e2e/daily-dashboard.spec.ts:312:7 › 清掃ボード印刷コンテンツ › 未来CIの印刷エリアに括弧付き人数が表示される ────────
+    [chromium] › e2e/daily-dashboard.spec.ts:327:7 › 清掃ボード印刷コンテンツ › 連泊継続中の印刷エリアに連泊列が表示される ──────────
+    [chromium] › e2e/daily-dashboard.spec.ts:347:7 › 清掃ボード印刷コンテンツ › autoNotesが印刷エリアの備考欄に表示される ──────
+    [chromium] › e2e/guestInfo.spec.ts:13:7 › GuestInfo - 予約一覧表示 › 選択日のC/I予約カードが表示される ──────────────
+    [chromium] › e2e/guestInfo.spec.ts:17:7 › GuestInfo - 予約一覧表示 › キャンセル予約が通常予約の下部に表示される ───────────
+    [chromium] › e2e/guestInfo.spec.ts:28:7 › GuestInfo - モーダル（auto-save） › 予約カードクリックでモーダルが開く ──────
+    [chromium] › e2e/guestInfo.spec.ts:33:7 › GuestInfo - モーダル（auto-save） › C/I前タブ: テキスト入力後にSavedインジケーターが表示される 
+    [chromium] › e2e/guestInfo.spec.ts:39:7 › GuestInfo - モーダル（auto-save） › C/I後タブ: a_tax_received チェックボックスの変更が自動保存される 
+    [chromium] › e2e/guestInfo.spec.ts:46:7 › GuestInfo - モーダル（auto-save） › モーダルを閉じて再度開いたとき変更が反映されている 
+    [chromium] › e2e/guestInfo.spec.ts:61:7 › GuestInfo - キャンセル（非auto-save） › キャンセルダイアログが2段階（確認 → 理由入力）で表示される 
+    [chromium] › e2e/guestInfo.spec.ts:75:7 › GuestInfo - 新規追加（非auto-save） › ＋カードクリックで追加ダイアログが開く ───
+    [chromium] › e2e/guestInfo.spec.ts:80:7 › GuestInfo - 新規追加（非auto-save） › 必須項目未入力時は作成ボタンが無効 ─────
+    [chromium] › e2e/login.spec.ts:62:7 › ログイン › 正しい認証情報でログインすると / に遷移する ───────────────────
+
 【後処理】
 58. e2e/guestInfo.spec.ts, e2e/atax.spec.ts が通るか確認
 59. docs/Schema/Reservations.md に新フィールドを追記
