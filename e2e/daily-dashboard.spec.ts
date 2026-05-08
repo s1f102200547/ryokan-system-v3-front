@@ -122,13 +122,13 @@ test.describe('デイリーダッシュボード', () => {
 
     await login(page, email!, password!)
     await page.goto('/daily-dashboard?date=2026-04-12&today=2026-04-12')
-    await expect(page.getByTestId('date-label')).toContainText('4/12')
+    await expect(page.getByTestId('date-label')).toContainText('4 / 12')
   })
 
   // ── 初期表示 ────────────────────────────────────────────────────────────
 
-  test('今日の日付（4/12）が表示される', async ({ page }) => {
-    await expect(page.getByTestId('date-label')).toContainText('4/12')
+  test('今日の日付（4 / 12）が表示される', async ({ page }) => {
+    await expect(page.getByTestId('date-label')).toContainText('4 / 12')
   })
 
   test('「今日」ラベルが表示される', async ({ page }) => {
@@ -145,26 +145,26 @@ test.describe('デイリーダッシュボード', () => {
 
   // ── 日付ナビゲーション ──────────────────────────────────────────────────
 
-  test('翌日ボタンで 4/13「明日」に移動する', async ({ page }) => {
+  test('翌日ボタンで 4 / 13「明日」に移動する', async ({ page }) => {
     await page.getByTestId('next-day').click()
-    await expect(page.getByTestId('date-label')).toContainText('4/13')
+    await expect(page.getByTestId('date-label')).toContainText('4 / 13')
     await expect(page.getByTestId('diff-label')).toContainText('明日')
     await expect(page).toHaveURL(/[?&]date=2026-04-13/)
   })
 
-  test('前日ボタンで 4/11「昨日」に移動する', async ({ page }) => {
+  test('前日ボタンで 4 / 11「昨日」に移動する', async ({ page }) => {
     await page.getByTestId('prev-day').click()
-    await expect(page.getByTestId('date-label')).toContainText('4/11')
+    await expect(page.getByTestId('date-label')).toContainText('4 / 11')
     await expect(page.getByTestId('diff-label')).toContainText('昨日')
     await expect(page).toHaveURL(/[?&]date=2026-04-11/)
   })
 
-  test('Today ボタンで今日（4/12）に戻る', async ({ page }) => {
+  test('Today ボタンで今日（4 / 12）に戻る', async ({ page }) => {
     await page.getByTestId('next-day').click()
-    await expect(page.getByTestId('date-label')).toContainText('4/13')
+    await expect(page.getByTestId('date-label')).toContainText('4 / 13')
 
     await page.getByRole('button', { name: 'Today' }).click()
-    await expect(page.getByTestId('date-label')).toContainText('4/12')
+    await expect(page.getByTestId('date-label')).toContainText('4 / 12')
     await expect(page.getByTestId('diff-label')).toContainText('今日')
     await expect(page).not.toHaveURL(/[?&]date=/)
   })
@@ -184,7 +184,7 @@ test.describe('タイムテーブル印刷コンテンツ', () => {
     await login(page, email!, password!)
     await page.route('/api/timetable*', (route) => route.fulfill({ json: mockFor0412() }))
     await page.goto('/daily-dashboard?date=2026-04-12&today=2026-04-12')
-    await expect(page.getByTestId('date-label')).toContainText('4/12')
+    await expect(page.getByTestId('date-label')).toContainText('4 / 12')
 
     await page.getByTestId('print-timetable').click()
     // data が揃うまで待機（スロットが DOM に現れるのを確認）
@@ -250,11 +250,11 @@ test.describe('タイムテーブル印刷コンテンツ（4/13）', () => {
       route.fulfill({ json: date === '2026-04-13' ? mockFor0413() : mockFor0412() })
     })
     await page.goto('/daily-dashboard?date=2026-04-12&today=2026-04-12')
-    await expect(page.getByTestId('date-label')).toContainText('4/12')
+    await expect(page.getByTestId('date-label')).toContainText('4 / 12')
 
     // 翌日（4/13）に移動してから印刷
     await page.getByTestId('next-day').click()
-    await expect(page.getByTestId('date-label')).toContainText('4/13')
+    await expect(page.getByTestId('date-label')).toContainText('4 / 13')
     await page.getByTestId('print-timetable').click()
     await expect(page.getByTestId('timetable-date')).toContainText('4/13')
   })
@@ -287,7 +287,7 @@ test.describe('清掃ボード印刷コンテンツ', () => {
       route.fulfill({ json: mockCleaningBoard() }),
     )
     await page.goto('/daily-dashboard?date=2026-04-12&today=2026-04-12')
-    await expect(page.getByTestId('date-label')).toContainText('4/12')
+    await expect(page.getByTestId('date-label')).toContainText('4 / 12')
 
     await page.getByTestId('print-cleaning-board').click()
     await expect(page.getByTestId('cleaning-board-date')).toContainText('4月12日')
@@ -302,7 +302,7 @@ test.describe('清掃ボード印刷コンテンツ', () => {
       route.fulfill({ json: mockCleaningBoard(rows) }),
     )
     await page.goto('/daily-dashboard?date=2026-04-12&today=2026-04-12')
-    await expect(page.getByTestId('date-label')).toContainText('4/12')
+    await expect(page.getByTestId('date-label')).toContainText('4 / 12')
 
     await page.getByTestId('print-cleaning-board').click()
     await expect(page.getByTestId('cleaning-board-date')).toContainText('4月12日')
@@ -317,7 +317,7 @@ test.describe('清掃ボード印刷コンテンツ', () => {
       route.fulfill({ json: mockCleaningBoard(rows) }),
     )
     await page.goto('/daily-dashboard?date=2026-04-12&today=2026-04-12')
-    await expect(page.getByTestId('date-label')).toContainText('4/12')
+    await expect(page.getByTestId('date-label')).toContainText('4 / 12')
 
     await page.getByTestId('print-cleaning-board').click()
     await expect(page.getByTestId('cleaning-board-date')).toContainText('4月12日')
@@ -337,7 +337,7 @@ test.describe('清掃ボード印刷コンテンツ', () => {
       route.fulfill({ json: mockCleaningBoard(rows) }),
     )
     await page.goto('/daily-dashboard?date=2026-04-12&today=2026-04-12')
-    await expect(page.getByTestId('date-label')).toContainText('4/12')
+    await expect(page.getByTestId('date-label')).toContainText('4 / 12')
 
     await page.getByTestId('print-cleaning-board').click()
     await expect(page.getByTestId('cleaning-board-date')).toContainText('4月12日')
@@ -352,7 +352,7 @@ test.describe('清掃ボード印刷コンテンツ', () => {
       route.fulfill({ json: mockCleaningBoard(rows) }),
     )
     await page.goto('/daily-dashboard?date=2026-04-12&today=2026-04-12')
-    await expect(page.getByTestId('date-label')).toContainText('4/12')
+    await expect(page.getByTestId('date-label')).toContainText('4 / 12')
 
     await page.getByTestId('print-cleaning-board').click()
     await expect(page.getByTestId('cleaning-board-date')).toContainText('4月12日')
