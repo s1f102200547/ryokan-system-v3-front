@@ -60,12 +60,14 @@ export function RestoreDialog({ reservation, onClose, onRestored }: Props) {
         />
         <TextField
           label="復活理由"
+          placeholder="ex. 間違えてキャンセルしてしまった"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           size="small"
           fullWidth
           multiline
           minRows={2}
+          slotProps={{ inputLabel: { shrink: true } }}
         />
       </DialogContent>
       <DialogActions>
