@@ -17,6 +17,7 @@ import { DateCalendar } from '@mui/x-date-pickers/DateCalendar'
 import dayjs from 'dayjs'
 import { useDateNavigation } from '@/hooks/date/useDateNavigation'
 import { useSafeBalanceChecker } from '@/hooks/daily/useSafeBalanceChecker'
+import { addDays, formatDateLabel } from '@/lib/dateUtils'
 import { GuestInfoSection } from '@/components/guestInfo/GuestInfoSection'
 import { TimetablePrintContent } from './TimetablePrintContent'
 import { CleaningBoardPrintContent } from './CleaningBoardPrintContent'
@@ -170,18 +171,20 @@ export function DailyDashboard({ today }: Props) {
             data-testid="print-timetable"
             sx={{ textTransform: 'none', fontSize: '0.8rem' }}
           >
-            タイムテーブル
+            {formatDateLabel(selectedDate)} タイムテーブル
           </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<PrintIcon fontSize="small" />}
-            onClick={() => setPrintMode('cleaning-board')}
-            data-testid="print-cleaning-board"
-            sx={{ textTransform: 'none', fontSize: '0.8rem' }}
-          >
-            清掃ボード
-          </Button>
+          {selectedDate === today && (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<PrintIcon fontSize="small" />}
+              onClick={() => setPrintMode('cleaning-board')}
+              data-testid="print-cleaning-board"
+              sx={{ textTransform: 'none', fontSize: '0.8rem' }}
+            >
+              翌日 清掃ボード
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -203,7 +206,7 @@ export function DailyDashboard({ today }: Props) {
       )}
       {printMode === 'cleaning-board' && (
         <CleaningBoardPrintContent
-          date={selectedDate}
+          date={addDays(selectedDate, 1)}
           onPrintReady={() => window.print()}
           onAfterPrint={() => setPrintMode(null)}
         />
