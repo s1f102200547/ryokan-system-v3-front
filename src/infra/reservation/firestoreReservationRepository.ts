@@ -137,7 +137,7 @@ export const firestoreReservationRepository: ReservationRepository = {
     })
   },
 
-  async addReservation(input: NewReservationInput) {
+  async addReservation(input: NewReservationInput, initialMailMemo: MailMemoEntry) {
     return withFirestoreError(async () => {
       const reservationNumber = uuidv7()
       await adminDb.collection('guestInfoV2').add({
@@ -151,7 +151,7 @@ export const firestoreReservationRepository: ReservationRepository = {
         booking_site: input.booking_site,
         cancel: 0,
         source: 'manual',
-        mail_memo: [],
+        mail_memo: [initialMailMemo],
       })
       return reservationNumber
     })

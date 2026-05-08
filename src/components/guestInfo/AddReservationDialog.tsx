@@ -44,6 +44,7 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
   const [guestName, setGuestName] = useState('')
   const [bookingSite, setBookingSite] = useState<BookingSite>('chillnn')
   const [addReason, setAddReason] = useState('')
+  const [staffName, setStaffName] = useState('')
   const { execute, isPending, error } = useAddReservation()
 
   const handleClose = () => {
@@ -54,6 +55,7 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
     setGuestName('')
     setBookingSite('chillnn')
     setAddReason('')
+    setStaffName('')
     onClose()
   }
 
@@ -69,6 +71,7 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
       guest_name: guestName,
       booking_site: bookingSite,
       add_reason: addReason,
+      staff_name: staffName,
     })
     if (result !== null) {
       handleClose()
@@ -81,6 +84,7 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
     room !== '' &&
     guestName.trim().length > 0 &&
     addReason.trim().length > 0 &&
+    staffName.trim().length > 0 &&
     checkOutStr > checkInDate
 
   return (
@@ -157,6 +161,15 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
               ))}
             </Select>
           </FormControl>
+
+          <TextField
+            label="担当スタッフ名"
+            value={staffName}
+            onChange={(e) => setStaffName(e.target.value)}
+            size="small"
+            fullWidth
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
 
           <TextField
             label="追加理由"

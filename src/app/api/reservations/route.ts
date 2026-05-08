@@ -15,6 +15,7 @@ const BodySchema = z.object({
   guest_name: z.string().min(1).max(100),
   booking_site: z.enum(BOOKING_SITES),
   add_reason: z.string().min(1).max(500),
+  staff_name: z.string().min(1).max(100),
 }).refine((d) => d.check_out_date > d.check_in_date, {
   message: 'check_out_date must be after check_in_date',
 })

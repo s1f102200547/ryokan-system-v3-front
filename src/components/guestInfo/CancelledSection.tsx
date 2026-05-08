@@ -15,7 +15,7 @@ export function CancelledSection({ reservations, onCardClick, onRestore }: Props
   if (reservations.length === 0) return null
 
   return (
-    <Box sx={{ mt: 3, width: '50%', mx: 'auto' }}>
+    <Box data-testid="cancelled-section" sx={{ mt: 3, width: '50%', mx: 'auto' }}>
       <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
         キャンセル済み
       </Typography>

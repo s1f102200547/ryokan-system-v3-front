@@ -226,8 +226,8 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
 }
 
 function SaveStatusIcon({ status }: { status: SaveStatus }) {
-  if (status === 'saving') return <CloudUploadIcon fontSize="small" sx={{ color: 'text.disabled' }} />
-  if (status === 'saved') return <CloudDoneIcon fontSize="small" sx={{ color: 'success.main' }} />
-  if (status === 'error') return <ErrorOutlineIcon fontSize="small" sx={{ color: 'error.main' }} />
+  if (status === 'saving') return <CloudUploadIcon fontSize="small" sx={{ color: 'text.disabled' }} data-testid="save-status" data-status="saving" />
+  if (status === 'saved') return <CloudDoneIcon fontSize="small" sx={{ color: 'success.main' }} data-testid="save-status" data-status="saved" />
+  if (status === 'error') return <ErrorOutlineIcon fontSize="small" sx={{ color: 'error.main' }} data-testid="save-status" data-status="error" />
   return null
 }

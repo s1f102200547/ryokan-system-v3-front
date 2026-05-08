@@ -20,6 +20,7 @@ export type NewReservationInput = {
   guest_name: string
   booking_site: BookingSite
   add_reason: string     // Slack通知にのみ使用、Firestoreには保存しない
+  staff_name: string
 }
 
 // a_tax_table の per-reservation 更新ペイロード（checkbox + 徴収スタッフ名）

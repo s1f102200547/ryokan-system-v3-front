@@ -8,7 +8,7 @@ export interface ReservationRepository {
   cancelReservation(id: string, mailMemoEntry: MailMemoEntry): Promise<void>
   restoreReservation(id: string, mailMemoEntry: MailMemoEntry): Promise<void>
   // returns reservation_number（UUID v7）
-  addReservation(input: NewReservationInput): Promise<string>
+  addReservation(input: NewReservationInput, initialMailMemo: MailMemoEntry): Promise<string>
   updateReservation(id: string, patch: ReservationPatch): Promise<void>
   // a_tax_table の 3フィールド独立更新
   updateATax(id: string, patch: ATaxPatch): Promise<void>
