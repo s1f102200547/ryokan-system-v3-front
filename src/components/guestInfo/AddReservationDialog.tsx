@@ -166,7 +166,8 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
             fullWidth
             multiline
             minRows={1}
-            placeholder="ログに追加されます"
+            placeholder="ex. アプリのバグのため / 部屋移動のため"
+            slotProps={{ inputLabel: { shrink: true } }}
             sx={{ gridColumn: '1 / -1' }}
           />
         </Box>

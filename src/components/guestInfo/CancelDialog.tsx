@@ -62,12 +62,14 @@ export function CancelDialog({ reservation, onClose, onCancelled }: Props) {
         />
         <TextField
           label="キャンセル理由"
+          placeholder="ex. アプリのバグのため / no show のため"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           size="small"
           fullWidth
           multiline
           minRows={2}
+          slotProps={{ inputLabel: { shrink: true } }}
         />
       </DialogContent>
       <DialogActions>
