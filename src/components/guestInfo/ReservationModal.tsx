@@ -42,6 +42,9 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
   const [tab, setTab] = useState<number>(0)
   const [localData, setLocalData] = useState<Reservation>(reservation)
 
+  const localDataRef = useRef<Reservation>(localData)
+  useEffect(() => { localDataRef.current = localData })
+
   const pendingPayloadRef = useRef<ReservationPatch>({})
   const { execute, saveStatus, error, clearError } = useUpdateReservation()
   const debouncedUpdateRef = useRef<DebouncedFn | null>(null)
@@ -76,18 +79,19 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
 
   const handleFieldChange = useCallback(
     (field: keyof ReservationPatch, value: unknown) => {
+      const current = localDataRef.current
       let patch: ReservationPatch = { [field]: value }
 
       if (field === 'check_out_date' && typeof value === 'string') {
-        const newNights = dateDiff(localData.check_in_date, value)
+        const newNights = dateDiff(current.check_in_date, value)
         if (newNights > 0) {
           const resized = resizeNightFields(
             {
-              dinner_time: localData.dinner_time,
-              dinner_info: localData.dinner_info,
-              breakfast_time: localData.breakfast_time,
-              open_air_bath_time: localData.open_air_bath_time,
-              timetable_info: localData.timetable_info,
+              dinner_time: current.dinner_time,
+              dinner_info: current.dinner_info,
+              breakfast_time: current.breakfast_time,
+              open_air_bath_time: current.open_air_bath_time,
+              timetable_info: current.timetable_info,
             },
             newNights,
           )
@@ -96,14 +100,14 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
       }
 
       if (field === 'adult_count' && typeof value === 'number') {
-        patch = { ...patch, age_groups: resizeNightArray<string | null>(localData.age_groups, value, null) }
+        patch = { ...patch, age_groups: resizeNightArray<string | null>(current.age_groups, value, null) }
       }
 
       pendingPayloadRef.current = { ...pendingPayloadRef.current, ...patch }
       setLocalData((prev) => ({ ...prev, ...patch }))
-      debouncedUpdateRef.current?.(localData.id)
+      debouncedUpdateRef.current?.(current.id)
     },
-    [localData],
+    [],
   )
 
   const nights = dateDiff(localData.check_in_date, localData.check_out_date)

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
 import Collapse from '@mui/material/Collapse'
@@ -148,7 +148,7 @@ function FieldSelect({ label, value, options, onChange }: {
   )
 }
 
-export function ReservationEditorList({ localData, nights, onFieldChange }: Props) {
+export const ReservationEditorList = memo(function ReservationEditorList({ localData, nights, onFieldChange }: Props) {
   const [open, setOpen] = useState<Record<SectionKey, boolean>>({
     guestName: false, room: false, count: false, checkout: false,
     arrival: false, roten: false, dinner: false, breakfast: false,
@@ -303,4 +303,4 @@ export function ReservationEditorList({ localData, nights, onFieldChange }: Prop
       </List>
     </Card>
   )
-}
+})

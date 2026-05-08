@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import Box from '@mui/material/Box'
 import { ReservationEditorList } from './ReservationEditorList'
 import { MailMemo } from './MailMemo'
@@ -13,7 +14,7 @@ type Props = {
   onBlurFlush: () => void
 }
 
-export function ReservationCardSet1({ localData, nights, onFieldChange, onBlurFlush }: Props) {
+export const ReservationCardSet1 = memo(function ReservationCardSet1({ localData, nights, onFieldChange, onBlurFlush }: Props) {
   return (
     <Box sx={{ display: 'flex', gap: 2, height: '100%' }}>
       {/* 左: フィールド編集（20%幅） */}
@@ -51,4 +52,4 @@ export function ReservationCardSet1({ localData, nights, onFieldChange, onBlurFl
       </Box>
     </Box>
   )
-}
+})
