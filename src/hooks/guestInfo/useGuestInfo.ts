@@ -6,6 +6,7 @@ import type { GuestInfoData } from '@/application/guestInfo/getGuestInfoUseCase'
 type State = {
   data: GuestInfoData | null
   stateKey: string | null
+  loadedDate: string | null
   error: string | null
 }
 
@@ -15,6 +16,7 @@ export function useGuestInfo(targetDate: string, refreshKey = 0) {
   const [state, setState] = useState<State>({
     data: null,
     stateKey: null,
+    loadedDate: null,
     error: null,
   })
 
@@ -30,16 +32,17 @@ export function useGuestInfo(targetDate: string, refreshKey = 0) {
             res.status === 503
               ? '一時的に通信に失敗しました。しばらく待ってから再度お試しください。'
               : 'データの取得に失敗しました。管理者に通知済みです。'
-          setState({ data: null, stateKey, error: message })
+          setState({ data: null, stateKey, loadedDate: targetDate, error: message })
           return
         }
         const data = (await res.json()) as GuestInfoData
-        if (!cancelled) setState({ data, stateKey, error: null })
+        if (!cancelled) setState({ data, stateKey, loadedDate: targetDate, error: null })
       } catch {
         if (!cancelled)
           setState({
             data: null,
             stateKey,
+            loadedDate: targetDate,
             error: '通信エラーが発生しました。ネットワーク接続を確認してください',
           })
       }
@@ -53,5 +56,5 @@ export function useGuestInfo(targetDate: string, refreshKey = 0) {
 
   const isLoading = state.stateKey !== stateKey
 
-  return { data: state.data, isLoading, error: state.error, loadedKey: state.stateKey }
+  return { data: state.data, isLoading, error: state.error, loadedKey: state.stateKey, loadedDate: state.loadedDate }
 }

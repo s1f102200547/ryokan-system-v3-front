@@ -35,7 +35,7 @@ export function GuestInfoSection({ selectedDate }: Props) {
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null)
 
-  const { data, isLoading, error, loadedKey } = useGuestInfo(selectedDate, refreshKey)
+  const { data, isLoading, error, loadedDate } = useGuestInfo(selectedDate, refreshKey)
 
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), [])
 
@@ -65,12 +65,12 @@ export function GuestInfoSection({ selectedDate }: Props) {
 
   const normal = sortByRoom(data?.normal ?? [])
   const cancelled = data?.cancelled ?? []
-  const isShowingStaleData = isLoading && data !== null
+  const isShowingStaleData = isLoading && data !== null && loadedDate !== selectedDate
 
   return (
     <Box>
       <Box
-        key={loadedKey ?? 'guest-info-empty'}
+        key={loadedDate ?? 'guest-info-empty'}
         sx={{
           opacity: isShowingStaleData ? 0.35 : 1,
           animation: isShowingStaleData ? 'none' : 'guestInfoFadeIn 180ms ease-out',
