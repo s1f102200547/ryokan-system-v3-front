@@ -213,7 +213,7 @@ export function DailyDashboard({ today }: Props) {
           selectedDate={selectedDate}
           selectedToggle={selectedToggle}
           topContent={
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: -1, mb: 1 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: -3, mb: 1 }}>
               <ToggleButtonGroup
                 value={selectedToggle}
                 exclusive

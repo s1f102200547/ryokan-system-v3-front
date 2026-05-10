@@ -101,7 +101,7 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
         {topContent}
 
         {/* アクティブな予約カード列（当日CI + 滞在中） */}
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, justifyContent: 'center', mt: topContent ? 6 : 10 }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, justifyContent: 'center', mt: topContent ? 3 : 10 }}>
           {allActive.map(({ reservation, isStaying }) => (
             <ReservationListCard
               key={reservation.id}
