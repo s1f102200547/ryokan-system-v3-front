@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import IconButton from '@mui/material/IconButton'
@@ -108,37 +109,40 @@ export function ReservationListCard({
 
   const infoValue = getToggleValue(reservation, selectedToggle, targetDate)
 
-  return (
+  const card = (
     <Card
-      onClick={() => onClick(reservation)}
+      onClick={isStaying ? undefined : () => onClick(reservation)}
+      aria-disabled={isStaying}
       data-testid="reservation-card"
       sx={{
         position: 'relative',
         width: 120,
         height: 120,
         m: 1,
-        cursor: 'pointer',
+        cursor: isStaying ? 'not-allowed' : 'pointer',
         bgcolor: isStaying ? 'grey.50' : 'background.paper',
         transition: 'background-color 0.2s',
-        '&:hover': { bgcolor: isActionHovered ? (isStaying ? 'grey.50' : 'background.paper') : 'grey.100' },
-        '&:active': { bgcolor: 'grey.200' },
+        '&:hover': { bgcolor: isStaying ? 'grey.50' : (isActionHovered ? 'background.paper' : 'grey.100') },
+        '&:active': { bgcolor: isStaying ? 'grey.50' : 'grey.200' },
       }}
     >
-      <Tooltip title="キャンセルする" placement="top">
-        <IconButton
-          size="small"
-          data-testid="cancel-button"
-          onMouseEnter={() => setIsActionHovered(true)}
-          onMouseLeave={() => setIsActionHovered(false)}
-          onClick={(e) => {
-            e.stopPropagation()
-            onCancelOrRestore(reservation)
-          }}
-          sx={{ position: 'absolute', top: -5, right: -5, minWidth: 'auto' }}
-        >
-          <CancelIcon sx={{ fontSize: 13 }} />
-        </IconButton>
-      </Tooltip>
+      {!isStaying && (
+        <Tooltip title="キャンセルする" placement="top">
+          <IconButton
+            size="small"
+            data-testid="cancel-button"
+            onMouseEnter={() => setIsActionHovered(true)}
+            onMouseLeave={() => setIsActionHovered(false)}
+            onClick={(e) => {
+              e.stopPropagation()
+              onCancelOrRestore(reservation)
+            }}
+            sx={{ position: 'absolute', top: -5, right: -5, minWidth: 'auto' }}
+          >
+            <CancelIcon sx={{ fontSize: 13 }} />
+          </IconButton>
+        </Tooltip>
+      )}
       <CardContent sx={{ textAlign: 'center', p: 1, pb: '8px !important' }}>
         <Typography variant="h5" color={isStaying ? 'text.secondary' : 'text.primary'}>
           {reservation.room ?? '—'}
@@ -162,4 +166,16 @@ export function ReservationListCard({
       </CardContent>
     </Card>
   )
+
+  if (isStaying) {
+    return (
+      <Tooltip title="連泊中予約は編集できません" placement="top">
+        <Box component="span" sx={{ display: 'inline-flex' }}>
+          {card}
+        </Box>
+      </Tooltip>
+    )
+  }
+
+  return card
 }
