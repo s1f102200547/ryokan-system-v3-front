@@ -14,7 +14,7 @@ import PrintIcon from '@mui/icons-material/Print'
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar'
 import dayjs from 'dayjs'
 import { useDateNavigation } from '@/hooks/date/useDateNavigation'
-import { addDays, formatDateLabel } from '@/lib/dateUtils'
+import { addDays } from '@/lib/dateUtils'
 import { DashboardTabs } from '@/components/DashboardTabs'
 import { GuestInfoSection } from '@/components/guestInfo/GuestInfoSection'
 import { TimetablePrintContent } from './TimetablePrintContent'
@@ -36,7 +36,7 @@ export function DailyDashboard({ today }: Props) {
   const canPrintCleaningBoard = selectedDate === today || selectedDate === tomorrow
   const cleaningBoardPrintDate = selectedDate === today ? tomorrow : selectedDate
   const cleaningBoardButtonLabel =
-    selectedDate === today ? '明日の掃除ボードを印刷' : 'この日の掃除ボードを印刷'
+    selectedDate === today ? '明日の掃除ボード印刷' : 'この日の掃除ボード印刷'
 
   return (
     <Box sx={{ p: 3 }}>
@@ -110,7 +110,7 @@ export function DailyDashboard({ today }: Props) {
             data-testid="print-timetable"
             sx={{ textTransform: 'none', fontSize: '0.8rem' }}
           >
-            {formatDateLabel(selectedDate)} タイムテーブル
+            この日のタイムテーブル印刷
           </Button>
           {canPrintCleaningBoard ? (
             <Button
