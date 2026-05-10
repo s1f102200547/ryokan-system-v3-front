@@ -1,5 +1,7 @@
 import type { RoomNumber } from '@/types/room'
 
+export type GuestInfoToggle = 'openAirBath' | 'dinner' | 'checkIn' | 'breakfast'
+
 export type BookingSite = 'chillnn' | 'booking.com' | 'expedia' | 'other'
 
 export type MailMemoEntry = {

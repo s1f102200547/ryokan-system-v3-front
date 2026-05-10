@@ -9,6 +9,8 @@ import Typography from '@mui/material/Typography'
 import CancelIcon from '@mui/icons-material/Cancel'
 import UpgradeIcon from '@mui/icons-material/Upgrade'
 import type { Reservation } from '@/types/reservation'
+import type { GuestInfoToggle } from '@/types/guestInfo'
+import { dateDiff } from '@/lib/dateUtils'
 
 type Props = {
   reservation: Reservation
@@ -16,6 +18,36 @@ type Props = {
   onCancelOrRestore: (r: Reservation) => void
   isCancelled?: boolean
   showRestoreAction?: boolean
+  isStaying?: boolean
+  selectedToggle?: GuestInfoToggle | null
+  targetDate?: string
+}
+
+function getToggleValue(
+  r: Reservation,
+  toggle: GuestInfoToggle | null | undefined,
+  targetDate: string | undefined,
+): string | null {
+  if (!toggle || !targetDate) return null
+  const idx = dateDiff(r.check_in_date, targetDate)
+  switch (toggle) {
+    case 'openAirBath': {
+      const v = r.open_air_bath_time[idx]
+      return v ?? null
+    }
+    case 'dinner': {
+      const v = r.dinner_time[idx]
+      if (!v || v === 'NONE' || v === 'CANCEL') return null
+      return v === 'PENDING' ? '未定' : v
+    }
+    case 'checkIn':
+      if (r.check_in_date !== targetDate) return null
+      return r.arrival_time ?? '未定'
+    case 'breakfast': {
+      const v = r.breakfast_time[idx]
+      return v ?? null
+    }
+  }
 }
 
 export function ReservationListCard({
@@ -24,6 +56,9 @@ export function ReservationListCard({
   onCancelOrRestore,
   isCancelled = false,
   showRestoreAction = true,
+  isStaying = false,
+  selectedToggle,
+  targetDate,
 }: Props) {
   const [isActionHovered, setIsActionHovered] = useState(false)
 
@@ -71,6 +106,8 @@ export function ReservationListCard({
     )
   }
 
+  const infoValue = getToggleValue(reservation, selectedToggle, targetDate)
+
   return (
     <Card
       onClick={() => onClick(reservation)}
@@ -81,9 +118,11 @@ export function ReservationListCard({
         height: 120,
         m: 1,
         cursor: 'pointer',
-        bgcolor: 'background.paper',
+        bgcolor: isStaying ? 'rgba(25, 118, 210, 0.06)' : 'background.paper',
+        borderLeft: isStaying ? '3px solid' : 'none',
+        borderLeftColor: 'primary.light',
         transition: 'background-color 0.2s',
-        '&:hover': { bgcolor: isActionHovered ? 'background.paper' : 'grey.100' },
+        '&:hover': { bgcolor: isActionHovered ? (isStaying ? 'rgba(25, 118, 210, 0.06)' : 'background.paper') : 'grey.100' },
         '&:active': { bgcolor: 'grey.200' },
       }}
     >
@@ -102,9 +141,22 @@ export function ReservationListCard({
           <CancelIcon sx={{ fontSize: 13 }} />
         </IconButton>
       </Tooltip>
-      <CardContent sx={{ textAlign: 'center', p: 1 }}>
+      <CardContent sx={{ textAlign: 'center', p: 1, pb: '8px !important' }}>
         <Typography variant="h5">{reservation.room ?? '—'}</Typography>
         <Typography variant="body2" noWrap>{reservation.guest_name || '（名前なし）'}</Typography>
+        <Typography
+          variant="caption"
+          noWrap
+          sx={{
+            display: 'block',
+            mt: 0.5,
+            color: infoValue ? 'primary.main' : 'transparent',
+            fontSize: '0.72rem',
+            fontWeight: 500,
+          }}
+        >
+          {infoValue ?? '—'}
+        </Typography>
       </CardContent>
     </Card>
   )
