@@ -15,9 +15,16 @@ type Props = {
   onClick: (r: Reservation) => void
   onCancelOrRestore: (r: Reservation) => void
   isCancelled?: boolean
+  showRestoreAction?: boolean
 }
 
-export function ReservationListCard({ reservation, onClick, onCancelOrRestore, isCancelled = false }: Props) {
+export function ReservationListCard({
+  reservation,
+  onClick,
+  onCancelOrRestore,
+  isCancelled = false,
+  showRestoreAction = true,
+}: Props) {
   const [isActionHovered, setIsActionHovered] = useState(false)
 
   if (isCancelled) {
@@ -38,21 +45,23 @@ export function ReservationListCard({ reservation, onClick, onCancelOrRestore, i
           '&:active': { bgcolor: 'grey.300' },
         }}
       >
-        <Tooltip title="キャンセル復帰する" placement="top">
-          <IconButton
-            size="small"
-            data-testid="restore-button"
-            onMouseEnter={() => setIsActionHovered(true)}
-            onMouseLeave={() => setIsActionHovered(false)}
-            onClick={(e) => {
-              e.stopPropagation()
-              onCancelOrRestore(reservation)
-            }}
-            sx={{ position: 'absolute', top: -6, right: -6, p: 0.25 }}
-          >
-            <UpgradeIcon sx={{ fontSize: 13 }} />
-          </IconButton>
-        </Tooltip>
+        {showRestoreAction && (
+          <Tooltip title="キャンセル復帰する" placement="top">
+            <IconButton
+              size="small"
+              data-testid="restore-button"
+              onMouseEnter={() => setIsActionHovered(true)}
+              onMouseLeave={() => setIsActionHovered(false)}
+              onClick={(e) => {
+                e.stopPropagation()
+                onCancelOrRestore(reservation)
+              }}
+              sx={{ position: 'absolute', top: -6, right: -6, p: 0.25 }}
+            >
+              <UpgradeIcon sx={{ fontSize: 13 }} />
+            </IconButton>
+          </Tooltip>
+        )}
         <CardContent sx={{ textAlign: 'center', p: '4px !important' }}>
           <Typography variant="caption" noWrap sx={{ display: 'block', fontSize: '0.6rem' }}>
             {reservation.guest_name || '（名前なし）'}

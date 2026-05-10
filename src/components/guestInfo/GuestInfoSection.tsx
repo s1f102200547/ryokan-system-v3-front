@@ -11,6 +11,7 @@ import { AddReservationCard } from './AddReservationCard'
 import { ReservationModal } from './ReservationModal'
 import { CancelDialog } from './CancelDialog'
 import { AddReservationDialog } from './AddReservationDialog'
+import { CancelledSection } from './CancelledSection'
 import type { Reservation } from '@/types/reservation'
 
 type Props = {
@@ -61,6 +62,7 @@ export function GuestInfoSection({ selectedDate }: Props) {
   }
 
   const normal = sortByRoom(data?.normal ?? [])
+  const cancelled = sortByRoom(data?.cancelled ?? [])
   const isShowingStaleData = isLoading && data !== null && loadedDate !== selectedDate
 
   return (
@@ -89,6 +91,13 @@ export function GuestInfoSection({ selectedDate }: Props) {
           ))}
           <AddReservationCard onClick={() => setAddDialogOpen(true)} />
         </Box>
+
+        <CancelledSection
+          reservations={cancelled}
+          onCardClick={setModalReservation}
+          onRestore={() => undefined}
+          showRestoreAction={false}
+        />
       </Box>
 
       {/* モーダル / ダイアログ */}
