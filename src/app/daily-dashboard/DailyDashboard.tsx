@@ -67,7 +67,7 @@ export function DailyDashboard({ today }: Props) {
           gap: 0.5,
           mt: -4,
           pb: 1,
-          mb: 4,
+          mb: 0.75,
           borderBottom: '1px solid',
           borderColor: 'divider',
           '@media print': { display: 'none' },
@@ -122,48 +122,57 @@ export function DailyDashboard({ today }: Props) {
             }}
           />
         </Popover>
+      </Box>
 
-        {/* 印刷ボタン（右端） */}
-        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      {/* 印刷ボタン */}
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          gap: 0.5,
+          mb: 4,
+          '@media print': { display: 'none' },
+        }}
+      >
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<PrintIcon fontSize="small" />}
+          onClick={() => setPrintMode('timetable')}
+          data-testid="print-timetable"
+          sx={printButtonSx}
+        >
+          この日のタイムテーブル印刷
+        </Button>
+        {canPrintCleaningBoard ? (
           <Button
             size="small"
             variant="outlined"
             startIcon={<PrintIcon fontSize="small" />}
-            onClick={() => setPrintMode('timetable')}
-            data-testid="print-timetable"
+            onClick={() => setPrintMode('cleaning-board')}
+            data-testid="print-cleaning-board"
             sx={printButtonSx}
           >
-            この日のタイムテーブル印刷
+            {cleaningBoardButtonLabel}
           </Button>
-          {canPrintCleaningBoard ? (
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<PrintIcon fontSize="small" />}
-              onClick={() => setPrintMode('cleaning-board')}
-              data-testid="print-cleaning-board"
-              sx={printButtonSx}
+        ) : (
+          <Tooltip title="掃除ボード印刷は今日・明日のみ対応しています">
+            <span
+              data-testid="print-cleaning-board-unavailable"
+              style={{ display: 'inline-flex' }}
             >
-              {cleaningBoardButtonLabel}
-            </Button>
-          ) : (
-            <Tooltip title="掃除ボード印刷は今日・明日のみ対応しています">
-              <span
-                data-testid="print-cleaning-board-unavailable"
-                style={{ display: 'inline-flex' }}
+              <Button
+                size="small"
+                variant="outlined"
+                disabled
+                sx={printButtonSx}
               >
-                <Button
-                  size="small"
-                  variant="outlined"
-                  disabled
-                  sx={printButtonSx}
-                >
-                  掃除ボード印刷
-                </Button>
-              </span>
-            </Tooltip>
-          )}
-        </Box>
+                掃除ボード印刷
+              </Button>
+            </span>
+          </Tooltip>
+        )}
       </Box>
 
       {/* GuestInfo セクション */}
