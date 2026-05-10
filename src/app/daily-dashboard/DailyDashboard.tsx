@@ -128,51 +128,83 @@ export function DailyDashboard({ today }: Props) {
       <Box
         sx={{
           display: 'flex',
-          justifyContent: 'flex-end',
-          alignItems: 'center',
-          gap: 0.5,
+          flexDirection: 'column',
+          alignItems: 'flex-end',
+          gap: 1,
           mb: 4,
           '@media print': { display: 'none' },
         }}
       >
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<PrintIcon fontSize="small" />}
-          onClick={() => setPrintMode('timetable')}
-          data-testid="print-timetable"
-          sx={printButtonSx}
-        >
-          この日のタイムテーブル印刷
-        </Button>
-        {canPrintCleaningBoard ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {canPrintCleaningBoard ? (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<PrintIcon fontSize="small" />}
+              onClick={() => setPrintMode('cleaning-board')}
+              data-testid="print-cleaning-board"
+              sx={printButtonSx}
+            >
+              {cleaningBoardButtonLabel}
+            </Button>
+          ) : (
+            <Tooltip title="掃除ボード印刷は今日・明日のみ対応しています">
+              <span
+                data-testid="print-cleaning-board-unavailable"
+                style={{ display: 'inline-flex' }}
+              >
+                <Button
+                  size="small"
+                  variant="outlined"
+                  disabled
+                  sx={printButtonSx}
+                >
+                  掃除ボード印刷
+                </Button>
+              </span>
+            </Tooltip>
+          )}
           <Button
             size="small"
             variant="outlined"
             startIcon={<PrintIcon fontSize="small" />}
-            onClick={() => setPrintMode('cleaning-board')}
-            data-testid="print-cleaning-board"
+            onClick={() => setPrintMode('timetable')}
+            data-testid="print-timetable"
             sx={printButtonSx}
           >
-            {cleaningBoardButtonLabel}
+            この日のタイムテーブル印刷
           </Button>
-        ) : (
-          <Tooltip title="掃除ボード印刷は今日・明日のみ対応しています">
-            <span
-              data-testid="print-cleaning-board-unavailable"
-              style={{ display: 'inline-flex' }}
-            >
-              <Button
-                size="small"
-                variant="outlined"
-                disabled
-                sx={printButtonSx}
-              >
-                掃除ボード印刷
-              </Button>
-            </span>
-          </Tooltip>
-        )}
+        </Box>
+        <Box sx={{ width: 'min(260px, 42vw)', opacity: 0.88 }}>
+          <TextField
+            label="当日メモ"
+            placeholder="当日メモ"
+            multiline
+            minRows={3}
+            maxRows={3}
+            fullWidth
+            size="small"
+            value={memo}
+            onChange={(e) => updateMemo(e.target.value)}
+            helperText={isSaving ? '保存中...' : ' '}
+            slotProps={{ formHelperText: { sx: { minHeight: '14px', mt: 0.25, fontSize: '10px' } } }}
+            sx={{
+              '& .MuiInputBase-root': {
+                alignItems: 'flex-start',
+                fontSize: '11px',
+                lineHeight: 1.25,
+                py: 0.25,
+              },
+              '& .MuiInputBase-input': {
+                fontSize: '11px',
+                lineHeight: 1.25,
+              },
+              '& .MuiInputLabel-root': {
+                fontSize: '11px',
+              },
+            }}
+          />
+        </Box>
       </Box>
 
       {/* GuestInfo セクション */}
@@ -193,38 +225,6 @@ export function DailyDashboard({ today }: Props) {
                 <ToggleButton value="checkIn">CI時間</ToggleButton>
                 <ToggleButton value="breakfast">朝食</ToggleButton>
               </ToggleButtonGroup>
-            </Box>
-          }
-          sideContent={
-            <Box sx={{ width: 'min(260px, 42vw)', opacity: 0.88 }}>
-              <TextField
-                label="当日メモ"
-                placeholder="当日メモ"
-                multiline
-                minRows={3}
-                maxRows={3}
-                fullWidth
-                size="small"
-                value={memo}
-                onChange={(e) => updateMemo(e.target.value)}
-                helperText={isSaving ? '保存中...' : ' '}
-                slotProps={{ formHelperText: { sx: { minHeight: '14px', mt: 0.25, fontSize: '10px' } } }}
-                sx={{
-                  '& .MuiInputBase-root': {
-                    alignItems: 'flex-start',
-                    fontSize: '11px',
-                    lineHeight: 1.25,
-                    py: 0.25,
-                  },
-                  '& .MuiInputBase-input': {
-                    fontSize: '11px',
-                    lineHeight: 1.25,
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontSize: '11px',
-                  },
-                }}
-              />
             </Box>
           }
         />
