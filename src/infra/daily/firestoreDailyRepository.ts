@@ -5,7 +5,7 @@ import type { DailyRepository } from '@/domain/ports/dailyRepository'
 export const firestoreDailyRepository: DailyRepository = {
   async updateSafeBalanceChecker(date, staffName) {
     return withFirestoreError(async () => {
-      await adminDb.collection('daily').doc(date).set(
+      await adminDb.collection('dailyInfo').doc(date).set(
         { safeBalanceChecker: staffName, updated_at: new Date().toISOString() },
         { merge: true },
       )
@@ -15,7 +15,7 @@ export const firestoreDailyRepository: DailyRepository = {
   async fetchSafeBalanceCheckers(dates) {
     if (dates.length === 0) return {}
     return withFirestoreError(async () => {
-      const refs = dates.map((d) => adminDb.collection('daily').doc(d))
+      const refs = dates.map((d) => adminDb.collection('dailyInfo').doc(d))
       const snaps = await adminDb.getAll(...refs)
       const result: Record<string, string> = {}
       for (let i = 0; i < dates.length; i++) {

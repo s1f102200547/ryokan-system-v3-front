@@ -77,9 +77,14 @@ function ATaxTableBody({
   // Track checkbox overrides for optimistic UI; resets automatically via key= remount
   const [localATaxReceived, setLocalATaxReceived] = useState<Record<string, boolean>>({})
 
+  const activeRows = useMemo(
+    () => rows.filter((r) => r.cancel !== 1),
+    [rows],
+  )
+
   const displayRows = useMemo(
-    () => rows.map((r) => ({ ...r, a_tax_received: localATaxReceived[r.id] ?? r.a_tax_received })),
-    [rows, localATaxReceived],
+    () => activeRows.map((r) => ({ ...r, a_tax_received: localATaxReceived[r.id] ?? r.a_tax_received })),
+    [activeRows, localATaxReceived],
   )
 
   const processedRows = useMemo(

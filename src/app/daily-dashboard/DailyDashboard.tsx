@@ -1,12 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import NextLink from 'next/link'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
 import Popover from '@mui/material/Popover'
-import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import NavigateNextIcon from '@mui/icons-material/NavigateNext'
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
@@ -15,6 +13,8 @@ import PrintIcon from '@mui/icons-material/Print'
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar'
 import dayjs from 'dayjs'
 import { useDateNavigation } from '@/hooks/date/useDateNavigation'
+import { addDays, formatDateLabel } from '@/lib/dateUtils'
+import { DashboardTabs } from '@/components/DashboardTabs'
 import { GuestInfoSection } from '@/components/guestInfo/GuestInfoSection'
 import { TimetablePrintContent } from './TimetablePrintContent'
 import { CleaningBoardPrintContent } from './CleaningBoardPrintContent'
@@ -34,6 +34,8 @@ export function DailyDashboard({ today }: Props) {
 
   return (
     <Box sx={{ p: 3 }}>
+      <DashboardTabs />
+
       {/* 日付ナビゲーション */}
       <Box
         sx={{
@@ -95,30 +97,27 @@ export function DailyDashboard({ today }: Props) {
         {/* 印刷ボタン（右端） */}
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Button
-            component={NextLink}
-            href="/a_tax_table"
             size="small"
-            variant="text"
-            sx={{ textTransform: 'none', fontSize: '0.9rem', color: 'text.secondary' }}
+            variant="outlined"
+            startIcon={<PrintIcon fontSize="small" />}
+            onClick={() => setPrintMode('timetable')}
+            data-testid="print-timetable"
+            sx={{ textTransform: 'none', fontSize: '0.8rem' }}
           >
-            宿泊税管理
+            {formatDateLabel(selectedDate)} タイムテーブル
           </Button>
-          <Tooltip title={`タイムテーブル印刷（${dateLabel}）`} arrow>
-            <IconButton
-              onClick={() => setPrintMode('timetable')}
-              data-testid="print-timetable"
-            >
-              <PrintIcon fontSize="medium" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title={`清掃ボード印刷（${dateLabel}）`} arrow>
-            <IconButton
+          {selectedDate === today && (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<PrintIcon fontSize="small" />}
               onClick={() => setPrintMode('cleaning-board')}
               data-testid="print-cleaning-board"
+              sx={{ textTransform: 'none', fontSize: '0.8rem' }}
             >
-              <PrintIcon fontSize="medium" />
-            </IconButton>
-          </Tooltip>
+              翌日 清掃ボード
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -137,7 +136,7 @@ export function DailyDashboard({ today }: Props) {
       )}
       {printMode === 'cleaning-board' && (
         <CleaningBoardPrintContent
-          date={selectedDate}
+          date={addDays(selectedDate, 1)}
           onPrintReady={() => window.print()}
           onAfterPrint={() => setPrintMode(null)}
         />

@@ -57,6 +57,10 @@ async function mockGuestInfoApi(page: Page) {
     status: 200,
     json: { normal: [SAMPLE_RESERVATION], cancelled: [CANCELLED_RESERVATION] },
   }))
+  await page.route('/api/a-tax-table*', (route) => route.fulfill({
+    status: 200,
+    json: { rows: [], safeBalanceCheckers: {} },
+  }))
   await page.route('**/api/reservations/**', (route) => route.fulfill({ status: 200, json: {} }))
   await page.route('**/api/reservations/*', (route) => route.fulfill({ status: 200, json: {} }))
 }
@@ -73,8 +77,21 @@ test.describe('GuestInfo - 予約一覧表示', () => {
     await expect(page.getByTestId('reservation-card').first()).toBeVisible()
   })
 
-  test('キャンセル予約が通常予約の下部に表示される', async ({ page }) => {
-    await expect(page.getByTestId('cancelled-section')).toBeVisible()
+  test('キャンセル予約セクションは表示されない', async ({ page }) => {
+    await expect(page.getByTestId('cancelled-section')).not.toBeVisible()
+  })
+
+  test('不要な宿泊税表示と遷移ボタンは表示されない', async ({ page }) => {
+    await expect(page.getByText('宿泊税締め担当')).not.toBeVisible()
+    await expect(page.getByRole('link', { name: '宿泊税管理' })).not.toBeVisible()
+  })
+
+  test('画面切り替えボタンが表示され宿泊税ページへ遷移できる', async ({ page }) => {
+    await expect(page.getByRole('button', { name: 'ダッシュボード' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('button', { name: '宿泊税' })).toBeVisible()
+
+    await page.getByRole('button', { name: '宿泊税' }).click()
+    await expect(page).toHaveURL('/a_tax_table')
   })
 })
 
