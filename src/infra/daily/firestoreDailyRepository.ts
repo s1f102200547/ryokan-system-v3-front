@@ -6,7 +6,7 @@ export const firestoreDailyRepository: DailyRepository = {
   async updateSafeBalanceChecker(date, staffName) {
     return withFirestoreError(async () => {
       await adminDb.collection('dailyInfo').doc(date).set(
-        { safeBalanceChecker: staffName, updated_at: new Date().toISOString() },
+        { date, safeBalanceChecker: staffName, updated_at: new Date().toISOString() },
         { merge: true },
       )
     })
@@ -37,7 +37,7 @@ export const firestoreDailyRepository: DailyRepository = {
   async updateDailyMemo(date, memo) {
     return withFirestoreError(async () => {
       await adminDb.collection('dailyInfo').doc(date).set(
-        { dailyMemo: memo, updated_at: new Date().toISOString() },
+        { date, dailyMemo: memo, updated_at: new Date().toISOString() },
         { merge: true },
       )
     })
