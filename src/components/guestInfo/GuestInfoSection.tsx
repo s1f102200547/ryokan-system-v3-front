@@ -8,10 +8,8 @@ import Snackbar from '@mui/material/Snackbar'
 import { useGuestInfo } from '@/hooks/guestInfo/useGuestInfo'
 import { ReservationListCard } from './ReservationListCard'
 import { AddReservationCard } from './AddReservationCard'
-import { CancelledSection } from './CancelledSection'
 import { ReservationModal } from './ReservationModal'
 import { CancelDialog } from './CancelDialog'
-import { RestoreDialog } from './RestoreDialog'
 import { AddReservationDialog } from './AddReservationDialog'
 import type { Reservation } from '@/types/reservation'
 
@@ -31,7 +29,6 @@ export function GuestInfoSection({ selectedDate }: Props) {
   const [refreshKey, setRefreshKey] = useState(0)
   const [modalReservation, setModalReservation] = useState<Reservation | null>(null)
   const [cancelTarget, setCancelTarget] = useState<Reservation | null>(null)
-  const [restoreTarget, setRestoreTarget] = useState<Reservation | null>(null)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null)
 
@@ -64,7 +61,6 @@ export function GuestInfoSection({ selectedDate }: Props) {
   }
 
   const normal = sortByRoom(data?.normal ?? [])
-  const cancelled = data?.cancelled ?? []
   const isShowingStaleData = isLoading && data !== null && loadedDate !== selectedDate
 
   return (
@@ -93,13 +89,6 @@ export function GuestInfoSection({ selectedDate }: Props) {
           ))}
           <AddReservationCard onClick={() => setAddDialogOpen(true)} />
         </Box>
-
-        {/* キャンセル済み */}
-        <CancelledSection
-          reservations={cancelled}
-          onCardClick={setModalReservation}
-          onRestore={setRestoreTarget}
-        />
       </Box>
 
       {/* モーダル / ダイアログ */}
@@ -112,12 +101,6 @@ export function GuestInfoSection({ selectedDate }: Props) {
         reservation={cancelTarget}
         onClose={() => setCancelTarget(null)}
         onCancelled={handleCancelled}
-      />
-
-      <RestoreDialog
-        reservation={restoreTarget}
-        onClose={() => setRestoreTarget(null)}
-        onRestored={() => { setRestoreTarget(null); refresh() }}
       />
 
       <AddReservationDialog
