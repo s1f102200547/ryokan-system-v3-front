@@ -5,6 +5,7 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
 import Popover from '@mui/material/Popover'
+import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import NavigateNextIcon from '@mui/icons-material/NavigateNext'
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
@@ -31,6 +32,11 @@ export function DailyDashboard({ today }: Props) {
 
   const [calendarAnchor, setCalendarAnchor] = useState<HTMLElement | null>(null)
   const [printMode, setPrintMode] = useState<PrintMode>(null)
+  const tomorrow = addDays(today, 1)
+  const canPrintCleaningBoard = selectedDate === today || selectedDate === tomorrow
+  const cleaningBoardPrintDate = selectedDate === today ? tomorrow : selectedDate
+  const cleaningBoardButtonLabel =
+    selectedDate === today ? '明日の掃除ボードを印刷' : 'この日の掃除ボードを印刷'
 
   return (
     <Box sx={{ p: 3 }}>
@@ -106,7 +112,7 @@ export function DailyDashboard({ today }: Props) {
           >
             {formatDateLabel(selectedDate)} タイムテーブル
           </Button>
-          {selectedDate === today && (
+          {canPrintCleaningBoard ? (
             <Button
               size="small"
               variant="outlined"
@@ -115,8 +121,24 @@ export function DailyDashboard({ today }: Props) {
               data-testid="print-cleaning-board"
               sx={{ textTransform: 'none', fontSize: '0.8rem' }}
             >
-              翌日 清掃ボード
+              {cleaningBoardButtonLabel}
             </Button>
+          ) : (
+            <Tooltip title="掃除ボード印刷は今日・明日のみ対応しています">
+              <span
+                data-testid="print-cleaning-board-unavailable"
+                style={{ display: 'inline-flex' }}
+              >
+                <Button
+                  size="small"
+                  variant="outlined"
+                  disabled
+                  sx={{ textTransform: 'none', fontSize: '0.8rem' }}
+                >
+                  掃除ボード印刷
+                </Button>
+              </span>
+            </Tooltip>
           )}
         </Box>
       </Box>
@@ -136,7 +158,7 @@ export function DailyDashboard({ today }: Props) {
       )}
       {printMode === 'cleaning-board' && (
         <CleaningBoardPrintContent
-          date={addDays(selectedDate, 1)}
+          date={cleaningBoardPrintDate}
           onPrintReady={() => window.print()}
           onAfterPrint={() => setPrintMode(null)}
         />
