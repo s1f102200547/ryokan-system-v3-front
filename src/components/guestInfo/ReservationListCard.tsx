@@ -120,10 +120,17 @@ export function ReservationListCard({
         height: 120,
         m: 1,
         cursor: isStaying ? 'not-allowed' : 'pointer',
-        bgcolor: isStaying ? 'grey.50' : 'background.paper',
-        transition: 'background-color 0.2s',
-        '&:hover': { bgcolor: isStaying ? 'grey.50' : (isActionHovered ? 'background.paper' : 'grey.100') },
-        '&:active': { bgcolor: isStaying ? 'grey.50' : 'grey.200' },
+        bgcolor: isStaying ? 'grey.100' : 'background.paper',
+        border: isStaying ? '1px dashed' : '1px solid transparent',
+        borderColor: isStaying ? 'grey.300' : 'transparent',
+        boxShadow: isStaying ? 'none' : 1,
+        opacity: isStaying ? 0.72 : 1,
+        transition: 'background-color 0.2s, box-shadow 0.2s, opacity 0.2s',
+        '&:hover': {
+          bgcolor: isStaying ? 'grey.100' : (isActionHovered ? 'background.paper' : 'grey.100'),
+          boxShadow: isStaying ? 'none' : 2,
+        },
+        '&:active': { bgcolor: isStaying ? 'grey.100' : 'grey.200' },
       }}
     >
       {!isStaying && (
@@ -156,7 +163,7 @@ export function ReservationListCard({
           sx={{
             display: 'block',
             mt: 0.5,
-            color: infoValue ? 'primary.main' : 'transparent',
+            color: infoValue ? (isStaying ? 'text.secondary' : 'primary.main') : 'transparent',
             fontSize: '0.72rem',
             fontWeight: 500,
           }}
