@@ -156,37 +156,7 @@ export function DailyDashboard({ today }: Props) {
           selectedDate={selectedDate}
           selectedToggle={selectedToggle}
           topContent={
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Box sx={{ width: 'min(260px, 42vw)', opacity: 0.88 }}>
-                <TextField
-                  label="当日メモ"
-                  placeholder="当日メモ"
-                  multiline
-                  minRows={3}
-                  maxRows={3}
-                  fullWidth
-                  size="small"
-                  value={memo}
-                  onChange={(e) => updateMemo(e.target.value)}
-                  helperText={isSaving ? '保存中...' : ' '}
-                  slotProps={{ formHelperText: { sx: { minHeight: '14px', mt: 0.25, fontSize: '10px' } } }}
-                  sx={{
-                    '& .MuiInputBase-root': {
-                      alignItems: 'flex-start',
-                      fontSize: '11px',
-                      lineHeight: 1.25,
-                      py: 0.25,
-                    },
-                    '& .MuiInputBase-input': {
-                      fontSize: '11px',
-                      lineHeight: 1.25,
-                    },
-                    '& .MuiInputLabel-root': {
-                      fontSize: '11px',
-                    },
-                  }}
-                />
-              </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
               <ToggleButtonGroup
                 value={selectedToggle}
                 exclusive
@@ -198,6 +168,38 @@ export function DailyDashboard({ today }: Props) {
                 <ToggleButton value="checkIn">CI時間</ToggleButton>
                 <ToggleButton value="breakfast">朝食</ToggleButton>
               </ToggleButtonGroup>
+            </Box>
+          }
+          sideContent={
+            <Box sx={{ width: 'min(260px, 42vw)', opacity: 0.88 }}>
+              <TextField
+                label="当日メモ"
+                placeholder="当日メモ"
+                multiline
+                minRows={3}
+                maxRows={3}
+                fullWidth
+                size="small"
+                value={memo}
+                onChange={(e) => updateMemo(e.target.value)}
+                helperText={isSaving ? '保存中...' : ' '}
+                slotProps={{ formHelperText: { sx: { minHeight: '14px', mt: 0.25, fontSize: '10px' } } }}
+                sx={{
+                  '& .MuiInputBase-root': {
+                    alignItems: 'flex-start',
+                    fontSize: '11px',
+                    lineHeight: 1.25,
+                    py: 0.25,
+                  },
+                  '& .MuiInputBase-input': {
+                    fontSize: '11px',
+                    lineHeight: 1.25,
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontSize: '11px',
+                  },
+                }}
+              />
             </Box>
           }
         />

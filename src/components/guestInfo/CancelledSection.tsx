@@ -10,6 +10,7 @@ type Props = {
   onCardClick: (reservation: Reservation) => void
   onRestore: (reservation: Reservation) => void
   showRestoreAction?: boolean
+  hideTitle?: boolean
 }
 
 export function CancelledSection({
@@ -17,14 +18,17 @@ export function CancelledSection({
   onCardClick,
   onRestore,
   showRestoreAction = true,
+  hideTitle = false,
 }: Props) {
   if (reservations.length === 0) return null
 
   return (
-    <Box data-testid="cancelled-section" sx={{ mt: 3, width: '50%', mx: 'auto' }}>
-      <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-        キャンセル済み
-      </Typography>
+    <Box data-testid="cancelled-section">
+      {!hideTitle && (
+        <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+          キャンセル済み
+        </Typography>
+      )}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, justifyContent: 'center' }}>
         {reservations.map((r) => (
           <ReservationListCard

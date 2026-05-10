@@ -6,6 +6,7 @@ import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
 import Snackbar from '@mui/material/Snackbar'
+import Typography from '@mui/material/Typography'
 import { useGuestInfo } from '@/hooks/guestInfo/useGuestInfo'
 import { ReservationListCard } from './ReservationListCard'
 import { AddReservationCard } from './AddReservationCard'
@@ -19,6 +20,7 @@ import type { GuestInfoToggle } from '@/types/guestInfo'
 type Props = {
   selectedDate: string
   topContent?: ReactNode
+  sideContent?: ReactNode
   selectedToggle?: GuestInfoToggle | null
 }
 
@@ -40,7 +42,7 @@ function sortByRoom(reservations: Reservation[]): Reservation[] {
   })
 }
 
-export function GuestInfoSection({ selectedDate, topContent, selectedToggle }: Props) {
+export function GuestInfoSection({ selectedDate, topContent, sideContent, selectedToggle }: Props) {
   const [refreshKey, setRefreshKey] = useState(0)
   const [modalReservation, setModalReservation] = useState<Reservation | null>(null)
   const [cancelTarget, setCancelTarget] = useState<Reservation | null>(null)
@@ -114,12 +116,43 @@ export function GuestInfoSection({ selectedDate, topContent, selectedToggle }: P
           <AddReservationCard onClick={() => setAddDialogOpen(true)} />
         </Box>
 
-        <CancelledSection
-          reservations={cancelled}
-          onCardClick={setModalReservation}
-          onRestore={() => undefined}
-          showRestoreAction={false}
-        />
+        {(cancelled.length > 0 || sideContent) && (
+          <Box
+            sx={{
+              mt: 3,
+              width: '70%',
+              mx: 'auto',
+            }}
+          >
+            {cancelled.length > 0 && (
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                キャンセル済み
+              </Typography>
+            )}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 3,
+                flexWrap: 'wrap',
+              }}
+            >
+              {cancelled.length > 0 && (
+                <Box>
+                  <CancelledSection
+                    reservations={cancelled}
+                    onCardClick={setModalReservation}
+                    onRestore={() => undefined}
+                    showRestoreAction={false}
+                    hideTitle
+                  />
+                </Box>
+              )}
+              {sideContent}
+            </Box>
+          </Box>
+        )}
       </Box>
 
       {/* モーダル / ダイアログ */}
