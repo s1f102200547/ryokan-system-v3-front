@@ -56,7 +56,7 @@ export function DailyDashboard({ today }: Props) {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ width: '90%', mx: 'auto', p: 3 }}>
       <DashboardTabs />
 
       {/* 日付ナビゲーション */}
