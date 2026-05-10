@@ -17,8 +17,9 @@ export type ATaxTableData = {
 
 export async function getATaxTableUseCase(year: number, month: number): Promise<ATaxTableData> {
   const reservations = await firestoreReservationRepository.fetchByMonth(year, month)
+  const activeReservations = reservations.filter((r) => r.cancel !== 1)
 
-  const rows: ATaxTableRow[] = reservations.map((r) => {
+  const rows: ATaxTableRow[] = activeReservations.map((r) => {
     const nights = dateDiff(r.check_in_date, r.check_out_date)
     const tax = isATaxExempt(r.booking_site)
       ? 0

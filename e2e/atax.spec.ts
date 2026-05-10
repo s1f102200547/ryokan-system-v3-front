@@ -35,6 +35,17 @@ const SAMPLE_ROW = {
   tax: 400,
 }
 
+const CANCELLED_ROW = {
+  ...SAMPLE_ROW,
+  id: 'test-id-cancelled',
+  guest_name: 'キャンセル花子',
+  room: '22',
+  cancel: 1,
+  a_tax_received: true,
+  a_tax_received_by_staff_name: '除外スタッフ',
+  tax: 1800,
+}
+
 async function setupAuth(page: Page) {
   await page.context().addCookies([{
     name: 'session',
@@ -47,7 +58,7 @@ async function setupAuth(page: Page) {
 async function mockATaxApi(page: Page) {
   await page.route('/api/a-tax-table*', (route) => route.fulfill({
     status: 200,
-    json: { rows: [SAMPLE_ROW], safeBalanceCheckers: {} },
+    json: { rows: [SAMPLE_ROW, CANCELLED_ROW], safeBalanceCheckers: {} },
   }))
   await page.route('**/api/reservations/*/a-tax', (route) => route.fulfill({ status: 200, json: {} }))
 }
@@ -61,6 +72,11 @@ test.describe('ATaxTable - 表示', () => {
 
   test('ページが表示され予約行が存在する', async ({ page }) => {
     await expect(page.getByRole('table')).toBeVisible()
+  })
+
+  test('キャンセル済み予約は表示と集計から除外される', async ({ page }) => {
+    await expect(page.getByText('キャンセル花子')).not.toBeVisible()
+    await expect(page.getByText('受領済み合計: ¥0')).toBeVisible()
   })
 
   test('宿泊税切り替えボタンが選択状態で表示される', async ({ page }) => {
