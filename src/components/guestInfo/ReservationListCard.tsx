@@ -118,11 +118,9 @@ export function ReservationListCard({
         height: 120,
         m: 1,
         cursor: 'pointer',
-        bgcolor: isStaying ? 'rgba(25, 118, 210, 0.06)' : 'background.paper',
-        borderLeft: isStaying ? '3px solid' : 'none',
-        borderLeftColor: 'primary.light',
+        bgcolor: isStaying ? 'grey.50' : 'background.paper',
         transition: 'background-color 0.2s',
-        '&:hover': { bgcolor: isActionHovered ? (isStaying ? 'rgba(25, 118, 210, 0.06)' : 'background.paper') : 'grey.100' },
+        '&:hover': { bgcolor: isActionHovered ? (isStaying ? 'grey.50' : 'background.paper') : 'grey.100' },
         '&:active': { bgcolor: 'grey.200' },
       }}
     >
@@ -142,8 +140,12 @@ export function ReservationListCard({
         </IconButton>
       </Tooltip>
       <CardContent sx={{ textAlign: 'center', p: 1, pb: '8px !important' }}>
-        <Typography variant="h5">{reservation.room ?? '—'}</Typography>
-        <Typography variant="body2" noWrap>{reservation.guest_name || '（名前なし）'}</Typography>
+        <Typography variant="h5" color={isStaying ? 'text.secondary' : 'text.primary'}>
+          {reservation.room ?? '—'}
+        </Typography>
+        <Typography variant="body2" noWrap color={isStaying ? 'text.secondary' : 'text.primary'}>
+          {reservation.guest_name || '（名前なし）'}
+        </Typography>
         <Typography
           variant="caption"
           noWrap
