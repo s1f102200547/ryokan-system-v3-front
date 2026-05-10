@@ -77,8 +77,9 @@ test.describe('GuestInfo - 予約一覧表示', () => {
     await expect(page.getByTestId('reservation-card').first()).toBeVisible()
   })
 
-  test('キャンセル予約セクションは表示されない', async ({ page }) => {
-    await expect(page.getByTestId('cancelled-section')).not.toBeVisible()
+  test('キャンセル済み予約セクションが表示され復活ボタンは表示されない', async ({ page }) => {
+    await expect(page.getByTestId('cancelled-section')).toBeVisible()
+    await expect(page.getByTestId('restore-button')).not.toBeVisible()
   })
 
   test('不要な宿泊税表示と遷移ボタンは表示されない', async ({ page }) => {

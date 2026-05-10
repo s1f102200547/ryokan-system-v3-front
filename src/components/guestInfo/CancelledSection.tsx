@@ -9,9 +9,15 @@ type Props = {
   reservations: Reservation[]
   onCardClick: (reservation: Reservation) => void
   onRestore: (reservation: Reservation) => void
+  showRestoreAction?: boolean
 }
 
-export function CancelledSection({ reservations, onCardClick, onRestore }: Props) {
+export function CancelledSection({
+  reservations,
+  onCardClick,
+  onRestore,
+  showRestoreAction = true,
+}: Props) {
   if (reservations.length === 0) return null
 
   return (
@@ -27,6 +33,7 @@ export function CancelledSection({ reservations, onCardClick, onRestore }: Props
             onClick={() => onCardClick(r)}
             onCancelOrRestore={() => onRestore(r)}
             isCancelled
+            showRestoreAction={showRestoreAction}
           />
         ))}
       </Box>
