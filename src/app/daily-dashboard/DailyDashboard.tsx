@@ -44,6 +44,16 @@ export function DailyDashboard({ today }: Props) {
   const cleaningBoardPrintDate = selectedDate === today ? tomorrow : selectedDate
   const cleaningBoardButtonLabel =
     selectedDate === today ? '明日の掃除ボード印刷' : 'この日の掃除ボード印刷'
+  const printButtonSx = {
+    textTransform: 'none',
+    fontSize: '0.8rem',
+    color: 'text.secondary',
+    borderColor: 'divider',
+    '&:hover': {
+      borderColor: 'text.secondary',
+      bgcolor: 'action.hover',
+    },
+  }
 
   return (
     <Box sx={{ p: 3 }}>
@@ -115,7 +125,7 @@ export function DailyDashboard({ today }: Props) {
             startIcon={<PrintIcon fontSize="small" />}
             onClick={() => setPrintMode('timetable')}
             data-testid="print-timetable"
-            sx={{ textTransform: 'none', fontSize: '0.8rem' }}
+            sx={printButtonSx}
           >
             この日のタイムテーブル印刷
           </Button>
@@ -126,7 +136,7 @@ export function DailyDashboard({ today }: Props) {
               startIcon={<PrintIcon fontSize="small" />}
               onClick={() => setPrintMode('cleaning-board')}
               data-testid="print-cleaning-board"
-              sx={{ textTransform: 'none', fontSize: '0.8rem' }}
+              sx={printButtonSx}
             >
               {cleaningBoardButtonLabel}
             </Button>
@@ -140,7 +150,7 @@ export function DailyDashboard({ today }: Props) {
                   size="small"
                   variant="outlined"
                   disabled
-                  sx={{ textTransform: 'none', fontSize: '0.8rem' }}
+                  sx={printButtonSx}
                 >
                   掃除ボード印刷
                 </Button>
