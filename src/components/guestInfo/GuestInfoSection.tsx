@@ -138,8 +138,8 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
                 flexWrap: 'wrap',
               }}
             >
-              {cancelled.length > 0 && (
-                <Box>
+              <Box sx={{ minWidth: '240px', visibility: cancelled.length > 0 ? 'visible' : 'hidden' }}>
+                {cancelled.length > 0 && (
                   <CancelledSection
                     reservations={cancelled}
                     onCardClick={setModalReservation}
@@ -147,8 +147,8 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
                     showRestoreAction={false}
                     hideTitle
                   />
-                </Box>
-              )}
+                )}
+              </Box>
               {sideContent}
             </Box>
           </Box>
