@@ -23,4 +23,5 @@ export type TimetableData = {
   checkoutRooms: string[]
   morningBathSlots: Record<string, string[]>
   lateCheckoutRooms: string[]
+  dailyMemo: string
 }

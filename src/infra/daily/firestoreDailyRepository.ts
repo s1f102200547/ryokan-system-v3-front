@@ -6,7 +6,7 @@ export const firestoreDailyRepository: DailyRepository = {
   async updateSafeBalanceChecker(date, staffName) {
     return withFirestoreError(async () => {
       await adminDb.collection('dailyInfo').doc(date).set(
-        { safeBalanceChecker: staffName, updated_at: new Date().toISOString() },
+        { date, safeBalanceChecker: staffName, updated_at: new Date().toISOString() },
         { merge: true },
       )
     })
@@ -23,6 +23,23 @@ export const firestoreDailyRepository: DailyRepository = {
         result[dates[i]] = typeof data?.safeBalanceChecker === 'string' ? data.safeBalanceChecker : ''
       }
       return result
+    })
+  },
+
+  async fetchDailyMemo(date) {
+    return withFirestoreError(async () => {
+      const snap = await adminDb.collection('dailyInfo').doc(date).get()
+      const data = snap.data()
+      return typeof data?.dailyMemo === 'string' ? data.dailyMemo : ''
+    })
+  },
+
+  async updateDailyMemo(date, memo) {
+    return withFirestoreError(async () => {
+      await adminDb.collection('dailyInfo').doc(date).set(
+        { date, dailyMemo: memo, updated_at: new Date().toISOString() },
+        { merge: true },
+      )
     })
   },
 }

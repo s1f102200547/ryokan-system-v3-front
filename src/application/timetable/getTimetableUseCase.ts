@@ -1,4 +1,5 @@
 import { firestoreReservationRepository } from '@/infra/reservation/firestoreReservationRepository'
+import { firestoreDailyRepository } from '@/infra/daily/firestoreDailyRepository'
 import { addDays, dateDiff } from '@/lib/dateUtils'
 import { computeRoomCheckInState } from '@/domain/room/roomState'
 import type { RoomCheckInState } from '@/domain/room/roomState'
@@ -21,7 +22,10 @@ type RoomStay = { room: string; reservation: Reservation }
 export async function getTimetableUseCase(targetDate: string): Promise<TimetableData> {
   const from = addDays(targetDate, -QUERY_RANGE_DAYS)
   const to = addDays(targetDate, QUERY_RANGE_DAYS)
-  const reservations = await firestoreReservationRepository.fetchByDateRange(from, to)
+  const [reservations, dailyMemo] = await Promise.all([
+    firestoreReservationRepository.fetchByDateRange(from, to),
+    firestoreDailyRepository.fetchDailyMemo(targetDate),
+  ])
 
   const nextDay = addDays(targetDate, 1)
 
@@ -51,6 +55,7 @@ export async function getTimetableUseCase(targetDate: string): Promise<Timetable
     checkoutRooms: buildCheckoutRooms(nextDayStateMap),
     morningBathSlots: buildBathSlots(stayingTonight, targetDate, OPEN_AIR_TIMES_MORNING),
     lateCheckoutRooms: buildLateCheckoutRooms(nextDayStateMap),
+    dailyMemo,
   }
 }
 

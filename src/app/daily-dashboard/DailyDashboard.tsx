@@ -13,10 +13,12 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import PrintIcon from '@mui/icons-material/Print'
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar'
 import dayjs from 'dayjs'
+import TextField from '@mui/material/TextField'
 import { useDateNavigation } from '@/hooks/date/useDateNavigation'
 import { addDays } from '@/lib/dateUtils'
 import { DashboardTabs } from '@/components/DashboardTabs'
 import { GuestInfoSection } from '@/components/guestInfo/GuestInfoSection'
+import { useDailyMemo } from '@/hooks/daily/useDailyMemo'
 import { TimetablePrintContent } from './TimetablePrintContent'
 import { CleaningBoardPrintContent } from './CleaningBoardPrintContent'
 
@@ -32,6 +34,7 @@ export function DailyDashboard({ today }: Props) {
 
   const [calendarAnchor, setCalendarAnchor] = useState<HTMLElement | null>(null)
   const [printMode, setPrintMode] = useState<PrintMode>(null)
+  const { memo, isSaving, updateMemo } = useDailyMemo(selectedDate)
   const tomorrow = addDays(today, 1)
   const canPrintCleaningBoard = selectedDate === today || selectedDate === tomorrow
   const cleaningBoardPrintDate = selectedDate === today ? tomorrow : selectedDate
@@ -145,7 +148,41 @@ export function DailyDashboard({ today }: Props) {
 
       {/* GuestInfo セクション */}
       <Box sx={{ '@media print': { display: 'none' } }}>
-        <GuestInfoSection selectedDate={selectedDate} />
+        <GuestInfoSection
+          selectedDate={selectedDate}
+          topContent={
+            <Box sx={{ width: 'min(260px, 42vw)', mx: 'auto', mb: 1, opacity: 0.88 }}>
+              <TextField
+                label="当日メモ"
+                placeholder="当日メモ"
+                multiline
+                minRows={3}
+                maxRows={3}
+                fullWidth
+                size="small"
+                value={memo}
+                onChange={(e) => updateMemo(e.target.value)}
+                helperText={isSaving ? '保存中...' : ' '}
+                slotProps={{ formHelperText: { sx: { minHeight: '14px', mt: 0.25, fontSize: '10px' } } }}
+                sx={{
+                  '& .MuiInputBase-root': {
+                    alignItems: 'flex-start',
+                    fontSize: '11px',
+                    lineHeight: 1.25,
+                    py: 0.25,
+                  },
+                  '& .MuiInputBase-input': {
+                    fontSize: '11px',
+                    lineHeight: 1.25,
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontSize: '11px',
+                  },
+                }}
+              />
+            </Box>
+          }
+        />
       </Box>
 
       {/* 印刷コンテンツ */}
