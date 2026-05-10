@@ -65,31 +65,43 @@ export function DailyDashboard({ today }: Props) {
           display: 'flex',
           alignItems: 'center',
           gap: 0.5,
+          mt: -4,
           mb: 4,
           '@media print': { display: 'none' },
         }}
       >
-        <IconButton onClick={goToPrevDay} aria-label="前日" data-testid="prev-day">
-          <NavigateBeforeIcon fontSize="medium" />
-        </IconButton>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, transform: 'translateY(-6px)' }}>
+          <IconButton onClick={goToPrevDay} aria-label="前日" data-testid="prev-day">
+            <NavigateBeforeIcon fontSize="medium" />
+          </IconButton>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mx: 0.75 }}>
-          <Typography fontSize="1.15rem" data-testid="date-label">{dateLabel.replace('/', ' / ')}</Typography>
-          <Typography variant="body1" color="text.secondary" data-testid="diff-label">
-            ( {diffLabel} )
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mx: 0.75 }}>
+            <Typography fontSize="1.15rem" data-testid="date-label">{dateLabel.replace('/', ' / ')}</Typography>
+            <Typography variant="body1" color="text.secondary" data-testid="diff-label">
+              ( {diffLabel} )
+            </Typography>
+          </Box>
+
+          <IconButton onClick={goToNextDay} aria-label="翌日" data-testid="next-day">
+            <NavigateNextIcon fontSize="medium" />
+          </IconButton>
+
+          <IconButton
+            aria-label="日付を選択"
+            onClick={(e) => setCalendarAnchor(e.currentTarget)}
+          >
+            <CalendarMonthIcon fontSize="medium" />
+          </IconButton>
+
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={goToToday}
+            sx={{ borderRadius: '20px', ml: 1, textTransform: 'none', fontSize: '0.9rem' }}
+          >
+            Today
+          </Button>
         </Box>
-
-        <IconButton onClick={goToNextDay} aria-label="翌日" data-testid="next-day">
-          <NavigateNextIcon fontSize="medium" />
-        </IconButton>
-
-        <IconButton
-          aria-label="日付を選択"
-          onClick={(e) => setCalendarAnchor(e.currentTarget)}
-        >
-          <CalendarMonthIcon fontSize="medium" />
-        </IconButton>
 
         <Popover
           open={Boolean(calendarAnchor)}
@@ -107,15 +119,6 @@ export function DailyDashboard({ today }: Props) {
             }}
           />
         </Popover>
-
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={goToToday}
-          sx={{ borderRadius: '20px', ml: 1, textTransform: 'none', fontSize: '0.9rem' }}
-        >
-          Today
-        </Button>
 
         {/* 印刷ボタン（右端） */}
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
