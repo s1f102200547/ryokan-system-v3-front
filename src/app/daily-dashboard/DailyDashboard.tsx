@@ -66,7 +66,10 @@ export function DailyDashboard({ today }: Props) {
           alignItems: 'center',
           gap: 0.5,
           mt: -4,
+          pb: 1,
           mb: 4,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
           '@media print': { display: 'none' },
         }}
       >
