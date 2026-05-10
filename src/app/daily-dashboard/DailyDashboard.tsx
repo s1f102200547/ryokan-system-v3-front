@@ -53,6 +53,11 @@ export function DailyDashboard({ today }: Props) {
       borderColor: 'text.secondary',
       bgcolor: 'action.hover',
     },
+    '&:active': {
+      color: 'primary.main',
+      borderColor: 'primary.main',
+      bgcolor: 'primary.50',
+    },
   }
 
   return (
@@ -223,6 +228,17 @@ export function DailyDashboard({ today }: Props) {
                 exclusive
                 onChange={(_, value: GuestInfoToggle | null) => setSelectedToggle(value)}
                 size="small"
+                color="primary"
+                sx={{
+                  '& .MuiToggleButton-root.Mui-selected': {
+                    color: 'primary.main',
+                    borderColor: 'primary.main',
+                    bgcolor: 'primary.50',
+                  },
+                  '& .MuiToggleButton-root.Mui-selected:hover': {
+                    bgcolor: 'primary.100',
+                  },
+                }}
               >
                 <ToggleButton value="openAirBath">露天</ToggleButton>
                 <ToggleButton value="dinner">夕食</ToggleButton>
