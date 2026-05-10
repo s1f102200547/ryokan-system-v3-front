@@ -148,21 +148,40 @@ export function DailyDashboard({ today }: Props) {
 
       {/* GuestInfo セクション */}
       <Box sx={{ '@media print': { display: 'none' } }}>
-        <GuestInfoSection selectedDate={selectedDate} />
-      </Box>
-
-      {/* 当日メモ */}
-      <Box sx={{ '@media print': { display: 'none' }, mt: 2 }}>
-        <TextField
-          label="当日メモ"
-          placeholder="当日メモ"
-          multiline
-          minRows={3}
-          fullWidth
-          value={memo}
-          onChange={(e) => updateMemo(e.target.value)}
-          helperText={isSaving ? '保存中...' : ' '}
-          slotProps={{ formHelperText: { sx: { minHeight: '1.5em' } } }}
+        <GuestInfoSection
+          selectedDate={selectedDate}
+          topContent={
+            <Box sx={{ width: 'min(260px, 42vw)', mx: 'auto', mb: 1, opacity: 0.88 }}>
+              <TextField
+                label="当日メモ"
+                placeholder="当日メモ"
+                multiline
+                minRows={3}
+                maxRows={3}
+                fullWidth
+                size="small"
+                value={memo}
+                onChange={(e) => updateMemo(e.target.value)}
+                helperText={isSaving ? '保存中...' : ' '}
+                slotProps={{ formHelperText: { sx: { minHeight: '14px', mt: 0.25, fontSize: '10px' } } }}
+                sx={{
+                  '& .MuiInputBase-root': {
+                    alignItems: 'flex-start',
+                    fontSize: '11px',
+                    lineHeight: 1.25,
+                    py: 0.25,
+                  },
+                  '& .MuiInputBase-input': {
+                    fontSize: '11px',
+                    lineHeight: 1.25,
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontSize: '11px',
+                  },
+                }}
+              />
+            </Box>
+          }
         />
       </Box>
 

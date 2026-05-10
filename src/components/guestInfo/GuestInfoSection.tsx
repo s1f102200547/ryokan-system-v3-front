@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useState, useCallback } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -16,6 +17,7 @@ import type { Reservation } from '@/types/reservation'
 
 type Props = {
   selectedDate: string
+  topContent?: ReactNode
 }
 
 function sortByRoom(reservations: Reservation[]): Reservation[] {
@@ -26,7 +28,7 @@ function sortByRoom(reservations: Reservation[]): Reservation[] {
   })
 }
 
-export function GuestInfoSection({ selectedDate }: Props) {
+export function GuestInfoSection({ selectedDate, topContent }: Props) {
   const [refreshKey, setRefreshKey] = useState(0)
   const [modalReservation, setModalReservation] = useState<Reservation | null>(null)
   const [cancelTarget, setCancelTarget] = useState<Reservation | null>(null)
@@ -79,8 +81,10 @@ export function GuestInfoSection({ selectedDate }: Props) {
           },
         }}
       >
+        {topContent}
+
         {/* アクティブな予約カード列 */}
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, justifyContent: 'center', mt: 10 }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, justifyContent: 'center', mt: topContent ? 1.5 : 10 }}>
           {normal.map((r) => (
             <ReservationListCard
               key={r.id}
