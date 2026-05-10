@@ -206,7 +206,7 @@ export function ReservationTable({ processedRows, loading, onToggle }: Props) {
                 <TableCell sx={cellSx} align="center">{row.adult_count}</TableCell>
                 <TableCell sx={cellSx} align="center">{row.nights}</TableCell>
                 <TableCell sx={cellSx} align="center">{row.booking_site}</TableCell>
-                <TableCell sx={cellSx} align="center">{row.tax === 0 ? '免除' : `¥${row.tax.toLocaleString()}`}</TableCell>
+                <TableCell sx={cellSx} align="center">¥{row.tax.toLocaleString()}</TableCell>
                 <TableCell sx={cellSx} align="center">
                   {row.booking_site !== 'chillnn' && (
                     <StaffNameCell id={row.id} value={row.a_tax_received_by_staff_name} />

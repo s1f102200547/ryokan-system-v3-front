@@ -1,6 +1,6 @@
 import { firestoreReservationRepository } from '@/infra/reservation/firestoreReservationRepository'
 import { firestoreDailyRepository } from '@/infra/daily/firestoreDailyRepository'
-import { isATaxExempt, calcATax } from '@/domain/reservation/bookingSitePolicy'
+import { calcATax } from '@/domain/reservation/bookingSitePolicy'
 import { dateDiff } from '@/lib/dateUtils'
 import { A_TAX_RATE_PER_PERSON_PER_NIGHT } from '@/constants/guestInfo'
 import type { Reservation } from '@/types/reservation'
@@ -21,9 +21,7 @@ export async function getATaxTableUseCase(year: number, month: number): Promise<
 
   const rows: ATaxTableRow[] = activeReservations.map((r) => {
     const nights = dateDiff(r.check_in_date, r.check_out_date)
-    const tax = isATaxExempt(r.booking_site)
-      ? 0
-      : calcATax(r.adult_count, nights, A_TAX_RATE_PER_PERSON_PER_NIGHT)
+    const tax = calcATax(r.adult_count, nights, A_TAX_RATE_PER_PERSON_PER_NIGHT)
     return { ...r, nights, tax }
   })
 
