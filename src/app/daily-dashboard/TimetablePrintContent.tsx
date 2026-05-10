@@ -58,8 +58,8 @@ const printStyles = (
         '.no-print': { display: 'none !important' },
         '.print-area': {
           position: 'absolute',
-          top: 10,
-          left: 10,
+          top: 30,
+          left: 30,
           transform: 'scale(0.9, 0.9)',
           transformOrigin: 'top left',
         },
