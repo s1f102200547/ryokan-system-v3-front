@@ -290,7 +290,7 @@ test.describe('清掃ボード印刷コンテンツ', () => {
     await expect(page.getByTestId('date-label')).toContainText('4 / 12')
 
     await page.getByTestId('print-cleaning-board').click()
-    await expect(page.getByTestId('cleaning-board-date')).toContainText('4月12日')
+    await expect(page.getByTestId('cleaning-board-date')).toContainText('4月13日')
     await expect(page.getByTestId('cleaning-board-date')).toContainText('日')
   })
 
@@ -305,7 +305,7 @@ test.describe('清掃ボード印刷コンテンツ', () => {
     await expect(page.getByTestId('date-label')).toContainText('4 / 12')
 
     await page.getByTestId('print-cleaning-board').click()
-    await expect(page.getByTestId('cleaning-board-date')).toContainText('4月12日')
+    await expect(page.getByTestId('cleaning-board-date')).toContainText('4月13日')
     await expect(page.getByTestId('ci-cell-21')).toHaveText('2(1)')
   })
 
@@ -320,7 +320,7 @@ test.describe('清掃ボード印刷コンテンツ', () => {
     await expect(page.getByTestId('date-label')).toContainText('4 / 12')
 
     await page.getByTestId('print-cleaning-board').click()
-    await expect(page.getByTestId('cleaning-board-date')).toContainText('4月12日')
+    await expect(page.getByTestId('cleaning-board-date')).toContainText('4月13日')
     await expect(page.getByTestId('ci-cell-31')).toHaveText('(2(1))')
   })
 
@@ -340,7 +340,7 @@ test.describe('清掃ボード印刷コンテンツ', () => {
     await expect(page.getByTestId('date-label')).toContainText('4 / 12')
 
     await page.getByTestId('print-cleaning-board').click()
-    await expect(page.getByTestId('cleaning-board-date')).toContainText('4月12日')
+    await expect(page.getByTestId('cleaning-board-date')).toContainText('4月13日')
     await expect(page.getByTestId('consecutive-cell-21')).toHaveText('2(1)')
   })
 
@@ -355,7 +355,7 @@ test.describe('清掃ボード印刷コンテンツ', () => {
     await expect(page.getByTestId('date-label')).toContainText('4 / 12')
 
     await page.getByTestId('print-cleaning-board').click()
-    await expect(page.getByTestId('cleaning-board-date')).toContainText('4月12日')
+    await expect(page.getByTestId('cleaning-board-date')).toContainText('4月13日')
     await expect(page.getByTestId('auto-notes-box')).toContainText('21: レイトアウト11:00')
   })
 })

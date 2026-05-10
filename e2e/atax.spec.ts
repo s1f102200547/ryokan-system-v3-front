@@ -63,9 +63,15 @@ test.describe('ATaxTable - 表示', () => {
     await expect(page.getByRole('table')).toBeVisible()
   })
 
+  test('宿泊税切り替えボタンが選択状態で表示される', async ({ page }) => {
+    await expect(page.getByRole('button', { name: '宿泊税' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('button', { name: 'ダッシュボード' })).toBeVisible()
+    await expect(page.getByRole('link', { name: '← ダッシュボード' })).not.toBeVisible()
+  })
+
   test('月切り替えで表示が更新される', async ({ page }) => {
     // MonthSelector の最初のボタン（先月）をクリック
-    await page.getByRole('group').getByRole('button').first().click()
+    await page.getByRole('button', { name: /月/ }).first().click()
     await expect(page.getByRole('table')).toBeVisible()
   })
 })
@@ -89,7 +95,7 @@ test.describe('ATaxTable - CSV出力', () => {
     await mockATaxApi(page)
     await page.goto('/a_tax_table')
     // 先月ボタンをクリックしてCSVボタンを表示させる
-    await page.getByRole('group').getByRole('button').first().click()
+    await page.getByRole('button', { name: /月/ }).first().click()
     await expect(page.getByRole('button', { name: /CSV/ })).toBeVisible()
   })
 })
