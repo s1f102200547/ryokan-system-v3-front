@@ -25,9 +25,11 @@ export function DashboardTabs() {
       sx={{
         display: 'flex',
         justifyContent: 'center',
+        alignItems: 'center',
+        position: 'relative',
         width: '100vw',
         ml: 'calc(50% - 50vw)',
-        py: 0.5,
+        height: 28,
         mb: 1,
         borderBottom: '1px solid',
         borderColor: 'grey.300',
@@ -43,9 +45,12 @@ export function DashboardTabs() {
         onChange={handleChange}
         aria-label="画面切り替え"
         sx={{
+          position: 'absolute',
+          top: '20%',
+          transform: 'translateY(-50%)',
           '& .MuiToggleButton-root': {
             minWidth: 108,
-            height: 28,
+            height: 24,
             px: 1.5,
             textTransform: 'none',
           },
