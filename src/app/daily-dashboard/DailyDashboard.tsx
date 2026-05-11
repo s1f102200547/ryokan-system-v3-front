@@ -184,10 +184,10 @@ export function DailyDashboard({ today }: Props) {
             この日のタイムテーブル印刷
           </Button>
         </Box>
-        <Box sx={{ width: 'min(260px, 42vw)', opacity: 0.88 }}>
+        <Box sx={{ width: 'min(260px, 42vw)', opacity: 0.88, pt: 0.5 }}>
           <TextField
-            label="当日メモ"
-            placeholder="当日メモ"
+            label="タイテ用当日メモ"
+            placeholder="タイムテーブルの右下の枠内に表示されるメモ (ex. zoomC/I 15:00)"
             multiline
             minRows={3}
             maxRows={3}
@@ -196,7 +196,10 @@ export function DailyDashboard({ today }: Props) {
             value={memo}
             onChange={(e) => updateMemo(e.target.value)}
             helperText={isSaving ? '保存中...' : ' '}
-            slotProps={{ formHelperText: { sx: { minHeight: '14px', mt: 0.25, fontSize: '10px' } } }}
+            slotProps={{
+              inputLabel: { shrink: true },
+              formHelperText: { sx: { minHeight: '14px', mt: 0.25, fontSize: '10px' } },
+            }}
             sx={{
               '& .MuiInputBase-root': {
                 alignItems: 'flex-start',
