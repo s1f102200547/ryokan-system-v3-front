@@ -5,6 +5,8 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
 import Popover from '@mui/material/Popover'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import NavigateNextIcon from '@mui/icons-material/NavigateNext'
@@ -19,6 +21,7 @@ import { addDays } from '@/lib/dateUtils'
 import { DashboardTabs } from '@/components/DashboardTabs'
 import { GuestInfoSection } from '@/components/guestInfo/GuestInfoSection'
 import { useDailyMemo } from '@/hooks/daily/useDailyMemo'
+import type { GuestInfoToggle } from '@/types/guestInfo'
 import { TimetablePrintContent } from './TimetablePrintContent'
 import { CleaningBoardPrintContent } from './CleaningBoardPrintContent'
 
@@ -34,15 +37,31 @@ export function DailyDashboard({ today }: Props) {
 
   const [calendarAnchor, setCalendarAnchor] = useState<HTMLElement | null>(null)
   const [printMode, setPrintMode] = useState<PrintMode>(null)
+  const [selectedToggle, setSelectedToggle] = useState<GuestInfoToggle | null>(null)
   const { memo, isSaving, updateMemo } = useDailyMemo(selectedDate)
   const tomorrow = addDays(today, 1)
   const canPrintCleaningBoard = selectedDate === today || selectedDate === tomorrow
   const cleaningBoardPrintDate = selectedDate === today ? tomorrow : selectedDate
   const cleaningBoardButtonLabel =
     selectedDate === today ? '明日の掃除ボード印刷' : 'この日の掃除ボード印刷'
+  const printButtonSx = {
+    textTransform: 'none',
+    fontSize: '0.8rem',
+    color: 'text.secondary',
+    borderColor: 'divider',
+    '&:hover': {
+      borderColor: 'text.secondary',
+      bgcolor: 'action.hover',
+    },
+    '&:active': {
+      color: 'primary.main',
+      borderColor: 'primary.main',
+      bgcolor: 'primary.50',
+    },
+  }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ width: '90%', mx: 'auto', p: 3 }}>
       <DashboardTabs />
 
       {/* 日付ナビゲーション */}
@@ -51,31 +70,50 @@ export function DailyDashboard({ today }: Props) {
           display: 'flex',
           alignItems: 'center',
           gap: 0.5,
-          mb: 4,
+          width: '100vw',
+          ml: 'calc(50% - 50vw)',
+          px: '5vw',
+          mt: -4,
+          pb: 0.25,
+          mb: 0.75,
+          borderBottom: '1px solid',
+          borderColor: 'grey.300',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08)',
           '@media print': { display: 'none' },
         }}
       >
-        <IconButton onClick={goToPrevDay} aria-label="前日" data-testid="prev-day">
-          <NavigateBeforeIcon fontSize="medium" />
-        </IconButton>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, transform: 'translateY(-6px)' }}>
+          <IconButton onClick={goToPrevDay} aria-label="前日" data-testid="prev-day">
+            <NavigateBeforeIcon fontSize="medium" />
+          </IconButton>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mx: 0.75 }}>
-          <Typography fontSize="1.15rem" data-testid="date-label">{dateLabel.replace('/', ' / ')}</Typography>
-          <Typography variant="body1" color="text.secondary" data-testid="diff-label">
-            ( {diffLabel} )
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mx: 0.75 }}>
+            <Typography fontSize="1.15rem" data-testid="date-label">{dateLabel.replace('/', ' / ')}</Typography>
+            <Typography variant="body1" color="text.secondary" data-testid="diff-label">
+              ( {diffLabel} )
+            </Typography>
+          </Box>
+
+          <IconButton onClick={goToNextDay} aria-label="翌日" data-testid="next-day">
+            <NavigateNextIcon fontSize="medium" />
+          </IconButton>
+
+          <IconButton
+            aria-label="日付を選択"
+            onClick={(e) => setCalendarAnchor(e.currentTarget)}
+          >
+            <CalendarMonthIcon fontSize="medium" />
+          </IconButton>
+
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={goToToday}
+            sx={{ borderRadius: '20px', ml: 1, textTransform: 'none', fontSize: '0.9rem' }}
+          >
+            Today
+          </Button>
         </Box>
-
-        <IconButton onClick={goToNextDay} aria-label="翌日" data-testid="next-day">
-          <NavigateNextIcon fontSize="medium" />
-        </IconButton>
-
-        <IconButton
-          aria-label="日付を選択"
-          onClick={(e) => setCalendarAnchor(e.currentTarget)}
-        >
-          <CalendarMonthIcon fontSize="medium" />
-        </IconButton>
 
         <Popover
           open={Boolean(calendarAnchor)}
@@ -93,28 +131,20 @@ export function DailyDashboard({ today }: Props) {
             }}
           />
         </Popover>
+      </Box>
 
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={goToToday}
-          sx={{ borderRadius: '20px', ml: 1, textTransform: 'none', fontSize: '0.9rem' }}
-        >
-          Today
-        </Button>
-
-        {/* 印刷ボタン（右端） */}
-        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<PrintIcon fontSize="small" />}
-            onClick={() => setPrintMode('timetable')}
-            data-testid="print-timetable"
-            sx={{ textTransform: 'none', fontSize: '0.8rem' }}
-          >
-            この日のタイムテーブル印刷
-          </Button>
+      {/* 印刷ボタン */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-end',
+          gap: 1,
+          mb: 4,
+          '@media print': { display: 'none' },
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {canPrintCleaningBoard ? (
             <Button
               size="small"
@@ -122,7 +152,7 @@ export function DailyDashboard({ today }: Props) {
               startIcon={<PrintIcon fontSize="small" />}
               onClick={() => setPrintMode('cleaning-board')}
               data-testid="print-cleaning-board"
-              sx={{ textTransform: 'none', fontSize: '0.8rem' }}
+              sx={printButtonSx}
             >
               {cleaningBoardButtonLabel}
             </Button>
@@ -136,13 +166,56 @@ export function DailyDashboard({ today }: Props) {
                   size="small"
                   variant="outlined"
                   disabled
-                  sx={{ textTransform: 'none', fontSize: '0.8rem' }}
+                  sx={printButtonSx}
                 >
                   掃除ボード印刷
                 </Button>
               </span>
             </Tooltip>
           )}
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<PrintIcon fontSize="small" />}
+            onClick={() => setPrintMode('timetable')}
+            data-testid="print-timetable"
+            sx={printButtonSx}
+          >
+            この日のタイムテーブル印刷
+          </Button>
+        </Box>
+        <Box sx={{ width: 'min(260px, 42vw)', opacity: 0.88, pt: 0.5 }}>
+          <TextField
+            label="タイテ用当日メモ"
+            placeholder="タイムテーブルの右下の枠内に表示されるメモ (ex. zoomC/I 15:00)"
+            multiline
+            minRows={3}
+            maxRows={3}
+            fullWidth
+            size="small"
+            value={memo}
+            onChange={(e) => updateMemo(e.target.value)}
+            helperText={isSaving ? '保存中...' : ' '}
+            slotProps={{
+              inputLabel: { shrink: true },
+              formHelperText: { sx: { minHeight: '14px', mt: 0.25, fontSize: '10px' } },
+            }}
+            sx={{
+              '& .MuiInputBase-root': {
+                alignItems: 'flex-start',
+                fontSize: '11px',
+                lineHeight: 1.25,
+                py: 0.25,
+              },
+              '& .MuiInputBase-input': {
+                fontSize: '11px',
+                lineHeight: 1.25,
+              },
+              '& .MuiInputLabel-root': {
+                fontSize: '11px',
+              },
+            }}
+          />
         </Box>
       </Box>
 
@@ -150,36 +223,31 @@ export function DailyDashboard({ today }: Props) {
       <Box sx={{ '@media print': { display: 'none' } }}>
         <GuestInfoSection
           selectedDate={selectedDate}
+          selectedToggle={selectedToggle}
           topContent={
-            <Box sx={{ width: 'min(260px, 42vw)', mx: 'auto', mb: 1, opacity: 0.88 }}>
-              <TextField
-                label="当日メモ"
-                placeholder="当日メモ"
-                multiline
-                minRows={3}
-                maxRows={3}
-                fullWidth
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: -3, mb: 1 }}>
+              <ToggleButtonGroup
+                value={selectedToggle}
+                exclusive
+                onChange={(_, value: GuestInfoToggle | null) => setSelectedToggle(value)}
                 size="small"
-                value={memo}
-                onChange={(e) => updateMemo(e.target.value)}
-                helperText={isSaving ? '保存中...' : ' '}
-                slotProps={{ formHelperText: { sx: { minHeight: '14px', mt: 0.25, fontSize: '10px' } } }}
+                color="primary"
                 sx={{
-                  '& .MuiInputBase-root': {
-                    alignItems: 'flex-start',
-                    fontSize: '11px',
-                    lineHeight: 1.25,
-                    py: 0.25,
+                  '& .MuiToggleButton-root.Mui-selected': {
+                    color: 'primary.main',
+                    borderColor: 'primary.main',
+                    bgcolor: 'primary.50',
                   },
-                  '& .MuiInputBase-input': {
-                    fontSize: '11px',
-                    lineHeight: 1.25,
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontSize: '11px',
+                  '& .MuiToggleButton-root.Mui-selected:hover': {
+                    bgcolor: 'primary.100',
                   },
                 }}
-              />
+              >
+                <ToggleButton value="checkIn">CI時間</ToggleButton>
+                <ToggleButton value="openAirBath">露天</ToggleButton>
+                <ToggleButton value="dinner">夕食</ToggleButton>
+                <ToggleButton value="breakfast">朝食</ToggleButton>
+              </ToggleButtonGroup>
             </Box>
           }
         />
