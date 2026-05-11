@@ -23,7 +23,7 @@ function makeRequest(date?: string, withSession = true) {
   })
 }
 
-const mockData = { normal: [], cancelled: [] }
+const mockData = { normal: [], staying: [], cancelled: [] }
 
 describe('GET /api/guest-info', () => {
   beforeEach(() => {
@@ -53,6 +53,7 @@ describe('GET /api/guest-info', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body).toHaveProperty('normal')
+    expect(body).toHaveProperty('staying')
     expect(body).toHaveProperty('cancelled')
   })
 
