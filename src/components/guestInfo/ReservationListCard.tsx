@@ -163,7 +163,7 @@ export function ReservationListCard({
           sx={{
             display: 'block',
             mt: 0.5,
-            color: infoValue ? (isStaying ? 'text.secondary' : 'primary.main') : 'transparent',
+            color: infoValue ? 'primary.main' : 'transparent',
             fontSize: '0.72rem',
             fontWeight: 500,
           }}
