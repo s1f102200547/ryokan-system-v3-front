@@ -70,9 +70,8 @@ export function DailyDashboard({ today }: Props) {
           display: 'flex',
           alignItems: 'center',
           gap: 0.5,
-          mt: 1,
-          pb: 0.75,
-          mb: 0.75,
+          mt: 2,
+        
           borderBottom: '1px solid',
           borderColor: 'divider',
           '@media print': { display: 'none' },
