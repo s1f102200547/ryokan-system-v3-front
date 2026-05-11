@@ -151,9 +151,18 @@ export function ReservationListCard({
         </Tooltip>
       )}
       <CardContent sx={{ textAlign: 'center', p: 1, pb: '8px !important' }}>
-        <Typography variant="h5" color={isStaying ? 'text.secondary' : 'text.primary'}>
-          {reservation.room ?? '—'}
-        </Typography>
+        <Box sx={{ display: 'inline-flex', alignItems: 'baseline', justifyContent: 'center', gap: 0.35 }}>
+          <Typography variant="h5" color={isStaying ? 'text.secondary' : 'text.primary'}>
+            {reservation.room ?? '—'}
+          </Typography>
+          <Typography
+            variant="caption"
+            color={isStaying ? 'text.secondary' : 'text.primary'}
+            sx={{ fontSize: '0.55rem', fontWeight: "bold", lineHeight: 1 }}
+          >
+            {isStaying ? '連泊' : 'C/I'}
+          </Typography>
+        </Box>
         <Typography variant="body2" noWrap color={isStaying ? 'text.secondary' : 'text.primary'}>
           {reservation.guest_name || '（名前なし）'}
         </Typography>
@@ -163,7 +172,7 @@ export function ReservationListCard({
           sx={{
             display: 'block',
             mt: 0.5,
-            color: infoValue ? (isStaying ? 'text.secondary' : 'primary.main') : 'transparent',
+            color: infoValue ? 'primary.main' : 'transparent',
             fontSize: '0.72rem',
             fontWeight: 500,
           }}

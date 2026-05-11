@@ -70,19 +70,14 @@ export function DailyDashboard({ today }: Props) {
           display: 'flex',
           alignItems: 'center',
           gap: 0.5,
-          width: '100vw',
-          ml: 'calc(50% - 50vw)',
-          px: '5vw',
-          mt: -4,
-          pb: 0.25,
-          mb: 0.75,
+          mt: 2,
+        
           borderBottom: '1px solid',
-          borderColor: 'grey.300',
-          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08)',
+          borderColor: 'divider',
           '@media print': { display: 'none' },
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, transform: 'translateY(-6px)' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <IconButton onClick={goToPrevDay} aria-label="前日" data-testid="prev-day">
             <NavigateBeforeIcon fontSize="medium" />
           </IconButton>
@@ -243,7 +238,7 @@ export function DailyDashboard({ today }: Props) {
                   },
                 }}
               >
-                <ToggleButton value="checkIn">CI時間</ToggleButton>
+                <ToggleButton value="checkIn">到着</ToggleButton>
                 <ToggleButton value="openAirBath">露天</ToggleButton>
                 <ToggleButton value="dinner">夕食</ToggleButton>
                 <ToggleButton value="breakfast">朝食</ToggleButton>

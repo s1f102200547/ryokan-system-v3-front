@@ -21,7 +21,22 @@ export function DashboardTabs() {
   }
 
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2, '@media print': { display: 'none' } }}>
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        position: 'relative',
+        width: '100vw',
+        ml: 'calc(50% - 50vw)',
+        height: 28,
+        mb: 1,
+        borderBottom: '1px solid',
+        borderColor: 'grey.300',
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08)',
+        '@media print': { display: 'none' },
+      }}
+    >
       <ToggleButtonGroup
         color="primary"
         size="small"
@@ -30,9 +45,12 @@ export function DashboardTabs() {
         onChange={handleChange}
         aria-label="画面切り替え"
         sx={{
+          position: 'absolute',
+          top: '20%',
+          transform: 'translateY(-50%)',
           '& .MuiToggleButton-root': {
             minWidth: 108,
-            height: 32,
+            height: 24,
             px: 1.5,
             textTransform: 'none',
           },
