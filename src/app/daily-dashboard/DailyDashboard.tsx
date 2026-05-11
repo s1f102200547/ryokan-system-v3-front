@@ -70,19 +70,15 @@ export function DailyDashboard({ today }: Props) {
           display: 'flex',
           alignItems: 'center',
           gap: 0.5,
-          width: '100vw',
-          ml: 'calc(50% - 50vw)',
-          px: '5vw',
-          mt: -4,
-          pb: 0.25,
+          mt: 1,
+          pb: 0.75,
           mb: 0.75,
           borderBottom: '1px solid',
-          borderColor: 'grey.300',
-          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08)',
+          borderColor: 'divider',
           '@media print': { display: 'none' },
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, transform: 'translateY(-6px)' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <IconButton onClick={goToPrevDay} aria-label="前日" data-testid="prev-day">
             <NavigateBeforeIcon fontSize="medium" />
           </IconButton>

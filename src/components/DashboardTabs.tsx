@@ -21,7 +21,20 @@ export function DashboardTabs() {
   }
 
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2, '@media print': { display: 'none' } }}>
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        width: '100vw',
+        ml: 'calc(50% - 50vw)',
+        py: 0.5,
+        mb: 1,
+        borderBottom: '1px solid',
+        borderColor: 'grey.300',
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08)',
+        '@media print': { display: 'none' },
+      }}
+    >
       <ToggleButtonGroup
         color="primary"
         size="small"
@@ -32,7 +45,7 @@ export function DashboardTabs() {
         sx={{
           '& .MuiToggleButton-root': {
             minWidth: 108,
-            height: 32,
+            height: 28,
             px: 1.5,
             textTransform: 'none',
           },
