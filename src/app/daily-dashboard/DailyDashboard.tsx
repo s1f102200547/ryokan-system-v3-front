@@ -240,9 +240,9 @@ export function DailyDashboard({ today }: Props) {
                   },
                 }}
               >
+                <ToggleButton value="checkIn">CI時間</ToggleButton>
                 <ToggleButton value="openAirBath">露天</ToggleButton>
                 <ToggleButton value="dinner">夕食</ToggleButton>
-                <ToggleButton value="checkIn">CI時間</ToggleButton>
                 <ToggleButton value="breakfast">朝食</ToggleButton>
               </ToggleButtonGroup>
             </Box>
