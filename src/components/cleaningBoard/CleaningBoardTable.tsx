@@ -35,6 +35,7 @@ const amenityHeaderCellStyle: React.CSSProperties = {
 // C/I 列の表示文字列を生成
 function formatCiCell(row: CleaningBoardRow): string {
   if (!row.checkInReservation) return ''
+  if (row.stayingReservation) return ''
   const { adult_count, child_count } = row.checkInReservation
   const childStr = child_count > 0 ? `(${child_count})` : ''
   const base = `${adult_count}${childStr}`
@@ -47,9 +48,9 @@ function formatNotesCell(row: CleaningBoardRow): string {
   return ''
 }
 
-// 連泊列: 昨夜から継続滞在中のゲスト人数
+// 連泊列: 昨夜から継続滞在中のゲスト人数（最終夜含む）
 function formatConsecutiveCell(row: CleaningBoardRow): string {
-  if (!row.isStayingContinued || !row.stayingReservation) return ''
+  if (!row.stayingReservation) return ''
   const { adult_count, child_count } = row.stayingReservation
   const childStr = child_count > 0 ? `(${child_count})` : ''
   return `${adult_count}${childStr}`
