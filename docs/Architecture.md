@@ -47,6 +47,7 @@ src/
 ├── domain/         # Domain層: 純粋TS、ビジネスルール
 │   └── ports/      # インターフェース定義（Repository等）
 ├── infra/          # Infra層: ports/ の実装（Firestore, Slack等）
+├── constants/      # ドメイン定数（部屋・予約・ゲスト情報など）
 ├── lib/            # ユーティリティ
 └── types/          # 共通型定義
 

@@ -1,17 +1,22 @@
-# Ryokan System V3　(Must read this MD first)
+# Ryokan System V3 (Must read this MD first)
 
 ## Project 概要
 小規模旅館（7部屋）の業務効率化webアプリ。
 
-## Stack
+## 技術スタック
 
-- Next.js 16 (App Router) + React 19 + TypeScript 5
-- MUI (`@mui/material` + Emotion)
-- Firebase Auth + Firestore (`firebase`, `firebase-admin`)
-- Cloud Run + Docker でデプロイ（未構成）
-- Zod for validation
-- Playwright for E2E
-- Vitest for unit test
+- **Framework**: Next.js 16 (App Router想定)
+- **UI Library**: MUI v7 (Material UI + Icons + X Date Pickers v9 + Next.js Integration)
+- **Styling**: Emotion (MUIのデフォルト) v11
+- **Backend**: Firebase v12 (Firestore, Auth) + firebase-admin v13
+- **Language**: TypeScript 5 + React 19.2
+- **Validation**: Zod v4
+- **Date**: dayjs v1
+- **Testing**: Vitest v4 (unit) + Playwright v1 (E2E) + Testing Library
+- **Linter**: ESLint v9 (eslint-config-next)
+- **Deployment**: GCP Cloud Run (Docker)
+
+> 注意: React 19, Next.js 16, MUI v7, Firebase v12, Zod v4 はいずれも比較的新しいバージョンであり、LLMの学習データに古い情報が含まれている可能性が高い。必ずContext7で最新ドキュメントを参照すること。
 
 ## 実装方針
 
@@ -23,6 +28,12 @@
 npm run dev       # Dev server (localhost:3000)
 npm run build     # Production build
 npm run lint      # ESLint
+```
+
+```bash
+npm run test      # Vitest（unit / integration）
+npm run test:ui   # Vitest UI
+npm run e2e       # Playwright E2E
 ```
 
 ## テスト戦略
@@ -41,6 +52,11 @@ E2E test（Playwright） ← 「重要フローのみ」
 - Import alias: `@/*` → `./src/*`
 
 
+## constants層の役割
+
+- `src/constants/` にドメイン定数（部屋・予約・ゲスト情報など）を配置する
+- domain/ から import 可能。React・Next.js・Firebase に依存しない純粋 TS のみ
+
 ## domain層の重要な役割
 
 - 問題：部屋の状態判定は複雑で非直感的。
@@ -49,6 +65,7 @@ E2E test（Playwright） ← 「重要フローのみ」
 
 ## hooks層の注意事項
 - React 19 で新しく強化されたルールで、useEffect の中で setState を直接呼ぶのはアンチパターン
+
 
 ## エラー処理(詳しくはdocs/ErrorHandling.mdを参照)
 - 外部エラーは Infra 層で InfraError に変換し、層を跨ぐごとに抽象化して伝搬する。
@@ -62,6 +79,56 @@ E2E test（Playwright） ← 「重要フローのみ」
 - Slack 通知は「人が対応しないと直らない障害」のみ対象で、通知処理は fire-and-forget にする。
 - 入出力や DB 読み取り時は Zod で検証し、データ破損時は FIRESTORE_DATA_CORRUPTION として扱う。
 
+## Library Documentation Rule (Context7)
+
+ライブラリやフレームワークに関する以下の質問では、回答前に必ず context7 MCP を使って最新の公式ドキュメントを取得すること：
+
+- コード生成（コンポーネント実装、関数実装、Server Action実装など）
+- セットアップ・インストール手順
+- 設定方法・configuration
+- API仕様、メソッドシグネチャ、プロパティ
+- ベストプラクティス、推奨される書き方
+- バージョン固有の機能や挙動
+
+### 手順
+1. `resolve-library-id` でライブラリIDを解決する（下記の既知IDがあればスキップ）
+2. `query-docs`（または `get-library-docs`）で関連ドキュメントを取得する
+3. 取得した最新ドキュメントに基づいて回答する
+4. 私が "use context7" と明示的に書かなくても、自動的にこのフローを実行すること
+
+### 既知のライブラリID（解決ステップを省略してトークン節約）
+本プロジェクトで使用するライブラリのID：
+
+| ライブラリ | Context7 ID | バージョン |
+|-----------|------------|----------|
+| Next.js | `/vercel/next.js` | v16 |
+| React | `/facebook/react` | v19.2 |
+| MUI Material UI | `/mui/material-ui` | v7 |
+| MUI X (Date Pickers) | `/mui/mui-x` | v9 |
+| Material UI Next.js Integration | `/mui/material-ui` | v7 (material-nextjsパッケージ含む) |
+| Emotion | `/emotion-js/emotion` | v11 |
+| Firebase JS SDK | `/firebase/firebase-js-sdk` | v12 |
+| Firebase Admin | `/firebase/firebase-admin-node` | v13 |
+| Zod | `/colinhacks/zod` | v4 |
+| dayjs | `/iamkun/dayjs` | v1 |
+| TypeScript | `/microsoft/typescript` | v5 |
+| Vitest | `/vitest-dev/vitest` | v4 |
+| Playwright | `/microsoft/playwright` | v1 |
+| Testing Library (React) | `/testing-library/react-testing-library` | v16 |
+| ESLint | `/eslint/eslint` | v9 |
+
+### トークン節約のためのクエリ作成
+- `query` パラメータは具体的に書く
+  - 悪い例: `"Button"`, `"auth"`
+  - 良い例: `"Button component with loading state in MUI v7"`, `"Firestore real-time listener with TypeScript types"`
+- 1質問あたり最大3回までのツール呼び出しに留めること
+- 必要なトピックを絞り込んで、関連スニペットのみを取得する
+
+### 適用しない場面
+- 自然言語の説明や雑談
+- プロジェクト固有のビジネスロジックの設計議論
+- 既に取得済みのドキュメントで十分な追加質問
+- ファイル構造や命名規則についての質問
 
 ## Docs（必要に応じて参照）
 
@@ -76,3 +143,5 @@ E2E test（Playwright） ← 「重要フローのみ」
 - `docs/Security.md` - セキュリティヘッダー・CSP・認証境界の設計方針(要確認)
 - `docs/Test.md` - E2Eテストにおける認証情報の扱い方針
 - `docs/Timetable.md` - タイムテーブルのフィーチャー
+- `docs/GuestInfo.md` - 予約管理フィーチャー
+- `docs/ATax.md` - 宿泊税管理フィーチャー
