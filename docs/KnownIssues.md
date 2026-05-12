@@ -19,11 +19,6 @@
 
  本来、日付フォーマットは `YYYY-MM-DD` に統一すべきだが 既存のDBスキーマとの互換性維持のため、`YYYY/MM/DD`と混在する
 
-## CleaningBoardの警告はcheck_in_dateだけ
-- 現在の仕様は警告は check_in_date だけ表示
-- 本来は check_in_date + guest_name を警告表示したほうがわかりやすい
-- infraで guest_name 取得してないところに警告のためだけに取得するのは面倒なのでとりあえずは現在の仕様のままにする
-
 ## boolenと1/0の混在
 - 現在はlateoutやcancelなどは1/0になっている。
 - 本来はboolenに統一したい。
@@ -41,16 +36,8 @@
 - 7部屋・少人数運用なので同時書き込みが起きる確率が極めて低い
 - 将来、write処理を実装する場合は楽観的ロック（runTransaction）で囲めば十分
 
-## Next.jsとリアルタイムDB更新
-- Next.jsでスムーズなリアルタイム更新UXを実装できるか疑わしい
-- リアルタイムDB更新を前提としたDBのwriteのリトライなどのエラーハンドリングは未実装
-
 ## Slack通知のエラーハンドリング問題
 - slack通知に失敗した時にcloud run のlogに表示されるだけなので気付けない
-
-## ui層の日付指定未実装
-- 現在はcleaningBoardのui層で日付指定している
-- 将来は日付指定機能の下にcleaningBoardを含めた様々な機能を実装する(複数機能で同じ日付を共有する)
 
 ## npm run dev した時にerrorになる。
 - Next.js 16 の Turbopack と Firebase JS SDK v12 の間の互換性問題が生じる時がある
@@ -81,3 +68,11 @@ route.ts の QuerySchema は /^\d{4}-\d{2}-\d{2}$/ のみ。2026-13-45 のよう
 ## Ataxのエラー処理が不十分
  src/components/aTaxTable/ReservationTable.tsx の const [error, setError] = useState<string | null>(null) — error は {error && <Alert>} で表示されているが、setError はコンポーネント内で一度も呼ばれていない（void setError で警告を無効化するのみ）。つまり ATaxCheckboxCell / StaffNameCell / SafeBalanceCheckerCell のセーブが失敗しても ユーザーには何も通知されない。
  上記3セルは useUpdateATax / useUpdateSafeBalanceChecker の error を持つが UI に渡していない。
+
+ # deploy.mdの内容が未完成
+ - deployment環境をまだ作ってない
+
+ # ブルートフォース体制なし
+ - ログイン失敗時のログや通知も一緒にやる
+
+ # レート制限・DoS対策層
