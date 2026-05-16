@@ -16,6 +16,7 @@ import { AddReservationDialog } from './AddReservationDialog'
 import { CancelledSection } from './CancelledSection'
 import type { Reservation } from '@/types/reservation'
 import type { GuestInfoToggle } from '@/types/guestInfo'
+import { dateDiff } from '@/lib/dateUtils'
 
 type Props = {
   selectedDate: string
@@ -25,6 +26,12 @@ type Props = {
 }
 
 type DisplayEntry = { reservation: Reservation; isStaying: boolean }
+type SortKey = {
+  group: number
+  minutes: number
+  suffixOrder: number
+  value: string
+}
 
 function sortActiveByRoom(entries: DisplayEntry[]): DisplayEntry[] {
   return [...entries].sort((a, b) => {
@@ -34,11 +41,81 @@ function sortActiveByRoom(entries: DisplayEntry[]): DisplayEntry[] {
   })
 }
 
+function compareRoom(a: Reservation, b: Reservation): number {
+  const ra = a.room ?? '9999'
+  const rb = b.room ?? '9999'
+  return ra.localeCompare(rb, undefined, { numeric: true })
+}
+
+function parseTimeValue(value: string | null | undefined): Omit<SortKey, 'group'> | null {
+  if (!value) return null
+  const match = /^(\d{1,2}):(\d{2})([ab])?$/.exec(value)
+  if (!match) return null
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  if (hours > 23 || minutes > 59) return null
+  return {
+    minutes: hours * 60 + minutes,
+    suffixOrder: match[3] === 'b' ? 1 : 0,
+    value,
+  }
+}
+
+function timeKey(value: string | null | undefined): SortKey {
+  const parsed = parseTimeValue(value)
+  if (parsed) return { group: 0, ...parsed }
+  return { group: 2, minutes: Number.POSITIVE_INFINITY, suffixOrder: 0, value: '' }
+}
+
+function sortKeyForToggle(
+  entry: DisplayEntry,
+  toggle: GuestInfoToggle | null | undefined,
+  targetDate: string,
+): SortKey {
+  const { reservation } = entry
+  const idx = dateDiff(reservation.check_in_date, targetDate)
+
+  switch (toggle) {
+    case 'checkIn':
+      if (reservation.check_in_date !== targetDate) return timeKey(null)
+      if (reservation.arrival_time === null) {
+        return { group: 1, minutes: Number.POSITIVE_INFINITY, suffixOrder: 0, value: '未定' }
+      }
+      return timeKey(reservation.arrival_time)
+    case 'openAirBath':
+      return timeKey(reservation.open_air_bath_time[idx])
+    case 'dinner': {
+      const value = reservation.dinner_time[idx]
+      if (value === 'PENDING') {
+        return { group: 1, minutes: Number.POSITIVE_INFINITY, suffixOrder: 0, value: '未定' }
+      }
+      if (!value || value === 'NONE' || value === 'CANCEL') return timeKey(null)
+      return timeKey(value)
+    }
+    case 'breakfast':
+      return timeKey(reservation.breakfast_time[idx])
+    default:
+      return timeKey(null)
+  }
+}
+
+function sortActive(entries: DisplayEntry[], toggle: GuestInfoToggle | null | undefined, targetDate: string): DisplayEntry[] {
+  if (!toggle) return sortActiveByRoom(entries)
+
+  return [...entries].sort((a, b) => {
+    const ak = sortKeyForToggle(a, toggle, targetDate)
+    const bk = sortKeyForToggle(b, toggle, targetDate)
+    if (ak.group !== bk.group) return ak.group - bk.group
+    if (ak.minutes !== bk.minutes) return ak.minutes - bk.minutes
+    if (ak.suffixOrder !== bk.suffixOrder) return ak.suffixOrder - bk.suffixOrder
+    if (ak.value !== bk.value) return ak.value.localeCompare(bk.value, undefined, { numeric: true })
+    return compareRoom(a.reservation, b.reservation)
+  })
+}
+
 function sortByRoom(reservations: Reservation[]): Reservation[] {
   return [...reservations].sort((a, b) => {
-    const ra = a.room ?? '9999'
-    const rb = b.room ?? '9999'
-    return ra.localeCompare(rb, undefined, { numeric: true })
+    return compareRoom(a, b)
   })
 }
 
@@ -79,12 +156,12 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
 
   const shouldShowStayingCards =
     selectedToggle === 'openAirBath' || selectedToggle === 'dinner' || selectedToggle === 'breakfast'
-  const allActive = sortActiveByRoom([
+  const allActive = sortActive([
     ...(data?.normal ?? []).map((r) => ({ reservation: r, isStaying: false })),
     ...(shouldShowStayingCards
       ? (data?.staying ?? []).map((r) => ({ reservation: r, isStaying: true }))
       : []),
-  ])
+  ], selectedToggle, selectedDate)
   const cancelled = sortByRoom(data?.cancelled ?? [])
   const isShowingStaleData = isLoading && data !== null && loadedDate !== selectedDate
 
