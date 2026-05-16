@@ -203,9 +203,10 @@ export function DailyDashboard({ today }: Props) {
                   size="small"
                   variant="outlined"
                   disabled
+                  startIcon={<PrintIcon fontSize="small" />}
                   sx={printButtonSx}
                 >
-                  掃除ボード
+                  この日の掃除ボード
                 </Button>
               </span>
             </Tooltip>
