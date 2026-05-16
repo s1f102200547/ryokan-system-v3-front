@@ -127,6 +127,7 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null)
   const cardElementsRef = useRef(new Map<string, HTMLDivElement>())
   const previousCardRectsRef = useRef(new Map<string, DOMRect>())
+  const previousAnimatedLoadedDateRef = useRef<string | null>(null)
 
   const { data, isLoading, error, loadedDate } = useGuestInfo(selectedDate, refreshKey)
 
@@ -157,6 +158,8 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
   useLayoutEffect(() => {
     const nextRects = new Map<string, DOMRect>()
     const shouldReduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const isLoadedDateChanged =
+      loadedDate !== null && previousAnimatedLoadedDateRef.current !== loadedDate
 
     for (const { reservation } of allActive) {
       const node = cardElementsRef.current.get(reservation.id)
@@ -166,27 +169,47 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
       const previousRect = previousCardRectsRef.current.get(reservation.id)
       nextRects.set(reservation.id, nextRect)
 
-      if (!previousRect || shouldReduceMotion) continue
+      if (shouldReduceMotion) continue
+
+      node.getAnimations().forEach((animation) => animation.cancel())
+
+      if (isLoadedDateChanged) {
+        node.animate(
+          [
+            { opacity: 0.35, transform: 'translateY(-4px)' },
+            { opacity: 1, transform: 'translateY(0)' },
+          ],
+          {
+            duration: 220,
+            easing: 'ease-out',
+          },
+        )
+        continue
+      }
+
+      if (!previousRect) continue
 
       const deltaX = previousRect.left - nextRect.left
       const deltaY = previousRect.top - nextRect.top
       if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) continue
 
-      node.getAnimations().forEach((animation) => animation.cancel())
       node.animate(
         [
-          { transform: `translate(${deltaX}px, ${deltaY}px)` },
-          { transform: 'translate(0, 0)' },
+          { opacity: 0.35, transform: `translate(${deltaX}px, ${deltaY}px)` },
+          { opacity: 1, transform: 'translate(0, 0)' },
         ],
         {
-          duration: 3000,
-          easing: 'cubic-bezier(0.2, 0, 0, 1)',
+          duration: 220,
+          easing: 'ease-out',
         },
       )
     }
 
     previousCardRectsRef.current = nextRects
-  }, [allActive])
+    if (loadedDate !== null) {
+      previousAnimatedLoadedDateRef.current = loadedDate
+    }
+  }, [allActive, loadedDate])
 
   // data === null は初回ロードのみ。refresh 中は data が残るので UI を保持し Snackbar を消さない
   if (isLoading && data === null) {
@@ -207,12 +230,7 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
         key={loadedDate ?? 'guest-info-empty'}
         sx={{
           opacity: isShowingStaleData ? 0.35 : 1,
-          animation: isShowingStaleData ? 'none' : 'guestInfoFadeIn 180ms ease-out',
           transition: 'opacity 120ms ease-out',
-          '@keyframes guestInfoFadeIn': {
-            from: { opacity: 0.35, transform: 'translateY(4px)' },
-            to: { opacity: 1, transform: 'translateY(0)' },
-          },
         }}
       >
         {topContent}

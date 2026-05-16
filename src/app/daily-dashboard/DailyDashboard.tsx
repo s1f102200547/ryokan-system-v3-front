@@ -82,7 +82,34 @@ export function DailyDashboard({ today }: Props) {
             <NavigateBeforeIcon fontSize="medium" />
           </IconButton>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mx: 0.75 }}>
+          <Box
+            key={selectedDate}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.75,
+              mx: 0.75,
+              px: 0.75,
+              py: 0.25,
+              borderRadius: 1,
+              animation: 'dateLabelChange 220ms ease-out',
+              '@media (prefers-reduced-motion: reduce)': {
+                animation: 'none',
+              },
+              '@keyframes dateLabelChange': {
+                '0%': {
+                  opacity: 0.35,
+                  transform: 'translateY(-4px)',
+                  bgcolor: 'action.selected',
+                },
+                '100%': {
+                  opacity: 1,
+                  transform: 'translateY(0)',
+                  bgcolor: 'transparent',
+                },
+              },
+            }}
+          >
             <Typography fontSize="1.15rem" data-testid="date-label">{dateLabel.replace('/', ' / ')}</Typography>
             <Typography variant="body1" color="text.secondary" data-testid="diff-label">
               ( {diffLabel} )
