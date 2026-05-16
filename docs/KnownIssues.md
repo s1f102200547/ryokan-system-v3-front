@@ -76,3 +76,37 @@ route.ts の QuerySchema は /^\d{4}-\d{2}-\d{2}$/ のみ。2026-13-45 のよう
  - ログイン失敗時のログや通知も一緒にやる
 
  # レート制限・DoS対策層
+
+
+ -----------
+
+# リファクタリングしきれてない
+ 以下について現状を調査
+## 日付バリデーションが正規表現のみ
+route.ts の QuerySchema は /^\d{4}-\d{2}-\d{2}$/ のみ。2026-13-45 のような存在しない日付が通過する。
+-> 存在する日付かつ取得しようとしている日付と一致しているか確かめる方が良いかも
+
+ー＞できてたらKnownIsuues.mdから削除
+
+## Ataxのエラー処理が不十分
+ src/components/aTaxTable/ReservationTable.tsx の const [error, setError] = useState<string | null>(null) — error は {error && <Alert>} で表示されているが、setError はコンポーネント内で一度も呼ばれていない（void setError で警告を無効化するのみ）。つまり ATaxCheckboxCell / StaffNameCell / SafeBalanceCheckerCell のセーブが失敗しても ユーザーには何も通知されない。
+ 上記3セルは useUpdateATax / useUpdateSafeBalanceChecker の error を持つが UI に渡していない。
+
+ 1. 全てのmdをupdateする
+ 2. エラー処理確認
+ 3. CI/CD確認
+ 4. 認証・認可問題ないか確認
+ 5. コードのセキュリティ上問題ある点がないか確認
+ 6. 脆弱性診断ツール確認
+ 7. Testコードの正当性と網羅性を確認
+ 8. 
+
+現状のコードとmd整合性と改善点の確認(実装はまだで計画のみ)
+ 0. 認証認可を確認する->md update
+ 1. Architectureを確認する->md update(CleaningBoard.mdなども含む)
+ 2. Deployを確認する->md update
+ 3. ErrorHandlingを確認する->md update
+ 4. Securityを確認する->md update
+ 4. 脆弱性診断ツール確認する->md update
+ 5. Refactoringを確認する->md update(review.mdを削除して統合する)
+ 6. Test(正当性と網羅性)を確認する->md update
