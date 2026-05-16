@@ -1,6 +1,14 @@
+import { z } from 'zod'
 import { adminDb } from '@/lib/firebase/admin'
 import { InfraError } from '@/types/errors'
 import type { DailyRepository } from '@/domain/ports/dailyRepository'
+
+const DailyTodoSchema = z.object({
+  id: z.string().min(1),
+  text: z.string().min(1).max(100),
+})
+
+const DailyTodosSchema = z.array(DailyTodoSchema)
 
 export const firestoreDailyRepository: DailyRepository = {
   async updateSafeBalanceChecker(date, staffName) {
@@ -26,18 +34,23 @@ export const firestoreDailyRepository: DailyRepository = {
     })
   },
 
-  async fetchDailyMemo(date) {
+  async fetchDailyTodos(date) {
     return withFirestoreError(async () => {
       const snap = await adminDb.collection('dailyInfo').doc(date).get()
       const data = snap.data()
-      return typeof data?.dailyMemo === 'string' ? data.dailyMemo : ''
+      if (!Array.isArray(data?.todos)) return []
+      const parsed = DailyTodosSchema.safeParse(data.todos)
+      if (!parsed.success) {
+        throw new InfraError('FIRESTORE_DATA_CORRUPTION', 'todos フィールドの形式が不正', parsed.error)
+      }
+      return parsed.data
     })
   },
 
-  async updateDailyMemo(date, memo) {
+  async updateDailyTodos(date, todos) {
     return withFirestoreError(async () => {
       await adminDb.collection('dailyInfo').doc(date).set(
-        { date, dailyMemo: memo, updated_at: new Date().toISOString() },
+        { date, todos, updated_at: new Date().toISOString() },
         { merge: true },
       )
     })

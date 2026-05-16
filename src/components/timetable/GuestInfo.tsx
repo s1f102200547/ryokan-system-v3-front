@@ -2,7 +2,6 @@ import { ROOM_NUMBERS } from '@/types/room'
 
 type Props = {
   guestInfoRows: Record<string, string>
-  dailyMemo: string
 }
 
 const tableStyle: React.CSSProperties = {
@@ -36,7 +35,7 @@ const infoWrapperStyle: React.CSSProperties = {
   fontSize: '10px',
 }
 
-export function GuestInfo({ guestInfoRows, dailyMemo }: Props) {
+export function GuestInfo({ guestInfoRows }: Props) {
   return (
     <table style={tableStyle}>
       <tbody>
@@ -55,12 +54,6 @@ export function GuestInfo({ guestInfoRows, dailyMemo }: Props) {
             </tr>
           )
         })}
-        {/* 当日メモ */}
-        <tr>
-          <td colSpan={2} style={{ ...infoCellStyle, textAlign: 'left' }}>
-            <div style={infoWrapperStyle}>{dailyMemo}</div>
-          </td>
-        </tr>
       </tbody>
     </table>
   )

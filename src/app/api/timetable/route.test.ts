@@ -35,7 +35,7 @@ const mockData: TimetableData = {
   checkoutRooms: [],
   morningBathSlots: {},
   lateCheckoutRooms: [],
-  dailyMemo: '',
+  todos: [],
 }
 
 describe('GET /api/timetable', () => {

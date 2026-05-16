@@ -3,11 +3,16 @@ import { z } from 'zod'
 import { firestoreDailyRepository } from '@/infra/daily/firestoreDailyRepository'
 import { getSession, handleRouteError } from '@/lib/api/routeHelpers'
 
-const BodySchema = z.object({
-  memo: z.string().max(2000),
+const DateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+
+const TodoSchema = z.object({
+  id: z.string().min(1),
+  text: z.string().min(1).max(100),
 })
 
-const DateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+const BodySchema = z.object({
+  todos: z.array(TodoSchema).max(50),
+})
 
 export async function GET(
   request: Request,
@@ -22,10 +27,10 @@ export async function GET(
   }
 
   try {
-    const memo = await firestoreDailyRepository.fetchDailyMemo(date)
-    return NextResponse.json({ memo })
+    const todos = await firestoreDailyRepository.fetchDailyTodos(date)
+    return NextResponse.json({ todos })
   } catch (e) {
-    return handleRouteError(e, '当日メモ取得')
+    return handleRouteError(e, 'todo取得')
   }
 }
 
@@ -48,9 +53,9 @@ export async function PATCH(
   }
 
   try {
-    await firestoreDailyRepository.updateDailyMemo(date, parsed.data.memo)
+    await firestoreDailyRepository.updateDailyTodos(date, parsed.data.todos)
     return NextResponse.json({ ok: true })
   } catch (e) {
-    return handleRouteError(e, '当日メモ更新')
+    return handleRouteError(e, 'todo更新')
   }
 }

@@ -22,9 +22,9 @@ type RoomStay = { room: string; reservation: Reservation }
 export async function getTimetableUseCase(targetDate: string): Promise<TimetableData> {
   const from = addDays(targetDate, -QUERY_RANGE_DAYS)
   const to = addDays(targetDate, QUERY_RANGE_DAYS)
-  const [reservations, dailyMemo] = await Promise.all([
+  const [reservations, todos] = await Promise.all([
     firestoreReservationRepository.fetchByDateRange(from, to),
-    firestoreDailyRepository.fetchDailyMemo(targetDate),
+    firestoreDailyRepository.fetchDailyTodos(targetDate),
   ])
 
   const nextDay = addDays(targetDate, 1)
@@ -55,7 +55,7 @@ export async function getTimetableUseCase(targetDate: string): Promise<Timetable
     checkoutRooms: buildCheckoutRooms(nextDayStateMap),
     morningBathSlots: buildBathSlots(stayingTonight, targetDate, OPEN_AIR_TIMES_MORNING),
     lateCheckoutRooms: buildLateCheckoutRooms(nextDayStateMap),
-    dailyMemo,
+    todos,
   }
 }
 

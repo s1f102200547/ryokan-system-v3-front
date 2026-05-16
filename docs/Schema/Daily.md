@@ -13,6 +13,7 @@ doc("dailyInfo/2026-03-31")
 | フィールド | 型 | 必須/任意 | 制約 | 説明 |
 |---|---|---|---|---|
 | date | string | 必須 | `YYYY-MM-DD` 形式 | ドキュメントIDと同じ日付 |
+| todos | `{ id: string; text: string }[]` | 任意 | 省略時は `[]` 扱い。text は最大100文字 | タイムテーブル印刷用 Todo リスト。将来的に `completed: boolean` を追加予定 |
 | CleaningBoardUserNotes | string | 任意 | 空文字可 | 清掃ボードのユーザー入力備考テキスト |
 | safeBalanceChecker | string | 任意 | - | `guestInfoRoom/{year}/{month}/{day}` の `safeBalanceChecker` をそのまま保持 |
 | source.collection | string | 任意 | - | 移行元コレクション名 |

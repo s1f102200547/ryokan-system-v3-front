@@ -49,6 +49,12 @@ function getWeekdayChecks(dateStr: string): string {
   return '▢ニゴウ情報送信　▢61布団'
 }
 
+function buildChecksLabel(weekdayChecks: string, userTodos: { text: string }[]): string {
+  if (userTodos.length === 0) return weekdayChecks
+  const userPart = userTodos.map((t) => `▢${t.text}`).join('　')
+  return `${userPart}　${weekdayChecks}`
+}
+
 const printStyles = (
   <GlobalStyles
     styles={{
@@ -159,7 +165,7 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
             {dateLabel}
           </Box>
           <Box data-testid="weekday-checks" sx={{ fontSize: '12px' }}>
-            {weekdayChecks}
+            {data ? buildChecksLabel(weekdayChecks, data.todos ?? []) : weekdayChecks}
           </Box>
         </Box>
 
@@ -197,7 +203,7 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
                 <Dinner dinnerSlots={data.dinnerSlots} />
               </Box>
               <Box sx={{ gridArea: 'guestinfo' }}>
-                <GuestInfo guestInfoRows={data.guestInfoRows} dailyMemo={data.dailyMemo} />
+                <GuestInfo guestInfoRows={data.guestInfoRows} />
               </Box>
               <Box sx={{ gridArea: 'bf' }}>
                 <BreakfastHeader nextDateLabel={nextDateLabel} />
