@@ -197,6 +197,7 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
       node.animate(
         [
           { opacity: 0.35, transform: `translate(${deltaX}px, ${deltaY}px)` },
+          { opacity: 0.35, transform: `translate(${deltaX * 0.15}px, ${deltaY * 0.15}px)`, offset: 0.82 },
           { opacity: 1, transform: 'translate(0, 0)' },
         ],
         {
