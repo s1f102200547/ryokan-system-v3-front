@@ -52,6 +52,9 @@ export function DailyDashboard({ today }: Props) {
     py: 0.25,
     color: 'text.secondary',
     borderColor: 'divider',
+    '& .MuiButton-startIcon': {
+      mr: 0.35,
+    },
     '&:hover': {
       borderColor: 'text.secondary',
       bgcolor: 'action.hover',
