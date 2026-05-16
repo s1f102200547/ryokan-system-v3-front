@@ -31,6 +31,7 @@ type TimetableData = {
   checkoutRooms: string[]
   morningBathSlots: Record<string, string[]>
   lateCheckoutRooms: string[]
+  todos: { id: string; text: string }[]
 }
 
 function allVacantInfo(): Record<string, string> {
@@ -48,6 +49,7 @@ function mockFor0412(): TimetableData {
     checkoutRooms: [],
     morningBathSlots: {},
     lateCheckoutRooms: [],
+    todos: [],
   }
 }
 
@@ -62,6 +64,7 @@ function mockFor0413(): TimetableData {
     checkoutRooms: ['㉑'],
     morningBathSlots: {},
     lateCheckoutRooms: ['㉑'],
+    todos: [],
   }
 }
 

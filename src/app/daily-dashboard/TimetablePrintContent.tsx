@@ -165,7 +165,7 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
             {dateLabel}
           </Box>
           <Box data-testid="weekday-checks" sx={{ fontSize: '12px' }}>
-            {data ? allChecks(weekdayChecks, data.todos) : weekdayChecks}
+            {data ? allChecks(weekdayChecks, data.todos ?? []) : weekdayChecks}
           </Box>
         </Box>
 
