@@ -1,7 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useLayoutEffect, useRef } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -125,6 +125,8 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
   const [cancelTarget, setCancelTarget] = useState<Reservation | null>(null)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null)
+  const cardElementsRef = useRef(new Map<string, HTMLDivElement>())
+  const previousCardRectsRef = useRef(new Map<string, DOMRect>())
 
   const { data, isLoading, error, loadedDate } = useGuestInfo(selectedDate, refreshKey)
 
@@ -141,6 +143,51 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
     setSnackbarMessage('予約を追加しました')
   }, [refresh])
 
+  const shouldShowStayingCards =
+    selectedToggle === 'openAirBath' || selectedToggle === 'dinner' || selectedToggle === 'breakfast'
+  const allActive = sortActive([
+    ...(data?.normal ?? []).map((r) => ({ reservation: r, isStaying: false })),
+    ...(shouldShowStayingCards
+      ? (data?.staying ?? []).map((r) => ({ reservation: r, isStaying: true }))
+      : []),
+  ], selectedToggle, selectedDate)
+  const cancelled = sortByRoom(data?.cancelled ?? [])
+  const isShowingStaleData = isLoading && data !== null && loadedDate !== selectedDate
+
+  useLayoutEffect(() => {
+    const nextRects = new Map<string, DOMRect>()
+    const shouldReduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    for (const { reservation } of allActive) {
+      const node = cardElementsRef.current.get(reservation.id)
+      if (!node) continue
+
+      const nextRect = node.getBoundingClientRect()
+      const previousRect = previousCardRectsRef.current.get(reservation.id)
+      nextRects.set(reservation.id, nextRect)
+
+      if (!previousRect || shouldReduceMotion) continue
+
+      const deltaX = previousRect.left - nextRect.left
+      const deltaY = previousRect.top - nextRect.top
+      if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) continue
+
+      node.getAnimations().forEach((animation) => animation.cancel())
+      node.animate(
+        [
+          { transform: `translate(${deltaX}px, ${deltaY}px)` },
+          { transform: 'translate(0, 0)' },
+        ],
+        {
+          duration: 3000,
+          easing: 'cubic-bezier(0.2, 0, 0, 1)',
+        },
+      )
+    }
+
+    previousCardRectsRef.current = nextRects
+  }, [allActive])
+
   // data === null は初回ロードのみ。refresh 中は data が残るので UI を保持し Snackbar を消さない
   if (isLoading && data === null) {
     return (
@@ -153,17 +200,6 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
   if (!isLoading && error) {
     return <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>
   }
-
-  const shouldShowStayingCards =
-    selectedToggle === 'openAirBath' || selectedToggle === 'dinner' || selectedToggle === 'breakfast'
-  const allActive = sortActive([
-    ...(data?.normal ?? []).map((r) => ({ reservation: r, isStaying: false })),
-    ...(shouldShowStayingCards
-      ? (data?.staying ?? []).map((r) => ({ reservation: r, isStaying: true }))
-      : []),
-  ], selectedToggle, selectedDate)
-  const cancelled = sortByRoom(data?.cancelled ?? [])
-  const isShowingStaleData = isLoading && data !== null && loadedDate !== selectedDate
 
   return (
     <Box>
@@ -184,15 +220,23 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
         {/* アクティブな予約カード列（当日CI + 滞在中） */}
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, justifyContent: 'center', mt: topContent ? 3 : 10 }}>
           {allActive.map(({ reservation, isStaying }) => (
-            <ReservationListCard
+            <Box
               key={reservation.id}
-              reservation={reservation}
-              onClick={setModalReservation}
-              onCancelOrRestore={setCancelTarget}
-              isStaying={isStaying}
-              selectedToggle={selectedToggle}
-              targetDate={selectedDate}
-            />
+              ref={(node: HTMLDivElement | null) => {
+                if (node) cardElementsRef.current.set(reservation.id, node)
+                else cardElementsRef.current.delete(reservation.id)
+              }}
+              sx={{ display: 'inline-flex' }}
+            >
+              <ReservationListCard
+                reservation={reservation}
+                onClick={setModalReservation}
+                onCancelOrRestore={setCancelTarget}
+                isStaying={isStaying}
+                selectedToggle={selectedToggle}
+                targetDate={selectedDate}
+              />
+            </Box>
           ))}
           <AddReservationCard onClick={() => setAddDialogOpen(true)} />
         </Box>
