@@ -146,12 +146,13 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
 
   const shouldShowStayingCards =
     selectedToggle === 'openAirBath' || selectedToggle === 'dinner' || selectedToggle === 'breakfast'
+  const displayDate = loadedDate ?? selectedDate
   const allActive = sortActive([
     ...(data?.normal ?? []).map((r) => ({ reservation: r, isStaying: false })),
     ...(shouldShowStayingCards
       ? (data?.staying ?? []).map((r) => ({ reservation: r, isStaying: true }))
       : []),
-  ], selectedToggle, selectedDate)
+  ], selectedToggle, displayDate)
   const cancelled = sortByRoom(data?.cancelled ?? [])
   const isShowingStaleData = isLoading && data !== null && loadedDate !== selectedDate
 
@@ -252,7 +253,7 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
                 onCancelOrRestore={setCancelTarget}
                 isStaying={isStaying}
                 selectedToggle={selectedToggle}
-                targetDate={selectedDate}
+                targetDate={displayDate}
               />
             </Box>
           ))}
