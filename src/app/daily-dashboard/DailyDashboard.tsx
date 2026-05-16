@@ -38,7 +38,7 @@ export function DailyDashboard({ today }: Props) {
   const [calendarAnchor, setCalendarAnchor] = useState<HTMLElement | null>(null)
   const [printMode, setPrintMode] = useState<PrintMode>(null)
   const [selectedToggle, setSelectedToggle] = useState<GuestInfoToggle | null>(null)
-  const { todos, addTodo, removeTodo } = useDailyTodos(selectedDate)
+  const { todos, isLoading: todosLoading, error: todosError, isSaving, saveError, addTodo, removeTodo } = useDailyTodos(selectedDate)
   const tomorrow = addDays(today, 1)
   const canPrintCleaningBoard = selectedDate === today || selectedDate === tomorrow
   const cleaningBoardPrintDate = selectedDate === today ? tomorrow : selectedDate
@@ -226,7 +226,15 @@ export function DailyDashboard({ today }: Props) {
           </Button>
         </Box>
         <Box sx={{ width: 'min(300px, 46vw)', opacity: 0.88, pt: 0.5 }}>
-          <DailyTodoEditor todos={todos} onAdd={addTodo} onRemove={removeTodo} />
+          <DailyTodoEditor
+            todos={todos}
+            isLoading={todosLoading}
+            error={todosError}
+            isSaving={isSaving}
+            saveError={saveError}
+            onAdd={addTodo}
+            onRemove={removeTodo}
+          />
         </Box>
       </Box>
 

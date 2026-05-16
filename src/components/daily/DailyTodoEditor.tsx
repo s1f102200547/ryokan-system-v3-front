@@ -1,7 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
+import CircularProgress from '@mui/material/CircularProgress'
 import IconButton from '@mui/material/IconButton'
 import InputAdornment from '@mui/material/InputAdornment'
 import List from '@mui/material/List'
@@ -15,11 +17,15 @@ import type { DailyTodo } from '@/domain/ports/dailyRepository'
 
 type Props = {
   todos: DailyTodo[]
+  isLoading: boolean
+  error: string | null
+  isSaving: boolean
+  saveError: string | null
   onAdd: (text: string) => void
   onRemove: (id: string) => void
 }
 
-export function DailyTodoEditor({ todos, onAdd, onRemove }: Props) {
+export function DailyTodoEditor({ todos, isLoading, error, isSaving, saveError, onAdd, onRemove }: Props) {
   const [inputValue, setInputValue] = useState('')
 
   const handleAdd = () => {
@@ -36,11 +42,28 @@ export function DailyTodoEditor({ todos, onAdd, onRemove }: Props) {
     }
   }
 
+  const disabled = isLoading || isSaving
+
   return (
     <Box>
-      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '11px' }}>
-        タイテ用 Todo
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '11px' }}>
+          タイテ用 Todo
+        </Typography>
+        {isSaving && <CircularProgress size={10} />}
+      </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ py: 0, fontSize: '11px', mb: 0.5 }}>
+          {error}
+        </Alert>
+      )}
+      {saveError && (
+        <Alert severity="error" sx={{ py: 0, fontSize: '11px', mb: 0.5 }}>
+          {saveError}
+        </Alert>
+      )}
+
       <TextField
         size="small"
         fullWidth
@@ -48,6 +71,7 @@ export function DailyTodoEditor({ todos, onAdd, onRemove }: Props) {
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={handleKeyDown}
+        disabled={disabled}
         slotProps={{
           input: {
             endAdornment: (
@@ -55,7 +79,7 @@ export function DailyTodoEditor({ todos, onAdd, onRemove }: Props) {
                 <IconButton
                   size="small"
                   onClick={handleAdd}
-                  disabled={!inputValue.trim()}
+                  disabled={disabled || !inputValue.trim()}
                   aria-label="todo を追加"
                 >
                   <AddIcon fontSize="small" />
@@ -81,6 +105,7 @@ export function DailyTodoEditor({ todos, onAdd, onRemove }: Props) {
                   size="small"
                   edge="end"
                   onClick={() => onRemove(todo.id)}
+                  disabled={disabled}
                   aria-label={`"${todo.text}" を削除`}
                 >
                   <CloseIcon sx={{ fontSize: '14px' }} />

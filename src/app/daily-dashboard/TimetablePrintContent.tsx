@@ -49,6 +49,12 @@ function getWeekdayChecks(dateStr: string): string {
   return '▢ニゴウ情報送信　▢61布団'
 }
 
+function buildChecksLabel(weekdayChecks: string, userTodos: { text: string }[]): string {
+  if (userTodos.length === 0) return weekdayChecks
+  const userPart = userTodos.map((t) => `▢${t.text}`).join('　')
+  return `${userPart}　${weekdayChecks}`
+}
+
 const printStyles = (
   <GlobalStyles
     styles={{
@@ -88,12 +94,6 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
   const nextDateLabel = formatNextDateLabel(date)
   const weekdayChecks = getWeekdayChecks(date)
   const printTime = new Date()
-
-  const allChecks = (checks: string, userTodos: { id: string; text: string }[]): string => {
-    if (userTodos.length === 0) return checks
-    const userPart = userTodos.map((t) => `▢${t.text}`).join('　')
-    return `${userPart}　${checks}`
-  }
 
   return (
     <>
@@ -165,7 +165,7 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
             {dateLabel}
           </Box>
           <Box data-testid="weekday-checks" sx={{ fontSize: '12px' }}>
-            {data ? allChecks(weekdayChecks, data.todos ?? []) : weekdayChecks}
+            {data ? buildChecksLabel(weekdayChecks, data.todos ?? []) : weekdayChecks}
           </Box>
         </Box>
 
