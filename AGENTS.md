@@ -50,6 +50,19 @@ E2E test（Playwright） ← 「重要フローのみ」
 ## hooks層の注意事項
 - React 19 で新しく強化されたルールで、useEffect の中で setState を直接呼ぶのはアンチパターン
 
+## エラー処理(詳しくはdocs/ErrorHandling.mdを参照)
+- 外部エラーは Infra 層で InfraError に変換し、層を跨ぐごとに抽象化して伝搬する。
+- Domain 層は例外を使わず Result 型で失敗を表現する。
+- Infra 層は Firebase・gRPC・ZodError を InfraError に変換して throw する。
+- Application 層では catch せず、そのままエラーを上位へ流す。
+- Route Handler は InfraError を HTTP ステータスへ変換し、ログ出力や Slack 通知を行う。
+- Hooks 層は HTTP ステータスをユーザー向け日本語メッセージへ変換する。
+- UI 層は受け取った日本語メッセージをそのまま表示する。
+- 認証エラーは「認証失敗」と「インフラ障害」を分離し、後者のみ AUTH_UNAVAILABLE として扱う。
+- Slack 通知は「人が対応しないと直らない障害」のみ対象で、通知処理は fire-and-forget にする。
+- 入出力や DB 読み取り時は Zod で検証し、データ破損時は FIRESTORE_DATA_CORRUPTION として扱う。
+
+
 ## Docs（必要に応じて参照）
 
 - `docs/Schema/*.md` - DBスキーマ定義（Daily.md, Reservations.md）
