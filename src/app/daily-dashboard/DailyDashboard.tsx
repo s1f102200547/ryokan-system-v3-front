@@ -225,7 +225,7 @@ export function DailyDashboard({ today }: Props) {
             この日のタイムテーブル
           </Button>
         </Box>
-        <Box sx={{ width: 'min(260px, 42vw)', opacity: 0.88, pt: 0.5 }}>
+        <Box sx={{ width: 'min(300px, 46vw)', opacity: 0.88, pt: 0.5 }}>
           <TextField
             label="タイテ用当日メモ"
             placeholder="タイムテーブルの右下の枠内に表示されるメモ (ex. zoomC/I 15:00)"
@@ -244,16 +244,16 @@ export function DailyDashboard({ today }: Props) {
             sx={{
               '& .MuiInputBase-root': {
                 alignItems: 'flex-start',
-                fontSize: '11px',
+                fontSize: '11.5px',
                 lineHeight: 1.25,
                 py: 0.25,
               },
               '& .MuiInputBase-input': {
-                fontSize: '11px',
+                fontSize: '11.5px',
                 lineHeight: 1.25,
               },
               '& .MuiInputLabel-root': {
-                fontSize: '11px',
+                fontSize: '11.5px',
               },
             }}
           />
