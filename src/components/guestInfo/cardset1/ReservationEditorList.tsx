@@ -13,6 +13,7 @@ import ListItemText from '@mui/material/ListItemText'
 import MenuItem from '@mui/material/MenuItem'
 import Select from '@mui/material/Select'
 import TextField from '@mui/material/TextField'
+import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import ExpandLess from '@mui/icons-material/ExpandLess'
 import ExpandMore from '@mui/icons-material/ExpandMore'
@@ -239,19 +240,17 @@ export const ReservationEditorList = memo(function ReservationEditorList({ local
                   onFieldChange('dinner_time', arr)
                 }} />
               {(localData.dinner_time[i] ?? DINNER_NONE) !== DINNER_NONE && (
-                <Box sx={{ px: 1, py: 0.65 }}>
-                  <TextField
-                    value={localData.dinner_info[i] ?? ''}
-                    onChange={(e) => {
-                      const arr = [...localData.dinner_info]
-                      arr[i] = e.target.value
-                      onFieldChange('dinner_info', arr)
-                    }}
-                    size="small" fullWidth multiline minRows={1}
-                    placeholder="dinner_info"
-                    sx={compactInputSx}
-                  />
-                </Box>
+                <Tooltip title="dinner_infoは現在使用してません" placement="top">
+                  <Box sx={{ px: 1, py: 0.65 }}>
+                    <TextField
+                      value={localData.dinner_info[i] ?? ''}
+                      disabled
+                      size="small" fullWidth multiline minRows={1}
+                      placeholder="dinner_info"
+                      sx={compactInputSx}
+                    />
+                  </Box>
+                </Tooltip>
               )}
             </Box>
           ))}

@@ -43,12 +43,18 @@ export function DailyDashboard({ today }: Props) {
   const canPrintCleaningBoard = selectedDate === today || selectedDate === tomorrow
   const cleaningBoardPrintDate = selectedDate === today ? tomorrow : selectedDate
   const cleaningBoardButtonLabel =
-    selectedDate === today ? '明日の掃除ボード印刷' : 'この日の掃除ボード印刷'
+    selectedDate === today ? '明日の掃除ボード' : 'この日の掃除ボード'
   const printButtonSx = {
     textTransform: 'none',
-    fontSize: '0.8rem',
+    fontSize: '0.72rem',
+    minHeight: 26,
+    px: 1,
+    py: 0.25,
     color: 'text.secondary',
     borderColor: 'divider',
+    '& .MuiButton-startIcon': {
+      mr: 0.35,
+    },
     '&:hover': {
       borderColor: 'text.secondary',
       bgcolor: 'action.hover',
@@ -82,7 +88,34 @@ export function DailyDashboard({ today }: Props) {
             <NavigateBeforeIcon fontSize="medium" />
           </IconButton>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mx: 0.75 }}>
+          <Box
+            key={selectedDate}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.75,
+              mx: 0.75,
+              px: 0.75,
+              py: 0.25,
+              borderRadius: 1,
+              animation: 'dateLabelChange 220ms ease-out',
+              '@media (prefers-reduced-motion: reduce)': {
+                animation: 'none',
+              },
+              '@keyframes dateLabelChange': {
+                '0%': {
+                  opacity: 0.35,
+                  transform: 'translateY(-4px)',
+                  bgcolor: 'action.selected',
+                },
+                '100%': {
+                  opacity: 1,
+                  transform: 'translateY(0)',
+                  bgcolor: 'transparent',
+                },
+              },
+            }}
+          >
             <Typography fontSize="1.15rem" data-testid="date-label">{dateLabel.replace('/', ' / ')}</Typography>
             <Typography variant="body1" color="text.secondary" data-testid="diff-label">
               ( {diffLabel} )
@@ -104,7 +137,19 @@ export function DailyDashboard({ today }: Props) {
             variant="outlined"
             size="small"
             onClick={goToToday}
-            sx={{ borderRadius: '20px', ml: 1, textTransform: 'none', fontSize: '0.9rem' }}
+            sx={{
+              borderRadius: '20px',
+              ml: 1,
+              textTransform: 'none',
+              fontSize: '0.9rem',
+              color: 'text.secondary',
+              borderColor: 'divider',
+              borderWidth: '1.5px',
+              '&:hover': {
+                borderColor: 'text.secondary',
+                bgcolor: 'action.hover',
+              },
+            }}
           >
             Today
           </Button>
@@ -161,9 +206,10 @@ export function DailyDashboard({ today }: Props) {
                   size="small"
                   variant="outlined"
                   disabled
+                  startIcon={<PrintIcon fontSize="small" />}
                   sx={printButtonSx}
                 >
-                  掃除ボード印刷
+                  この日の掃除ボード
                 </Button>
               </span>
             </Tooltip>
@@ -176,10 +222,10 @@ export function DailyDashboard({ today }: Props) {
             data-testid="print-timetable"
             sx={printButtonSx}
           >
-            この日のタイムテーブル印刷
+            この日のタイムテーブル
           </Button>
         </Box>
-        <Box sx={{ width: 'min(260px, 42vw)', opacity: 0.88, pt: 0.5 }}>
+        <Box sx={{ width: 'min(300px, 46vw)', opacity: 0.88, pt: 0.5 }}>
           <TextField
             label="タイテ用当日メモ"
             placeholder="タイムテーブルの右下の枠内に表示されるメモ (ex. zoomC/I 15:00)"
@@ -198,16 +244,16 @@ export function DailyDashboard({ today }: Props) {
             sx={{
               '& .MuiInputBase-root': {
                 alignItems: 'flex-start',
-                fontSize: '11px',
+                fontSize: '11.5px',
                 lineHeight: 1.25,
                 py: 0.25,
               },
               '& .MuiInputBase-input': {
-                fontSize: '11px',
+                fontSize: '11.5px',
                 lineHeight: 1.25,
               },
               '& .MuiInputLabel-root': {
-                fontSize: '11px',
+                fontSize: '11.5px',
               },
             }}
           />
