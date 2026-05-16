@@ -34,23 +34,6 @@ export const firestoreDailyRepository: DailyRepository = {
     })
   },
 
-  async fetchDailyMemo(date) {
-    return withFirestoreError(async () => {
-      const snap = await adminDb.collection('dailyInfo').doc(date).get()
-      const data = snap.data()
-      return typeof data?.dailyMemo === 'string' ? data.dailyMemo : ''
-    })
-  },
-
-  async updateDailyMemo(date, memo) {
-    return withFirestoreError(async () => {
-      await adminDb.collection('dailyInfo').doc(date).set(
-        { date, dailyMemo: memo, updated_at: new Date().toISOString() },
-        { merge: true },
-      )
-    })
-  },
-
   async fetchDailyTodos(date) {
     return withFirestoreError(async () => {
       const snap = await adminDb.collection('dailyInfo').doc(date).get()
