@@ -104,7 +104,19 @@ export function DailyDashboard({ today }: Props) {
             variant="outlined"
             size="small"
             onClick={goToToday}
-            sx={{ borderRadius: '20px', ml: 1, textTransform: 'none', fontSize: '0.9rem' }}
+            sx={{
+              borderRadius: '20px',
+              ml: 1,
+              textTransform: 'none',
+              fontSize: '0.9rem',
+              color: 'text.secondary',
+              borderColor: 'divider',
+              borderWidth: '1.5px',
+              '&:hover': {
+                borderColor: 'text.secondary',
+                bgcolor: 'action.hover',
+              },
+            }}
           >
             Today
           </Button>
