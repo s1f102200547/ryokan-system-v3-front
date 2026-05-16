@@ -43,10 +43,13 @@ export function DailyDashboard({ today }: Props) {
   const canPrintCleaningBoard = selectedDate === today || selectedDate === tomorrow
   const cleaningBoardPrintDate = selectedDate === today ? tomorrow : selectedDate
   const cleaningBoardButtonLabel =
-    selectedDate === today ? '明日の掃除ボード印刷' : 'この日の掃除ボード印刷'
+    selectedDate === today ? '明日の掃除ボード' : 'この日の掃除ボード'
   const printButtonSx = {
     textTransform: 'none',
-    fontSize: '0.8rem',
+    fontSize: '0.72rem',
+    minHeight: 26,
+    px: 1,
+    py: 0.25,
     color: 'text.secondary',
     borderColor: 'divider',
     '&:hover': {
@@ -202,7 +205,7 @@ export function DailyDashboard({ today }: Props) {
                   disabled
                   sx={printButtonSx}
                 >
-                  掃除ボード印刷
+                  掃除ボード
                 </Button>
               </span>
             </Tooltip>
@@ -215,7 +218,7 @@ export function DailyDashboard({ today }: Props) {
             data-testid="print-timetable"
             sx={printButtonSx}
           >
-            この日のタイムテーブル印刷
+            この日のタイムテーブル
           </Button>
         </Box>
         <Box sx={{ width: 'min(260px, 42vw)', opacity: 0.88, pt: 0.5 }}>
