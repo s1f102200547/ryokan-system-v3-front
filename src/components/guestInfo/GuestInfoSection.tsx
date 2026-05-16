@@ -77,9 +77,13 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
     return <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>
   }
 
+  const shouldShowStayingCards =
+    selectedToggle === 'openAirBath' || selectedToggle === 'dinner' || selectedToggle === 'breakfast'
   const allActive = sortActiveByRoom([
     ...(data?.normal ?? []).map((r) => ({ reservation: r, isStaying: false })),
-    ...(data?.staying ?? []).map((r) => ({ reservation: r, isStaying: true })),
+    ...(shouldShowStayingCards
+      ? (data?.staying ?? []).map((r) => ({ reservation: r, isStaying: true }))
+      : []),
   ])
   const cancelled = sortByRoom(data?.cancelled ?? [])
   const isShowingStaleData = isLoading && data !== null && loadedDate !== selectedDate
