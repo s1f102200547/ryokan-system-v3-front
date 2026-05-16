@@ -89,6 +89,12 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
   const weekdayChecks = getWeekdayChecks(date)
   const printTime = new Date()
 
+  const allChecks = (checks: string, userTodos: { id: string; text: string }[]): string => {
+    if (userTodos.length === 0) return checks
+    const userPart = userTodos.map((t) => `▢${t.text}`).join('　')
+    return `${userPart}　${checks}`
+  }
+
   return (
     <>
       {printStyles}
@@ -159,7 +165,7 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
             {dateLabel}
           </Box>
           <Box data-testid="weekday-checks" sx={{ fontSize: '12px' }}>
-            {weekdayChecks}
+            {data ? allChecks(weekdayChecks, data.todos) : weekdayChecks}
           </Box>
         </Box>
 
@@ -197,7 +203,7 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
                 <Dinner dinnerSlots={data.dinnerSlots} />
               </Box>
               <Box sx={{ gridArea: 'guestinfo' }}>
-                <GuestInfo guestInfoRows={data.guestInfoRows} dailyMemo={data.dailyMemo} />
+                <GuestInfo guestInfoRows={data.guestInfoRows} />
               </Box>
               <Box sx={{ gridArea: 'bf' }}>
                 <BreakfastHeader nextDateLabel={nextDateLabel} />

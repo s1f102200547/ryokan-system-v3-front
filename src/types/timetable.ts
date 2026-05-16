@@ -1,3 +1,7 @@
+import type { DailyTodo } from '@/domain/ports/dailyRepository'
+
+export type { DailyTodo }
+
 /**
  * GET /api/timetable?date=YYYY-MM-DD のレスポンス型
  *
@@ -12,6 +16,7 @@
  * checkoutRooms     : 翌日チェックアウトの部屋マーク配列（CheckoutNotice 用）
  * morningBathSlots  : 朝露天風呂 時刻 → 部屋マーク配列
  * lateCheckoutRooms : 翌日レイトアウトの部屋マーク配列
+ * todos             : 当日の追加 todo リスト
  */
 export type TimetableData = {
   checkInSlots: Record<string, string[]>
@@ -23,5 +28,5 @@ export type TimetableData = {
   checkoutRooms: string[]
   morningBathSlots: Record<string, string[]>
   lateCheckoutRooms: string[]
-  dailyMemo: string
+  todos: DailyTodo[]
 }

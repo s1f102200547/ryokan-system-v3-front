@@ -1,6 +1,6 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { InfraError } from '@/types/errors'
-import type { DailyRepository } from '@/domain/ports/dailyRepository'
+import type { DailyRepository, DailyTodo } from '@/domain/ports/dailyRepository'
 
 export const firestoreDailyRepository: DailyRepository = {
   async updateSafeBalanceChecker(date, staffName) {
@@ -38,6 +38,27 @@ export const firestoreDailyRepository: DailyRepository = {
     return withFirestoreError(async () => {
       await adminDb.collection('dailyInfo').doc(date).set(
         { date, dailyMemo: memo, updated_at: new Date().toISOString() },
+        { merge: true },
+      )
+    })
+  },
+
+  async fetchDailyTodos(date) {
+    return withFirestoreError(async () => {
+      const snap = await adminDb.collection('dailyInfo').doc(date).get()
+      const data = snap.data()
+      if (!Array.isArray(data?.todos)) return []
+      return (data.todos as unknown[]).filter(
+        (t): t is DailyTodo =>
+          typeof t === 'object' && t !== null && typeof (t as DailyTodo).id === 'string' && typeof (t as DailyTodo).text === 'string',
+      )
+    })
+  },
+
+  async updateDailyTodos(date, todos) {
+    return withFirestoreError(async () => {
+      await adminDb.collection('dailyInfo').doc(date).set(
+        { date, todos, updated_at: new Date().toISOString() },
         { merge: true },
       )
     })
