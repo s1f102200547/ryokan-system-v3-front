@@ -27,7 +27,7 @@
 ## zapで見つかった問題
 @Security.md
 
-## DBが問題
+## DBデータが汚い
 - 現在は未使用フィールドや不正データが存在し、`zod`のバリデーションエラーを引き起こすことがある
 - 将来は定期的にDBをチェックする専用バックエンドをclaudeRun上に実装する
 
@@ -39,14 +39,6 @@
 ## Slack通知のエラーハンドリング問題
 - slack通知に失敗した時にcloud run のlogに表示されるだけなので気付けない
 
-## npm run dev した時にerrorになる。
-- Next.js 16 の Turbopack と Firebase JS SDK v12 の間の互換性問題が生じる時がある
-- 以下のコマンドで直った。
-```
-rm -rf .next
-rm -rf node_modules/.cache
-npm run dev
-```
 
 ## targetData drivenで時系列データを処理すべきじゃなかった
 - 現在はtargetDateの1つの日付を引数にしてdb取得してDomainで計算してuiで表示している
@@ -56,21 +48,13 @@ npm run dev
 ## アクセス可能な日付範囲に制限がない
 認証済みであれば過去・未来どの日付でも照会できる。必要に応じて ±N日の制限を検討すべき。
 
-## 日付バリデーションが正規表現のみ
-route.ts の QuerySchema は /^\d{4}-\d{2}-\d{2}$/ のみ。2026-13-45 のような存在しない日付が通過する。
--> 存在する日付かつ取得しようとしている日付と一致しているか確かめる方が良いかも
-
 ## zapのfullモード試さずに本番環境デプロイしてる
 - どの環境でやるか検討すべき
 
 ## ciが通らなくてもdeployが実行されてしまう
 
-## Ataxのエラー処理が不十分
- src/components/aTaxTable/ReservationTable.tsx の const [error, setError] = useState<string | null>(null) — error は {error && <Alert>} で表示されているが、setError はコンポーネント内で一度も呼ばれていない（void setError で警告を無効化するのみ）。つまり ATaxCheckboxCell / StaffNameCell / SafeBalanceCheckerCell のセーブが失敗しても ユーザーには何も通知されない。
- 上記3セルは useUpdateATax / useUpdateSafeBalanceChecker の error を持つが UI に渡していない。
 
- # deploy.mdの内容が未完成
- - deployment環境をまだ作ってない
+ # staging環境を想定したci/cdを作っていない
 
  # ブルートフォース体制なし
  - ログイン失敗時のログや通知も一緒にやる
@@ -91,22 +75,3 @@ route.ts の QuerySchema は /^\d{4}-\d{2}-\d{2}$/ のみ。2026-13-45 のよう
 ## Ataxのエラー処理が不十分
  src/components/aTaxTable/ReservationTable.tsx の const [error, setError] = useState<string | null>(null) — error は {error && <Alert>} で表示されているが、setError はコンポーネント内で一度も呼ばれていない（void setError で警告を無効化するのみ）。つまり ATaxCheckboxCell / StaffNameCell / SafeBalanceCheckerCell のセーブが失敗しても ユーザーには何も通知されない。
  上記3セルは useUpdateATax / useUpdateSafeBalanceChecker の error を持つが UI に渡していない。
-
- 1. 全てのmdをupdateする
- 2. エラー処理確認
- 3. CI/CD確認
- 4. 認証・認可問題ないか確認
- 5. コードのセキュリティ上問題ある点がないか確認
- 6. 脆弱性診断ツール確認
- 7. Testコードの正当性と網羅性を確認
- 8. 
-
-現状のコードとmd整合性と改善点の確認(実装はまだで計画のみ)
- 0. 認証認可を確認する->md update
- 1. Architectureを確認する->md update(CleaningBoard.mdなども含む)
- 2. Deployを確認する->md update
- 3. ErrorHandlingを確認する->md update
- 4. Securityを確認する->md update
- 4. 脆弱性診断ツール確認する->md update
- 5. Refactoringを確認する->md update(review.mdを削除して統合する)
- 6. Test(正当性と網羅性)を確認する->md update
