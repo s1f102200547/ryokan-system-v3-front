@@ -48,7 +48,7 @@ export function DailyTodoEditor({ todos, isLoading, error, isSaving, saveError, 
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '11px' }}>
-          タイテ用 Todo
+          Todo (タイテ右上に表示)
         </Typography>
         {isSaving && <CircularProgress size={10} />}
       </Box>
@@ -67,7 +67,7 @@ export function DailyTodoEditor({ todos, isLoading, error, isSaving, saveError, 
       <TextField
         size="small"
         fullWidth
-        placeholder="todo を追加 (ex. 送迎あり 15:30)"
+        placeholder="ex. ZoomCI / 花束注文"
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={handleKeyDown}
