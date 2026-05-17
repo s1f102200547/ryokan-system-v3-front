@@ -43,6 +43,31 @@ const CANCELLED_RESERVATION = {
   cancel: 1,
 }
 
+const LATE_ROOM_RESERVATION = {
+  ...SAMPLE_RESERVATION,
+  id: 'test-id-3',
+  guest_name: '先に返された予約',
+  room: '43',
+  arrival_time: '20:00',
+}
+
+const EARLY_ROOM_RESERVATION = {
+  ...SAMPLE_RESERVATION,
+  id: 'test-id-4',
+  guest_name: '後に返された予約',
+  room: '21',
+  arrival_time: '15:00',
+}
+
+const STAYING_RESERVATION = {
+  ...SAMPLE_RESERVATION,
+  id: 'test-id-5',
+  guest_name: '連泊花子',
+  room: '61',
+  check_in_date: '2025-12-31',
+  check_out_date: '2026-01-02',
+}
+
 async function setupAuth(page: Page) {
   await page.context().addCookies([{
     name: 'session',
@@ -55,7 +80,11 @@ async function setupAuth(page: Page) {
 async function mockGuestInfoApi(page: Page) {
   await page.route('/api/guest-info*', (route) => route.fulfill({
     status: 200,
-    json: { normal: [SAMPLE_RESERVATION], cancelled: [CANCELLED_RESERVATION] },
+    json: { normal: [SAMPLE_RESERVATION], staying: [], cancelled: [CANCELLED_RESERVATION] },
+  }))
+  await page.route('**/api/daily/**/todos', (route) => route.fulfill({
+    status: 200,
+    json: { todos: [] },
   }))
   await page.route('/api/a-tax-table*', (route) => route.fulfill({
     status: 200,
@@ -93,6 +122,48 @@ test.describe('GuestInfo - 予約一覧表示', () => {
 
     await page.getByRole('button', { name: '宿泊税' }).click()
     await expect(page).toHaveURL('/a_tax_table')
+  })
+
+  test('Todo削除ボタンは確認ダイアログを表示し、OKで削除保存する', async ({ page }) => {
+    let patchBody: unknown = null
+    await page.route('**/api/daily/**/todos', async (route) => {
+      if (route.request().method() === 'PATCH') {
+        patchBody = route.request().postDataJSON()
+      }
+      await route.fulfill({
+        status: 200,
+        json: route.request().method() === 'GET' ? { todos: [{ id: 'todo-1', text: '送迎あり 15:30' }] } : {},
+      })
+    })
+
+    await page.goto('/daily-dashboard?date=2026-01-01&today=2026-01-01')
+    await page.getByLabel('"送迎あり 15:30" を削除').click()
+    await expect(page.getByRole('dialog', { name: 'Todoを削除しますか？' })).toBeVisible()
+    await page.getByRole('button', { name: 'OK' }).click()
+
+    await expect.poll(() => patchBody).toMatchObject({ todos: [] })
+  })
+
+  test('トグル切り替えで予約カードを並び替えず連泊を常時表示する', async ({ page }) => {
+    await page.route('/api/guest-info*', (route) => route.fulfill({
+      status: 200,
+      json: {
+        normal: [LATE_ROOM_RESERVATION, EARLY_ROOM_RESERVATION],
+        staying: [STAYING_RESERVATION],
+        cancelled: [],
+      },
+    }))
+
+    await page.goto('/daily-dashboard?date=2026-01-01&today=2026-01-01')
+    await expect(page.getByTestId('reservation-card')).toHaveCount(3)
+    await expect(page.getByTestId('reservation-card').nth(0)).toContainText('43')
+    await expect(page.getByTestId('reservation-card').nth(1)).toContainText('21')
+    await expect(page.getByTestId('reservation-card').nth(2)).toContainText('連泊')
+
+    await page.getByRole('button', { name: '到着' }).click()
+    await expect(page.getByTestId('reservation-card').nth(0)).toContainText('43')
+    await expect(page.getByTestId('reservation-card').nth(1)).toContainText('21')
+    await expect(page.getByTestId('reservation-card').nth(2)).toContainText('連泊')
   })
 })
 
