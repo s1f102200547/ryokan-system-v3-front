@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
 import IconButton from '@mui/material/IconButton'
 import InputAdornment from '@mui/material/InputAdornment'
@@ -27,6 +28,7 @@ type Props = {
 
 export function DailyTodoEditor({ todos, isLoading, error, isSaving, saveError, onAdd, onRemove }: Props) {
   const [inputValue, setInputValue] = useState('')
+  const hasPendingInput = inputValue.length > 0
 
   const handleAdd = () => {
     const trimmed = inputValue.trim()
@@ -38,7 +40,6 @@ export function DailyTodoEditor({ todos, isLoading, error, isSaving, saveError, 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault()
-      handleAdd()
     }
   }
 
@@ -76,14 +77,25 @@ export function DailyTodoEditor({ todos, isLoading, error, isSaving, saveError, 
           input: {
             endAdornment: (
               <InputAdornment position="end">
-                <IconButton
+                <Button
                   size="small"
+                  variant={hasPendingInput ? 'contained' : 'text'}
+                  startIcon={<AddIcon fontSize="small" />}
                   onClick={handleAdd}
                   disabled={disabled || !inputValue.trim()}
                   aria-label="todo を追加"
+                  sx={{
+                    minWidth: 58,
+                    px: 0.75,
+                    py: 0.25,
+                    fontSize: '0.7rem',
+                    lineHeight: 1,
+                    textTransform: 'none',
+                    '& .MuiButton-startIcon': { mr: 0.25 },
+                  }}
                 >
-                  <AddIcon fontSize="small" />
-                </IconButton>
+                  add
+                </Button>
               </InputAdornment>
             ),
           },
