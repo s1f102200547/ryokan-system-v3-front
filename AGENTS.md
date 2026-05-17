@@ -22,23 +22,15 @@
 
  機能ごとに E2E → domainの unit test -> domain → infra → application → hooks → integration test -> UI の順で縦断実装
 
-## テスト戦略
-
-```
-Unit test（Domain層）  ← 「最も多く書く」
-Integration test       ← 「Route Handler（API）の"入口->出口"を検証」
-E2E test（Playwright） ← 「重要フローのみ」
-```
-
 ## Rules
 
 - コンポーネントは named export を使う
 - `any` 型を使わない。必要なら `unknown` + type guard
 - Import alias: `@/*` → `./src/*`
+- 必要な時に適宜`docs/*`, `docs/Schema/*` を参照
 
 ## hooks層の注意事項
 - React 19 で新しく強化されたルールで、useEffect の中で setState を直接呼ぶのはアンチパターン
-
 
 ## Architecture
 - レイヤーは UI(`app/`, `components/`, `hooks/`) → Route Handler(`app/api/`) → Application → Domain + Infra。
