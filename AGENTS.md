@@ -22,20 +22,6 @@
 
  機能ごとに E2E → domainの unit test -> domain → infra → application → hooks → integration test -> UI の順で縦断実装
 
-## Commands
-
-```bash
-npm run dev       # Dev server (localhost:3000)
-npm run build     # Production build
-npm run lint      # ESLint
-```
-
-```bash
-npm run test      # Vitest（unit / integration）
-npm run test:ui   # Vitest UI
-npm run e2e       # Playwright E2E
-```
-
 ## テスト戦略
 
 ```
@@ -46,113 +32,60 @@ E2E test（Playwright） ← 「重要フローのみ」
 
 ## Rules
 
-- コミットメッセージは日本語
 - コンポーネントは named export を使う
 - `any` 型を使わない。必要なら `unknown` + type guard
 - Import alias: `@/*` → `./src/*`
-
-
-## constants層の役割
-
-- `src/constants/` にドメイン定数（部屋・予約・ゲスト情報など）を配置する
-- domain/ から import 可能。React・Next.js・Firebase に依存しない純粋 TS のみ
-
-## domain層の重要な役割
-
-- 問題：部屋の状態判定は複雑で非直感的。
-- 解決策：domain内で部屋の状態判定ビジネスロジックを定義。
-- 結果：カプセル化して共通関数・変数として再利用性が高まる。
 
 ## hooks層の注意事項
 - React 19 で新しく強化されたルールで、useEffect の中で setState を直接呼ぶのはアンチパターン
 
 
-## エラー処理
-- 外部エラーは Infra 層で InfraError に変換し、層を跨ぐごとに抽象化して伝搬する。
-- Domain 層は例外を使わず Result 型で失敗を表現する。
-- Infra 層は Firebase・gRPC・ZodError を InfraError に変換して throw する。
-- Application 層では catch せず、そのままエラーを上位へ流す。
-- Route Handler は InfraError を HTTP ステータスへ変換し、ログ出力や Slack 通知を行う。
-- Hooks 層は HTTP ステータスをユーザー向け日本語メッセージへ変換する。
-- UI 層は受け取った日本語メッセージをそのまま表示する。
-- 認証エラーは「認証失敗」と「インフラ障害」を分離し、後者のみ AUTH_UNAVAILABLE として扱う。
-- Slack 通知は「人が対応しないと直らない障害」のみ対象で、通知処理は fire-and-forget にする。
-- 入出力や DB 読み取り時は Zod で検証し、データ破損時は FIRESTORE_DATA_CORRUPTION として扱う。
-- InfraErrorCode は以下を基本とする。
+## Architecture
+- レイヤーは UI(`app/`, `components/`, `hooks/`) → Route Handler(`app/api/`) → Application → Domain + Infra。
+- `domain/` と `constants/` は純粋 TS。React、Next.js、Firebase、infra 実装へ依存しない。
+- `infra/` は Firestore/Auth など外部 SDK と `domain/ports/` の実装を担当し、UI/Application へ逆依存しない。
+- `application/` は UseCase/Command の手順を表現する。読み取りは UseCase、状態変更は Command。
+- `components/` は表示とイベント通知、`hooks/` は API 呼び出し・loading/error・日本語メッセージ変換を担当する。
+- Route Handler は session 検証、Zod 入力検証、Application/Infra 呼び出し、HTTP response 変換を担当する。
 
-| コード | 主な発生源 | HTTP | Slack通知 |
-|---|---|---|---|
-| `FIRESTORE_UNAVAILABLE` | gRPC code=14 など Firestore 利用不能 | 503 | する |
-| `FIRESTORE_PERMISSION` | gRPC code=7 など Firestore 権限不備 | 500 | する |
-| `FIRESTORE_DATA_CORRUPTION` | DB 読み取り後の Zod 検証失敗 | 500 | する |
-| `AUTH_UNAVAILABLE` | Firebase Auth のネットワーク障害・内部障害 | 503 | する |
-| `AUTH_FAILED` | パスワード違い・無効 token など認証失敗 | 401 | しない |
+## CI/CD
+- CI は `pull_request` to `main` と `push` to `main` で `lint`、`typecheck`、`audit`、`unit-test`、`e2e`、`zap-scan` を実行する。
+- Deploy は `main` の CI workflow 成功後に `workflow_run` で Cloud Run へ実行する。
+- Docker は `output: 'standalone'` 前提。Cloud Run は `PORT=8080`、Artifact Registry は `asia-northeast1-docker.pkg.dev`。
+- `NEXT_PUBLIC_FIREBASE_*` は build arg、`SLACK_WEBHOOK_URL` は Cloud Run runtime env。
+- CI/CD 変更時は `.github/workflows/*.yml` と `docs/CICD.md` を同時に更新する。
 
-- InfraErrorCode を追加したら `src/lib/infraErrorToHttpStatus.ts` の switch を必ず更新する。
-- 公開ページでは 500/503 の詳細を出し分けず、監視インフラの存在を公開しない。
-- 認証済みページでは 503 はリトライを促し、それ以外は管理者通知済みとして案内する。
-- fetch 失敗（ネットワーク断）は HTTP エラーとは別のユーザー向けメッセージにする。
-- ログレベルは、処理不能なら ERROR、処理は完了したが異常がある場合は WARN、ログイン成功など正常な重要イベントは INFO。
-- React Error Boundary の全面導入、深いカスタム例外階層、全 API response の Zod 検証、Sentry 等の外部監視は現時点では導入しない。
+## Security
+- `proxy.ts` の Cookie 存在確認は UX ナビゲーションであり、セキュリティ境界ではない。保護対象 API は各 Route Handler で `verifySession()` を呼ぶ。
+- Session Cookie は Firebase Admin SDK で発行・検証し、`httpOnly`, production `secure`, `sameSite: 'strict'`, `path: '/'`。
+- セッション期限と本番時間帯制限は当日 23:00 JST に揃える。時間外は `/time-restricted`。
+- CSP は nonce ベース。MUI/Emotion 互換のため `style-src 'unsafe-inline'` は残し、MUI style tag には nonce を渡す。
+- 外部 API、画像 CDN、analytics、iframe を追加する場合は CSP、COEP、CORP、Security doc を更新する。
 
-## Library Documentation Rule (Context7)
+## Test
+- Unit test は Domain 層を最厚にし、日付・部屋状態・予約状態・配列長・境界値を固定する。
+- Integration test は Route Handler の認証、validation、正常系、主要 InfraError、想定外エラーを確認する。
+- E2E はログイン、routing、daily dashboard、guest info、a-tax など重要フローに限定する。
+- E2E は実 Firebase 認証に依存しない。Playwright route mock と CI の dummy `NEXT_PUBLIC_FIREBASE_*` を使う。
+- 実データ・実認証情報をテストへ入れない。
 
-ライブラリやフレームワークに関する以下の質問では、回答前に必ず context7 MCP を使って最新の公式ドキュメントを取得すること：
+## ErrorHandling
+- Domain は例外ではなく Result 型や戻り値で失敗を表現する。
+- Infra は Firebase/gRPC/ZodError を `InfraError` に変換して throw する。
+- Application は原則 catch せず伝搬する。
+- Route Handler は `InfraError` を HTTP status に変換し、ログと必要な Slack 通知を行う。
+- Hooks は HTTP status と fetch 失敗をユーザー向け日本語メッセージに変換する。
+- `FIRESTORE_UNAVAILABLE` と `AUTH_UNAVAILABLE` は 503、`FIRESTORE_PERMISSION` と `FIRESTORE_DATA_CORRUPTION` は 500、`AUTH_FAILED` は 401。
+- `InfraErrorCode` 追加時は `src/lib/infraErrorToHttpStatus.ts` と `docs/ErrorHandling.md` を更新する。
 
-- コード生成（コンポーネント実装、関数実装、Server Action実装など）
-- セットアップ・インストール手順
-- 設定方法・configuration
-- API仕様、メソッドシグネチャ、プロパティ
-- ベストプラクティス、推奨される書き方
-- バージョン固有の機能や挙動
+## Context7
+- ライブラリ/フレームワークのコード生成、設定、API 仕様、推奨実装、バージョン固有挙動を扱う前に Context7 の公式 docs を確認する。
+- 既知 ID は `docs/Context7.md` に集約。Next.js v16、React v19.2、MUI v7、Firebase v12/v13、Zod v4 などは古い知識で補完しない。
+- query は具体的にし、1質問あたり最大3回まで。プロジェクト固有の業務ロジックや命名相談では必須ではない。
 
-### 手順
-1. `resolve-library-id` でライブラリIDを解決する（下記の既知IDがあればスキップ）
-2. `query-docs`（または `get-library-docs`）で関連ドキュメントを取得する
-3. 取得した最新ドキュメントに基づいて回答する
-4. 私が "use context7" と明示的に書かなくても、自動的にこのフローを実行すること
-
-### 既知のライブラリID（解決ステップを省略してトークン節約）
-本プロジェクトで使用するライブラリのID：
-
-| ライブラリ | Context7 ID | バージョン |
-|-----------|------------|----------|
-| Next.js | `/vercel/next.js` | v16 |
-| React | `/facebook/react` | v19.2 |
-| MUI Material UI | `/mui/material-ui` | v7 |
-| MUI X (Date Pickers) | `/mui/mui-x` | v9 |
-| Material UI Next.js Integration | `/mui/material-ui` | v7 (material-nextjsパッケージ含む) |
-| Emotion | `/emotion-js/emotion` | v11 |
-| Firebase JS SDK | `/firebase/firebase-js-sdk` | v12 |
-| Firebase Admin | `/firebase/firebase-admin-node` | v13 |
-| Zod | `/colinhacks/zod` | v4 |
-| dayjs | `/iamkun/dayjs` | v1 |
-| TypeScript | `/microsoft/typescript` | v5 |
-| Vitest | `/vitest-dev/vitest` | v4 |
-| Playwright | `/microsoft/playwright` | v1 |
-| Testing Library (React) | `/testing-library/react-testing-library` | v16 |
-| ESLint | `/eslint/eslint` | v9 |
-
-### トークン節約のためのクエリ作成
-- `query` パラメータは具体的に書く
-  - 悪い例: `"Button"`, `"auth"`
-  - 良い例: `"Button component with loading state in MUI v7"`, `"Firestore real-time listener with TypeScript types"`
-- 1質問あたり最大3回までのツール呼び出しに留めること
-- 必要なトピックを絞り込んで、関連スニペットのみを取得する
-
-### 適用しない場面
-- 自然言語の説明や雑談
-- プロジェクト固有のビジネスロジックの設計議論
-- 既に取得済みのドキュメントで十分な追加質問
-- ファイル構造や命名規則についての質問
-
-## Docs（必要に応じて参照）
-
-- `docs/Schema/*.md` - DBスキーマ定義（Daily.md, Reservations.md）
-- `docs/Architecture.md` - レイヤー構造・設計パターン・ファイル構造(要確認)
-- `docs/Auth.md` - 認証・認可・セッション管理の設計
-- `docs/Deploy.md` - Docker / Cloud Run デプロイ手順
-- `docs/KnownIssues.md` - 既知の問題・対応不要と判断した脆弱性の記録
-- `docs/Review.md` - 実装後のレビュー項目
-- `docs/Security.md` - セキュリティヘッダー・CSP・認証境界の設計方針(要確認)
-- `docs/Test.md` - E2Eテストにおける認証情報の扱い方針
+## Schema
+- `dailyInfo/{YYYY-MM-DD}` は日次データ。`todos` は最大50件、`safeBalanceChecker` は宿泊税テーブルの締めスタッフ名。未存在は空値扱い、更新は merge set。
+- `guestInfoV2` は予約データ。Firestore 上の日付は `YYYY/MM/DD`、アプリ/API 内部は `YYYY-MM-DD`。
+- 予約の部屋は `"21" | "22" | "31" | "32" | "42" | "43" | "61" | null`。空文字は null に正規化する。
+- 予約の泊別配列は泊数と同じ長さに正規化し、不正値は fallback で補完する。
+- DB 読み取り時の破損は Infra 層で Zod 検証し、必要に応じて `FIRESTORE_DATA_CORRUPTION` とする。
