@@ -66,51 +66,38 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
     ...(data?.staying ?? []).map((r) => ({ reservation: r, isStaying: true })),
   ]
   const cancelled = sortByRoom(data?.cancelled ?? [])
-  const isShowingStaleData = isLoading && data !== null && loadedDate !== selectedDate
-
-  // data === null は初回ロードのみ。refresh 中は data が残るので UI を保持し Snackbar を消さない
-  if (isLoading && data === null) {
-    return (
-      <Box sx={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9 }}>
-        <CircularProgress />
-      </Box>
-    )
-  }
-
-  if (!isLoading && error) {
-    return <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>
-  }
 
   return (
     <Box>
-      <Box
-        key={loadedDate ?? 'guest-info-empty'}
-        sx={{
-          opacity: isShowingStaleData ? 0.35 : 1,
-          transition: 'opacity 120ms ease-out',
-        }}
-      >
-        {topContent}
+      {topContent}
 
-        {/* アクティブな予約カード列（当日CI + 滞在中） */}
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, justifyContent: 'center', mt: topContent ? 3 : 10 }}>
-          {allActive.map(({ reservation, isStaying }) => (
-            <Box
-              key={reservation.id}
-              sx={{ display: 'inline-flex' }}
-            >
-              <ReservationListCard
-                reservation={reservation}
-                onClick={setModalReservation}
-                onCancelOrRestore={setCancelTarget}
-                isStaying={isStaying}
-                selectedToggle={selectedToggle}
-                targetDate={displayDate}
-              />
-            </Box>
-          ))}
-          <AddReservationCard onClick={() => setAddDialogOpen(true)} />
+      {isLoading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 180, mt: topContent ? 3 : 10 }}>
+          <CircularProgress />
         </Box>
+      ) : error ? (
+        <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>
+      ) : (
+        <>
+          {/* アクティブな予約カード列（当日CI + 滞在中） */}
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, justifyContent: 'center', mt: topContent ? 3 : 10 }}>
+            {allActive.map(({ reservation, isStaying }) => (
+              <Box
+                key={reservation.id}
+                sx={{ display: 'inline-flex' }}
+              >
+                <ReservationListCard
+                  reservation={reservation}
+                  onClick={setModalReservation}
+                  onCancelOrRestore={setCancelTarget}
+                  isStaying={isStaying}
+                  selectedToggle={selectedToggle}
+                  targetDate={displayDate}
+                />
+              </Box>
+            ))}
+            <AddReservationCard onClick={() => setAddDialogOpen(true)} />
+          </Box>
 
         {(cancelled.length > 0 || sideContent) && (
           <Box
@@ -148,8 +135,9 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
               {sideContent}
             </Box>
           </Box>
-        )}
-      </Box>
+          )}
+        </>
+      )}
 
       {/* モーダル / ダイアログ */}
       <ReservationModal
