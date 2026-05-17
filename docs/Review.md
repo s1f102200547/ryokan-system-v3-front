@@ -63,7 +63,7 @@
 ### ドキュメント
 
 - `AGENTS.md`, `docs/*.md`, `docs/Schema/*.md` と実装が一致しているか。
-- CI/CD の変更時は `.github/workflows/*.yml` と `docs/Deploy.md` を同時に更新しているか。
+- CI/CD の変更時は `.github/workflows/*.yml` と `docs/CICD.md` を同時に更新しているか。
 - セキュリティ・テスト・エラー処理方針の変更は該当 doc に反映しているか。
 
 ## 実行コマンド
