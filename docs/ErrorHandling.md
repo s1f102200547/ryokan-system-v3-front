@@ -1,106 +1,57 @@
-# Error Handling Policy
+# Error Handling Guide
 
 ## 基本方針
 
-- 外部エラーを `InfraError` に変換し、層を越えるごとに抽象度を上げて伝搬させる
-- Domain 層は `Result` 型、Infra 層は `InfraError` の throw、で使い分ける
-- 発生したエラーは途中で握りつぶされないようにする
----
-
-## 層ごとの責務
-
-```
-UI層
-  エラーメッセージをそのまま表示する
-  ↑ string（日本語メッセージ）
-
-Hooks層
-  HTTP ステータス → ユーザー向け日本語メッセージに変換する
-  ↑ HTTPレスポンス
-
-Route Handler
-  InfraError → HTTP ステータスに変換。ログ出力。必要に応じて Slack 通知。
-  ↑ throw InfraError
-
-Application層
-  エラーをそのまま伝搬する（catch しない）
-  ↑ throw InfraError
-
-Domain層
-  例外を投げない。Result 型で返す。
-
-Infra層
-  外部エラー（Firebase / gRPC / ZodError）を InfraError に変換して throw する。
-```
-
----
+- Domain 層は例外を投げず、ビジネス上の失敗は `Result` 型や戻り値で表現する。
+- Infra 層は Firebase、gRPC、ZodError など外部境界の失敗を `InfraError` に変換して throw する。
+- Application 層は原則 catch せず、InfraError を上位へ伝搬する。
+- Route Handler は `InfraError` を HTTP status に変換し、ログ出力と Slack 通知を行う。
+- Hooks 層は HTTP status と fetch 失敗をユーザー向け日本語メッセージに変換する。
+- UI 層は Hooks から受け取った日本語メッセージを表示する。
 
 ## InfraErrorCode
 
-| コード | 発生源 | HTTP | Slack通知 |
+| コード | 主な発生源 | HTTP | Slack通知 |
 |---|---|---|---|
-| `FIRESTORE_UNAVAILABLE` | gRPC code=14 | 503 | ✅ |
-| `FIRESTORE_PERMISSION` | gRPC code=7 | 500 | ✅ |
-| `FIRESTORE_DATA_CORRUPTION` | ZodError（DB 読み取り時） | 500 | ✅ |
-| `AUTH_UNAVAILABLE` | Firebase Auth インフラ障害 | 503 | ✅ |
-| `AUTH_FAILED` | 認証失敗（パスワード違い等） | 401 | ❌ |
+| `FIRESTORE_UNAVAILABLE` | gRPC code=14、Firestore 利用不能、不明な Firestore エラー | 503 | する |
+| `FIRESTORE_PERMISSION` | gRPC code=7、Firestore 権限不備 | 500 | する |
+| `FIRESTORE_DATA_CORRUPTION` | DB 読み取り後の Zod 検証失敗 | 500 | する |
+| `AUTH_UNAVAILABLE` | Firebase Auth のネットワーク障害・内部障害 | 503 | する |
+| `AUTH_FAILED` | パスワード違い・無効 token など認証失敗 | 401 | しない |
 
-**新しい `InfraErrorCode` を追加したら `infraErrorToHttpStatus.ts` の `switch` を必ず更新すること**（網羅性チェックにより漏れるとコンパイルエラーになる）。
+`InfraErrorCode` を追加したら `src/lib/infraErrorToHttpStatus.ts` の switch を必ず更新する。網羅性チェックにより漏れをコンパイルエラーにする。
 
----
+## 認証エラー
 
-## 認証エラーの分類
+認証失敗とインフラ障害を分離する。
 
-Firebase のエラーは「ビジネス結果」と「インフラ障害」を必ず分離する。
-
-- `auth/wrong-password`, `auth/invalid-credential` 等 → ビジネス結果。`{ success: false }` を返す or `AUTH_FAILED`
-- ネットワーク断・レート制限・内部エラー等 → `InfraError('AUTH_UNAVAILABLE')` を throw する
-
----
-
-## ユーザー向けメッセージの原則
-
-| 画面種別 | 方針 |
-|---|---|
-| 公開ページ（ログイン等） | 500/503 を区別しない。監視インフラの存在を公開しない |
-| 認証済みページ | 503 はリトライを促す。それ以外は「管理者に通知済み」と伝え安心させる |
-| 共通 | fetch 失敗（ネットワーク断）は別メッセージで案内する |
-
----
-
-## Slack 通知の基準
-
-「人が対応しなければ直らない」エラーのみ通知する。ユーザーが再試行すれば解決する可能性のあるものは通知しない。
-
-`notifySlackFireAndForget` は必ず fire-and-forget で使う（`await` しない）。
-
----
-
-## ログレベル
-
-| レベル | 用途 |
-|---|---|
-| `ERROR` | 処理が完了できなかった（Firestore 障害・想定外エラー等） |
-| `WARN` | 処理は完了したが異常がある（認証失敗・想定外 Cookie 等） |
-| `INFO` | 正常な重要イベント（ログイン成功等） |
-
----
+- idToken/session cookie の期限切れ、revoke、無効 token は `401`。
+- Firebase Auth 自体の障害、ネットワーク障害、想定外 SDK エラーは `AUTH_UNAVAILABLE` / `503`。
+- ログイン画面など公開ページでは 500/503 の詳細を出し分けず、監視インフラの存在を公開しない。
 
 ## バリデーション
 
 | 境界 | 手法 |
 |---|---|
-| フロント → API（リクエスト受信） | Zod（Route Handler 冒頭） |
-| Firestore → Infra（DB 読み取り後） | Zod。失敗は `FIRESTORE_DATA_CORRUPTION` |
-| API → フロント（レスポンス受信後） | 型アサーション（自前 API のため） |
+| フロント → API | Route Handler 入口で Zod 検証 |
+| Firestore → Infra | Zod 検証。破損データは `FIRESTORE_DATA_CORRUPTION` |
+| API → フロント | 自前 API のため型アサーション中心。外部 API 連携時は Zod 検証を追加 |
 
----
+## Slack 通知
 
-## やらないこと
+Slack 通知は「人が対応しないと直らない障害」を主対象にする。現行の共通 `handleRouteError` は `InfraError` と想定外エラーを一律で `notifySlackFireAndForget` に渡すため、通知対象を増減する場合は共通 helper の条件分岐も同時に見直す。通知処理は API レスポンスを Slack の成否でブロックしない。
 
-| パターン | 理由 |
+## ログレベル
+
+| レベル | 用途 |
 |---|---|
-| グローバル Error Boundary（React） | ページ数が少なく、各ページで個別対応の方が適切 |
-| カスタム例外の深い継承階層 | `InfraError` 1クラス + `code` で十分 |
-| 全 API レスポンスの Zod 検証 | 自前 API なので型アサーションで十分。外部 API 連携時に導入 |
-| Sentry 等の外部エラー監視 | Cloud Logging + Slack 通知で現時点は十分 |
+| ERROR | 処理が完了できなかった障害、Firestore 障害、想定外エラー |
+| WARN | 処理は完了したが異常がある認証失敗や不審入力 |
+| INFO | ログイン成功など正常な重要イベント |
+
+## 現時点で導入しないもの
+
+- React Error Boundary の全面導入。
+- 深いカスタム例外階層。
+- 全 API response の Zod 検証。
+- Sentry など外部監視 SaaS。現状は Cloud Logging + Slack 通知で足りる。

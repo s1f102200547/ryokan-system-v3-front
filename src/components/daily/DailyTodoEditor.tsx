@@ -3,7 +3,13 @@
 import { useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
+import Dialog from '@mui/material/Dialog'
+import DialogActions from '@mui/material/DialogActions'
+import DialogContent from '@mui/material/DialogContent'
+import DialogContentText from '@mui/material/DialogContentText'
+import DialogTitle from '@mui/material/DialogTitle'
 import IconButton from '@mui/material/IconButton'
 import InputAdornment from '@mui/material/InputAdornment'
 import List from '@mui/material/List'
@@ -27,6 +33,8 @@ type Props = {
 
 export function DailyTodoEditor({ todos, isLoading, error, isSaving, saveError, onAdd, onRemove }: Props) {
   const [inputValue, setInputValue] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<DailyTodo | null>(null)
+  const hasPendingInput = inputValue.length > 0
 
   const handleAdd = () => {
     const trimmed = inputValue.trim()
@@ -38,8 +46,12 @@ export function DailyTodoEditor({ todos, isLoading, error, isSaving, saveError, 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault()
-      handleAdd()
     }
+  }
+
+  const handleConfirmDelete = () => {
+    if (deleteTarget) onRemove(deleteTarget.id)
+    setDeleteTarget(null)
   }
 
   const disabled = isLoading || isSaving
@@ -48,7 +60,7 @@ export function DailyTodoEditor({ todos, isLoading, error, isSaving, saveError, 
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '11px' }}>
-          タイテ用 Todo
+          Todo (タイテ右上に表示)
         </Typography>
         {isSaving && <CircularProgress size={10} />}
       </Box>
@@ -67,7 +79,7 @@ export function DailyTodoEditor({ todos, isLoading, error, isSaving, saveError, 
       <TextField
         size="small"
         fullWidth
-        placeholder="todo を追加 (ex. 送迎あり 15:30)"
+        placeholder="ex. ZoomCI / 花束注文"
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={handleKeyDown}
@@ -76,14 +88,25 @@ export function DailyTodoEditor({ todos, isLoading, error, isSaving, saveError, 
           input: {
             endAdornment: (
               <InputAdornment position="end">
-                <IconButton
+                <Button
                   size="small"
+                  variant={hasPendingInput ? 'contained' : 'text'}
+                  startIcon={<AddIcon fontSize="small" />}
                   onClick={handleAdd}
                   disabled={disabled || !inputValue.trim()}
                   aria-label="todo を追加"
+                  sx={{
+                    minWidth: 58,
+                    px: 0.75,
+                    py: 0.25,
+                    fontSize: '0.7rem',
+                    lineHeight: 1,
+                    textTransform: 'none',
+                    '& .MuiButton-startIcon': { mr: 0.25 },
+                  }}
                 >
-                  <AddIcon fontSize="small" />
-                </IconButton>
+                  add
+                </Button>
               </InputAdornment>
             ),
           },
@@ -104,7 +127,7 @@ export function DailyTodoEditor({ todos, isLoading, error, isSaving, saveError, 
                 <IconButton
                   size="small"
                   edge="end"
-                  onClick={() => onRemove(todo.id)}
+                  onClick={() => setDeleteTarget(todo)}
                   disabled={disabled}
                   aria-label={`"${todo.text}" を削除`}
                 >
@@ -121,6 +144,24 @@ export function DailyTodoEditor({ todos, isLoading, error, isSaving, saveError, 
           ))}
         </List>
       )}
+      <Dialog
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        aria-labelledby="daily-todo-delete-title"
+      >
+        <DialogTitle id="daily-todo-delete-title">Todoを削除しますか？</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {deleteTarget ? `「${deleteTarget.text}」を削除します。` : ''}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteTarget(null)}>キャンセル</Button>
+          <Button onClick={handleConfirmDelete} color="error" autoFocus>
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
