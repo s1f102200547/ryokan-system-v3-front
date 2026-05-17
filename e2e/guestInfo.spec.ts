@@ -124,6 +124,26 @@ test.describe('GuestInfo - 予約一覧表示', () => {
     await expect(page).toHaveURL('/a_tax_table')
   })
 
+  test('Todo削除ボタンは確認ダイアログを表示し、OKで削除保存する', async ({ page }) => {
+    let patchBody: unknown = null
+    await page.route('**/api/daily/**/todos', async (route) => {
+      if (route.request().method() === 'PATCH') {
+        patchBody = route.request().postDataJSON()
+      }
+      await route.fulfill({
+        status: 200,
+        json: route.request().method() === 'GET' ? { todos: [{ id: 'todo-1', text: '送迎あり 15:30' }] } : {},
+      })
+    })
+
+    await page.goto('/daily-dashboard?date=2026-01-01&today=2026-01-01')
+    await page.getByLabel('"送迎あり 15:30" を削除').click()
+    await expect(page.getByRole('dialog', { name: 'Todoを削除しますか？' })).toBeVisible()
+    await page.getByRole('button', { name: 'OK' }).click()
+
+    await expect.poll(() => patchBody).toMatchObject({ todos: [] })
+  })
+
   test('トグル切り替えで予約カードを並び替えず連泊を常時表示する', async ({ page }) => {
     await page.route('/api/guest-info*', (route) => route.fulfill({
       status: 200,

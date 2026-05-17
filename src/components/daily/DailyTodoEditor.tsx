@@ -5,6 +5,11 @@ import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
+import Dialog from '@mui/material/Dialog'
+import DialogActions from '@mui/material/DialogActions'
+import DialogContent from '@mui/material/DialogContent'
+import DialogContentText from '@mui/material/DialogContentText'
+import DialogTitle from '@mui/material/DialogTitle'
 import IconButton from '@mui/material/IconButton'
 import InputAdornment from '@mui/material/InputAdornment'
 import List from '@mui/material/List'
@@ -28,6 +33,7 @@ type Props = {
 
 export function DailyTodoEditor({ todos, isLoading, error, isSaving, saveError, onAdd, onRemove }: Props) {
   const [inputValue, setInputValue] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<DailyTodo | null>(null)
   const hasPendingInput = inputValue.length > 0
 
   const handleAdd = () => {
@@ -41,6 +47,11 @@ export function DailyTodoEditor({ todos, isLoading, error, isSaving, saveError, 
     if (e.key === 'Enter') {
       e.preventDefault()
     }
+  }
+
+  const handleConfirmDelete = () => {
+    if (deleteTarget) onRemove(deleteTarget.id)
+    setDeleteTarget(null)
   }
 
   const disabled = isLoading || isSaving
@@ -116,7 +127,7 @@ export function DailyTodoEditor({ todos, isLoading, error, isSaving, saveError, 
                 <IconButton
                   size="small"
                   edge="end"
-                  onClick={() => onRemove(todo.id)}
+                  onClick={() => setDeleteTarget(todo)}
                   disabled={disabled}
                   aria-label={`"${todo.text}" を削除`}
                 >
@@ -133,6 +144,24 @@ export function DailyTodoEditor({ todos, isLoading, error, isSaving, saveError, 
           ))}
         </List>
       )}
+      <Dialog
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        aria-labelledby="daily-todo-delete-title"
+      >
+        <DialogTitle id="daily-todo-delete-title">Todoを削除しますか？</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {deleteTarget ? `「${deleteTarget.text}」を削除します。` : ''}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteTarget(null)}>キャンセル</Button>
+          <Button onClick={handleConfirmDelete} color="error" autoFocus>
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
