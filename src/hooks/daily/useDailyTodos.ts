@@ -56,13 +56,11 @@ export function useDailyTodos(date: string) {
   const addTodo = useCallback(
     async (text: string) => {
       const newTodo: DailyTodo = { id: crypto.randomUUID(), text }
-      setState((prev) => {
-        const updated = [...prev.todos, newTodo]
-        return { ...prev, todos: updated, isSaving: true, saveError: null }
-      })
+      const updated = [...state.todos, newTodo]
+      setState((prev) => ({ ...prev, isSaving: true, saveError: null }))
       try {
-        await saveTodos(date, [...state.todos, newTodo])
-        setState((prev) => ({ ...prev, isSaving: false }))
+        await saveTodos(date, updated)
+        setState((prev) => ({ ...prev, todos: updated, isSaving: false }))
       } catch {
         setState((prev) => ({ ...prev, isSaving: false, saveError: '保存に失敗しました' }))
       }
@@ -73,10 +71,10 @@ export function useDailyTodos(date: string) {
   const removeTodo = useCallback(
     async (id: string) => {
       const updated = state.todos.filter((t) => t.id !== id)
-      setState((prev) => ({ ...prev, todos: updated, isSaving: true, saveError: null }))
+      setState((prev) => ({ ...prev, isSaving: true, saveError: null }))
       try {
         await saveTodos(date, updated)
-        setState((prev) => ({ ...prev, isSaving: false }))
+        setState((prev) => ({ ...prev, todos: updated, isSaving: false }))
       } catch {
         setState((prev) => ({ ...prev, isSaving: false, saveError: '保存に失敗しました' }))
       }
