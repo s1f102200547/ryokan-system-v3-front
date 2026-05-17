@@ -18,6 +18,14 @@ XSS、MIME スニッフィング、クリックジャッキング、情報漏洩
 
 例外は `/api/auth/login`。ここでは Firebase Client SDK が取得した `idToken` を受け取り、`adminAuth.verifyIdToken()` で検証してから Session Cookie を発行する。
 
+認証フロー:
+
+1. クライアントが `signInWithEmailAndPassword` で Firebase Auth にログインし、`idToken` を取得する。
+2. クライアントが `POST /api/auth/login { idToken }` を呼ぶ。
+3. サーバーが `adminAuth.verifyIdToken(idToken)` で改ざん・期限切れ・無効 token を検証する。
+4. サーバーが `adminAuth.createSessionCookie(idToken, { expiresIn })` で Session Cookie を発行する。
+5. 後続 API は `verifySession(cookie)` で `adminAuth.verifySessionCookie(cookie, true)` を実行し、失敗時は `401` を返す。
+
 Session Cookie の設定:
 
 | 属性 | 値 |
@@ -27,6 +35,13 @@ Session Cookie の設定:
 | `sameSite` | `strict` |
 | `path` | `/` |
 | `maxAge` | ログイン当日の 23:00 JST まで |
+
+セッションは Firebase Admin SDK の Session Cookie で管理する。Cookie にはサーバーが発行した不透明なトークンが入り、Firebase が署名・検証する。ログイン時に `Date.now()` から当日 23:00 JST までの残り時間を `expiresIn` として渡し、Firebase の最低値を下回る場合は 5分にフォールバックする。
+
+Firebase Auth の失敗分類:
+
+- パスワード違い、無効 token、期限切れ token、revoke 済み token などは認証失敗として `401`。
+- ネットワーク障害、Firebase サービス障害、想定外の SDK エラーは `AUTH_UNAVAILABLE` 相当のインフラ障害として `503`。
 
 ## 時間帯制限
 
@@ -108,6 +123,6 @@ ZAP の新規指摘を KnownIssues に記録する場合は、理由・影響・
 ## 変更時の注意
 
 - 外部 API、画像 CDN、analytics、iframe を追加する場合は CSP、COEP、CORP を更新する。
-- 認証や Cookie を変更する場合は `docs/Auth.md` も同時に更新する。
-- Cloud Run の公開設定や deploy secret を変更する場合は `docs/Deploy.md` も確認する。
+- 認証や Cookie を変更する場合はこのファイルの認証境界・Session Cookie 方針も同時に更新する。
+- Cloud Run の公開設定や deploy secret を変更する場合は `docs/CICD.md` も確認する。
 - セキュリティヘッダーを変更した場合は `npm run build` と ZAP Baseline Scan の結果を確認する。
