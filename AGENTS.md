@@ -67,7 +67,7 @@ E2E test（Playwright） ← 「重要フローのみ」
 - React 19 で新しく強化されたルールで、useEffect の中で setState を直接呼ぶのはアンチパターン
 
 
-## エラー処理(詳しくはdocs/ErrorHandling.mdを参照)
+## エラー処理
 - 外部エラーは Infra 層で InfraError に変換し、層を跨ぐごとに抽象化して伝搬する。
 - Domain 層は例外を使わず Result 型で失敗を表現する。
 - Infra 層は Firebase・gRPC・ZodError を InfraError に変換して throw する。
@@ -78,6 +78,22 @@ E2E test（Playwright） ← 「重要フローのみ」
 - 認証エラーは「認証失敗」と「インフラ障害」を分離し、後者のみ AUTH_UNAVAILABLE として扱う。
 - Slack 通知は「人が対応しないと直らない障害」のみ対象で、通知処理は fire-and-forget にする。
 - 入出力や DB 読み取り時は Zod で検証し、データ破損時は FIRESTORE_DATA_CORRUPTION として扱う。
+- InfraErrorCode は以下を基本とする。
+
+| コード | 主な発生源 | HTTP | Slack通知 |
+|---|---|---|---|
+| `FIRESTORE_UNAVAILABLE` | gRPC code=14 など Firestore 利用不能 | 503 | する |
+| `FIRESTORE_PERMISSION` | gRPC code=7 など Firestore 権限不備 | 500 | する |
+| `FIRESTORE_DATA_CORRUPTION` | DB 読み取り後の Zod 検証失敗 | 500 | する |
+| `AUTH_UNAVAILABLE` | Firebase Auth のネットワーク障害・内部障害 | 503 | する |
+| `AUTH_FAILED` | パスワード違い・無効 token など認証失敗 | 401 | しない |
+
+- InfraErrorCode を追加したら `src/lib/infraErrorToHttpStatus.ts` の switch を必ず更新する。
+- 公開ページでは 500/503 の詳細を出し分けず、監視インフラの存在を公開しない。
+- 認証済みページでは 503 はリトライを促し、それ以外は管理者通知済みとして案内する。
+- fetch 失敗（ネットワーク断）は HTTP エラーとは別のユーザー向けメッセージにする。
+- ログレベルは、処理不能なら ERROR、処理は完了したが異常がある場合は WARN、ログイン成功など正常な重要イベントは INFO。
+- React Error Boundary の全面導入、深いカスタム例外階層、全 API response の Zod 検証、Sentry 等の外部監視は現時点では導入しない。
 
 ## Library Documentation Rule (Context7)
 
@@ -136,7 +152,6 @@ E2E test（Playwright） ← 「重要フローのみ」
 - `docs/Architecture.md` - レイヤー構造・設計パターン・ファイル構造(要確認)
 - `docs/Auth.md` - 認証・認可・セッション管理の設計
 - `docs/Deploy.md` - Docker / Cloud Run デプロイ手順
-- `docs/ErrorHandling.md` - エラーハンドリングの方針(要確認)
 - `docs/KnownIssues.md` - 既知の問題・対応不要と判断した脆弱性の記録
 - `docs/Review.md` - 実装後のレビュー項目
 - `docs/Security.md` - セキュリティヘッダー・CSP・認証境界の設計方針(要確認)
