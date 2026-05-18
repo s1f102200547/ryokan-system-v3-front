@@ -16,7 +16,7 @@ const listStyle: React.CSSProperties = {
 
 const itemStyle: React.CSSProperties = {
   border: '1px solid #000',
-  minHeight: '65px',
+  minHeight: '70px',
   overflow: 'hidden',
   display: 'grid',
   gridTemplateRows: '18px 1fr',
