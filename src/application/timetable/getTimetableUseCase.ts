@@ -107,12 +107,11 @@ function checkInSlotKey(arrivalTime: string | null): ValidArrivalTime {
 }
 
 function checkInSlotLabel(room: string, arrivalTime: string | null): string {
-  const roomLabel = roomMark(room)
   const key = checkInSlotKey(arrivalTime)
   if ((key === '14:00以前' || key === '20:00以降') && arrivalTime !== null) {
-    return `${roomLabel}(${arrivalTime}時)`
+    return `${room}(${arrivalTime}時)`
   }
-  return roomLabel
+  return room
 }
 
 // ---------------------------------------------------------------------------
@@ -163,7 +162,7 @@ function buildDinnerSlots(staying: RoomStay[], targetDate: string): Record<strin
     const value = r.dinner_time[idx]
     if (value === undefined || value === 'NONE' || value === 'CANCEL') continue
     const key = value === 'PENDING' ? '未定' : value
-    ;(slots[key] ??= []).push(roomMark(room))
+    ;(slots[key] ??= []).push(room)
   }
   return slots
 }

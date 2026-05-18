@@ -26,10 +26,10 @@ function makeRequest(date?: string, withSession = true) {
 }
 
 const mockData: TimetableData = {
-  checkInSlots: { '15:00': ['㉑'] },
+  checkInSlots: { '15:00': ['21'] },
   stayingGuestLabels: ['㉑-2(1/2泊目)'],
   eveningBathSlots: { '16:00': ['㉑'] },
-  dinnerSlots: { '17:30': ['㉑'] },
+  dinnerSlots: { '17:30': ['21'] },
   guestInfoRows: {
     '21': { room: '21', guestName: '田中太郎', guestCountLabel: '2人', stayProgressLabel: '1/2泊目', memo: 'memo' },
     '22': { room: '22', guestName: '', guestCountLabel: '', stayProgressLabel: '', memo: '空室' },
@@ -110,7 +110,7 @@ describe('GET /api/timetable', () => {
     const response = await GET(makeRequest('2026-04-12'))
     const body = await response.json()
 
-    expect(body.checkInSlots['15:00']).toEqual(['㉑'])
+    expect(body.checkInSlots['15:00']).toEqual(['21'])
     expect(body.stayingGuestLabels).toEqual(['㉑-2(1/2泊目)'])
   })
 

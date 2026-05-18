@@ -18,7 +18,7 @@ const headerCellStyle: React.CSSProperties = {
 
 const bodyCellStyle: React.CSSProperties = {
   border: '1px solid #000',
-  fontSize: '15px',
+  fontSize: '12px',
   verticalAlign: 'top',
   whiteSpace: 'nowrap',
   height: '70px',
@@ -27,7 +27,7 @@ const bodyCellStyle: React.CSSProperties = {
 
 const elseCellStyle: React.CSSProperties = {
   border: '1px solid #000',
-  fontSize: '15px',
+  fontSize: '12px',
   verticalAlign: 'top',
   whiteSpace: 'pre',
   height: '70px',
