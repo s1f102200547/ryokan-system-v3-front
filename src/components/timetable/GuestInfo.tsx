@@ -26,13 +26,19 @@ const headerStyle: React.CSSProperties = {
   borderBottom: '1px solid #000',
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'flex-start',
-  gap: '4px',
+  justifyContent: 'space-between',
+  gap: '6px',
   fontSize: '10px',
   lineHeight: '1.1em',
   padding: '2px 4px',
   whiteSpace: 'nowrap',
   overflow: 'hidden',
+}
+
+const headerItemStyle: React.CSSProperties = {
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
 }
 
 const infoStyle: React.CSSProperties = {
@@ -55,13 +61,6 @@ function fallbackRow(room: string): TimetableGuestInfoRow {
   return { room, guestName: '', guestCountLabel: '', stayProgressLabel: '', memo: '空室' }
 }
 
-function headerLabel(row: TimetableGuestInfoRow): string {
-  const details = [row.guestName, row.guestCountLabel, row.stayProgressLabel]
-    .filter((value) => value !== '')
-    .join(' ')
-  return details === '' ? `${row.room}号室` : `${row.room}号室 ${details}`
-}
-
 export function GuestInfo({ guestInfoRows }: Props) {
   return (
     <div style={listStyle}>
@@ -75,7 +74,16 @@ export function GuestInfo({ guestInfoRows }: Props) {
             data-testid={isVacant ? 'guest-info-vacant' : `guest-info-row-${room}`}
           >
             <div style={headerStyle}>
-              {headerLabel(row)}
+              <span style={{ ...headerItemStyle, flex: '0 0 auto' }}>{row.room}号室</span>
+              {row.guestName !== '' && (
+                <span style={{ ...headerItemStyle, flex: '1 1 auto' }}>{row.guestName}</span>
+              )}
+              {row.guestCountLabel !== '' && (
+                <span style={{ ...headerItemStyle, flex: '0 0 auto' }}>{row.guestCountLabel}</span>
+              )}
+              {row.stayProgressLabel !== '' && (
+                <span style={{ ...headerItemStyle, flex: '0 0 auto' }}>{row.stayProgressLabel}</span>
+              )}
             </div>
             <div style={infoStyle}>
               <div style={infoWrapperStyle}>{row.memo}</div>
