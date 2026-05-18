@@ -26,11 +26,19 @@ function makeRequest(date?: string, withSession = true) {
 }
 
 const mockData: TimetableData = {
-  checkInSlots: { '15:00': ['㉑田中太郎-2'] },
+  checkInSlots: { '15:00': ['21'] },
   stayingGuestLabels: ['㉑-2(1/2泊目)'],
   eveningBathSlots: { '16:00': ['㉑'] },
-  dinnerSlots: { '17:30': ['㉑田中太郎-2'] },
-  guestInfoRows: { '21': 'memo', '22': '空室', '31': '空室', '32': '空室', '42': '空室', '43': '空室', '61': '空室' },
+  dinnerSlots: { '17:30': ['21'] },
+  guestInfoRows: {
+    '21': { room: '21', guestName: '田中太郎', guestCountLabel: '2人', stayProgressLabel: '1/2泊目', memo: 'memo' },
+    '22': { room: '22', guestName: '', guestCountLabel: '', stayProgressLabel: '', memo: '空室' },
+    '31': { room: '31', guestName: '', guestCountLabel: '', stayProgressLabel: '', memo: '空室' },
+    '32': { room: '32', guestName: '', guestCountLabel: '', stayProgressLabel: '', memo: '空室' },
+    '42': { room: '42', guestName: '', guestCountLabel: '', stayProgressLabel: '', memo: '空室' },
+    '43': { room: '43', guestName: '', guestCountLabel: '', stayProgressLabel: '', memo: '空室' },
+    '61': { room: '61', guestName: '', guestCountLabel: '', stayProgressLabel: '', memo: '空室' },
+  },
   breakfastSlots: { '8:00a': ['㉑'] },
   checkoutRooms: [],
   morningBathSlots: {},
@@ -102,7 +110,7 @@ describe('GET /api/timetable', () => {
     const response = await GET(makeRequest('2026-04-12'))
     const body = await response.json()
 
-    expect(body.checkInSlots['15:00']).toEqual(['㉑田中太郎-2'])
+    expect(body.checkInSlots['15:00']).toEqual(['21'])
     expect(body.stayingGuestLabels).toEqual(['㉑-2(1/2泊目)'])
   })
 
