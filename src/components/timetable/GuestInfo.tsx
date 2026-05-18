@@ -62,9 +62,11 @@ function fallbackRow(room: string): TimetableGuestInfoRow {
 }
 
 export function GuestInfo({ guestInfoRows }: Props) {
+  const displayRooms = [...ROOM_NUMBERS].reverse()
+
   return (
     <div style={listStyle}>
-      {ROOM_NUMBERS.map((room) => {
+      {displayRooms.map((room) => {
         const row = guestInfoRows[room] ?? fallbackRow(room)
         const isVacant = row.memo === '空室'
         return (
