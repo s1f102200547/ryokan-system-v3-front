@@ -7,7 +7,7 @@ type Props = {
 const cellStyle: React.CSSProperties = {
   border: '1px solid #000',
   fontWeight: 'normal',
-  fontSize: '9px',
+  fontSize: '15px',
   verticalAlign: 'middle',
   width: `${100 / DINNER_TIME_KEYS.length}%`,
 }

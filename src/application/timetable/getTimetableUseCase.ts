@@ -72,12 +72,6 @@ function nightIdx(checkInDate: string, targetDate: string): number {
   return dateDiff(checkInDate, targetDate)
 }
 
-/** {部屋マーク}{宿泊者名}-{大人数}[({子供数})] */
-function guestLabel(room: string, r: Reservation): string {
-  const children = r.child_count > 0 ? `(${r.child_count})` : ''
-  return `${roomMark(room)}${r.guest_name}-${r.adult_count}${children}`
-}
-
 /** {部屋マーク}-{大人数}[({子供数})]({現在泊目}/{全泊数}泊目) */
 function stayingLabel(room: string, r: Reservation, targetDate: string): string {
   const children = r.child_count > 0 ? `(${r.child_count})` : ''
@@ -105,13 +99,7 @@ function buildCheckInSlots(stateMap: Map<string, RoomCheckInState>): Record<stri
       r.arrival_time !== null &&
       (VALID_ARRIVAL_TIMES as readonly string[]).includes(r.arrival_time)
     const key = isValid ? (r.arrival_time as ValidArrivalTime) : 'OTHER'
-    const label =
-      r.arrival_time === null
-        ? `${guestLabel(room, r)}（未定）`
-        : !isValid
-          ? `${guestLabel(room, r)}（${r.arrival_time}着）`
-          : guestLabel(room, r)
-    ;(slots[key] ??= []).push(label)
+    ;(slots[key] ??= []).push(roomMark(room))
   }
   return slots
 }
@@ -148,7 +136,7 @@ function buildDinnerSlots(staying: RoomStay[], targetDate: string): Record<strin
     const value = r.dinner_time[idx]
     if (value === undefined || value === 'NONE' || value === 'CANCEL') continue
     const key = value === 'PENDING' ? '未定' : value
-    ;(slots[key] ??= []).push(guestLabel(room, r))
+    ;(slots[key] ??= []).push(roomMark(room))
   }
   return slots
 }
