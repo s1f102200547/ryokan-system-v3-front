@@ -6,7 +6,7 @@ export type { DailyTodo }
  * GET /api/timetable?date=YYYY-MM-DD のレスポンス型
  *
  * checkInSlots      : 到着時刻 → ラベル配列
- *                     キー = VALID_ARRIVAL_TIMES の時刻 or 'OTHER'（範囲外時刻）
+ *                     キー = VALID_ARRIVAL_TIMES の列（14:00以前、15:00〜19:00、20:00以降、未定）
  * stayingGuestLabels: 2泊以上の全滞在ゲストを横並び表示（日付-arrival間）
  *                     形式: {部屋マーク}-{大人数}[({子供数})]({現在泊目}/{全泊数}泊目)
  * eveningBathSlots  : 夕方露天風呂 時刻 → 部屋マーク配列

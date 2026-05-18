@@ -85,6 +85,36 @@ function guestCountLabel(r: Reservation): string {
   return r.child_count > 0 ? `${total}人 うち${r.child_count}名は子供` : `${total}人`
 }
 
+function parseClockMinutes(time: string): number | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(time)
+  if (match === null) return null
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null
+  return hours * 60 + minutes
+}
+
+function checkInSlotKey(arrivalTime: string | null): ValidArrivalTime {
+  if (arrivalTime === null) return '未定'
+  const minutes = parseClockMinutes(arrivalTime)
+  if (minutes === null) return '未定'
+  if (minutes < 15 * 60) return '14:00以前'
+  if (minutes >= 20 * 60) return '20:00以降'
+  if ((VALID_ARRIVAL_TIMES as readonly string[]).includes(arrivalTime)) {
+    return arrivalTime as ValidArrivalTime
+  }
+  return '未定'
+}
+
+function checkInSlotLabel(room: string, arrivalTime: string | null): string {
+  const roomLabel = roomMark(room)
+  const key = checkInSlotKey(arrivalTime)
+  if ((key === '14:00以前' || key === '20:00以降') && arrivalTime !== null) {
+    return `${roomLabel}(${arrivalTime}時)`
+  }
+  return roomLabel
+}
+
 // ---------------------------------------------------------------------------
 // セクション別ビルダー
 // ---------------------------------------------------------------------------
@@ -95,11 +125,8 @@ function buildCheckInSlots(stateMap: Map<string, RoomCheckInState>): Record<stri
   for (const room of ROOM_NUMBERS) {
     const r = stateMap.get(room)!.todayCheckInReservation
     if (r === null) continue
-    const isValid =
-      r.arrival_time !== null &&
-      (VALID_ARRIVAL_TIMES as readonly string[]).includes(r.arrival_time)
-    const key = isValid ? (r.arrival_time as ValidArrivalTime) : 'OTHER'
-    ;(slots[key] ??= []).push(roomMark(room))
+    const key = checkInSlotKey(r.arrival_time)
+    ;(slots[key] ??= []).push(checkInSlotLabel(room, r.arrival_time))
   }
   return slots
 }
