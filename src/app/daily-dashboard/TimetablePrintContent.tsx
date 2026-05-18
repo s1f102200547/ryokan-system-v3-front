@@ -19,7 +19,6 @@ import { Breakfast } from '@/components/timetable/Breakfast'
 import { CheckoutNotice } from '@/components/timetable/CheckoutNotice'
 import { OpenAirBathMorning } from '@/components/timetable/OpenAirBathMorning'
 import { CheckoutTime } from '@/components/timetable/CheckoutTime'
-import { StayingGuests } from '@/components/timetable/StayingGuests'
 
 type Props = {
   date: string
@@ -171,10 +170,6 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
 
         {data && (
           <>
-            <Box sx={{ mb: 0.5 }}>
-              <StayingGuests stayingGuestLabels={data.stayingGuestLabels} />
-            </Box>
-
             <Box
               component="section"
               sx={{
