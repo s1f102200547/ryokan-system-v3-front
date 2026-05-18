@@ -57,7 +57,7 @@ export function CheckInTime({ checkInSlots }: Props) {
           {VALID_ARRIVAL_TIMES.map((t) => (
             <td
               key={t}
-              style={t === '14:00以前' || t === '20:00以降' ? elseCellStyle : bodyCellStyle}
+              style={t === '13:00以前' || t === '19:00以降' ? elseCellStyle : bodyCellStyle}
               data-testid={`checkin-slot-${t}`}
             >
               {(checkInSlots[t] ?? []).map((label, i) => (

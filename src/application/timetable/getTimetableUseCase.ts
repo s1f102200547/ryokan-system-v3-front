@@ -98,8 +98,8 @@ function checkInSlotKey(arrivalTime: string | null): ValidArrivalTime {
   if (arrivalTime === null) return '未定'
   const minutes = parseClockMinutes(arrivalTime)
   if (minutes === null) return '未定'
-  if (minutes < 15 * 60) return '14:00以前'
-  if (minutes >= 20 * 60) return '20:00以降'
+  if (minutes < 14 * 60) return '13:00以前'
+  if (minutes >= 19 * 60) return '19:00以降'
   if ((VALID_ARRIVAL_TIMES as readonly string[]).includes(arrivalTime)) {
     return arrivalTime as ValidArrivalTime
   }
@@ -108,7 +108,7 @@ function checkInSlotKey(arrivalTime: string | null): ValidArrivalTime {
 
 function checkInSlotLabel(room: string, arrivalTime: string | null): string {
   const key = checkInSlotKey(arrivalTime)
-  if ((key === '14:00以前' || key === '20:00以降') && arrivalTime !== null) {
+  if ((key === '13:00以前' || key === '19:00以降') && arrivalTime !== null) {
     return `${room}(${arrivalTime}時)`
   }
   return room
