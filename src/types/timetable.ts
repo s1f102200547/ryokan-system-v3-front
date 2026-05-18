@@ -11,19 +11,27 @@ export type { DailyTodo }
  *                     形式: {部屋マーク}-{大人数}[({子供数})]({現在泊目}/{全泊数}泊目)
  * eveningBathSlots  : 夕方露天風呂 時刻 → 部屋マーク配列
  * dinnerSlots       : 夕食時刻 → ラベル配列（NONE/CANCEL は除外、PENDING → '未定'）
- * guestInfoRows     : 部屋番号 → timetable_info（空室なら '空室'）
+ * guestInfoRows     : 部屋番号 → 人数・泊目・timetable_info（空室なら memo は '空室'）
  * breakfastSlots    : 朝食時刻キー → 部屋マーク配列
  * checkoutRooms     : 翌日チェックアウトの部屋マーク配列（CheckoutNotice 用）
  * morningBathSlots  : 朝露天風呂 時刻 → 部屋マーク配列
  * lateCheckoutRooms : 翌日レイトアウトの部屋マーク配列
  * todos             : 当日の追加 todo リスト
  */
+export type TimetableGuestInfoRow = {
+  room: string
+  guestName: string
+  guestCountLabel: string
+  stayProgressLabel: string
+  memo: string
+}
+
 export type TimetableData = {
   checkInSlots: Record<string, string[]>
   stayingGuestLabels: string[]
   eveningBathSlots: Record<string, string[]>
   dinnerSlots: Record<string, string[]>
-  guestInfoRows: Record<string, string>
+  guestInfoRows: Record<string, TimetableGuestInfoRow>
   breakfastSlots: Record<string, string[]>
   checkoutRooms: string[]
   morningBathSlots: Record<string, string[]>

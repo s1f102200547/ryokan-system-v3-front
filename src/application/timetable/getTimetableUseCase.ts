@@ -12,7 +12,7 @@ import {
   OPEN_AIR_TIMES_MORNING,
 } from '@/constants/timetable'
 import type { ValidArrivalTime } from '@/constants/timetable'
-import type { TimetableData } from '@/types/timetable'
+import type { TimetableData, TimetableGuestInfoRow } from '@/types/timetable'
 
 const QUERY_RANGE_DAYS = 30
 
@@ -86,6 +86,11 @@ function stayingLabel(room: string, r: Reservation, targetDate: string): string 
   return `${roomMark(room)}-${r.adult_count}${children}(${current}/${total}泊目)`
 }
 
+function guestCountLabel(r: Reservation): string {
+  const total = r.adult_count + r.child_count
+  return r.child_count > 0 ? `${total}人 うち${r.child_count}名は子供` : `${total}人`
+}
+
 // ---------------------------------------------------------------------------
 // セクション別ビルダー
 // ---------------------------------------------------------------------------
@@ -153,15 +158,29 @@ function buildGuestInfoRows(
   stateMap: Map<string, RoomCheckInState>,
   staying: RoomStay[],
   targetDate: string,
-): Record<string, string> {
+): Record<string, TimetableGuestInfoRow> {
   const stayingByRoom = new Map(staying.map(({ room, reservation }) => [room, reservation]))
   return Object.fromEntries(
     ROOM_NUMBERS.map((room) => {
-      if (stateMap.get(room)!.isTodayVacant) return [room, '空室']
+      if (stateMap.get(room)!.isTodayVacant) {
+        return [room, { room, guestName: '', guestCountLabel: '', stayProgressLabel: '', memo: '空室' }]
+      }
       const r = stayingByRoom.get(room)
-      if (r === undefined) return [room, '空室']
+      if (r === undefined) {
+        return [room, { room, guestName: '', guestCountLabel: '', stayProgressLabel: '', memo: '空室' }]
+      }
       const idx = nightIdx(r.check_in_date, targetDate)
-      return [room, r.timetable_info[idx] ?? '']
+      const total = dateDiff(r.check_in_date, r.check_out_date)
+      return [
+        room,
+        {
+          room,
+          guestName: r.guest_name,
+          guestCountLabel: guestCountLabel(r),
+          stayProgressLabel: `${idx + 1}/${total}泊目`,
+          memo: r.timetable_info[idx] ?? '',
+        },
+      ]
     }),
   )
 }

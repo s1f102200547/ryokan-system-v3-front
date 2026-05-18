@@ -1,30 +1,46 @@
 import { ROOM_NUMBERS } from '@/types/room'
+import type { TimetableGuestInfoRow } from '@/types/timetable'
 
 type Props = {
-  guestInfoRows: Record<string, string>
+  guestInfoRows: Record<string, TimetableGuestInfoRow>
 }
 
-const tableStyle: React.CSSProperties = {
+const listStyle: React.CSSProperties = {
   width: '95%',
-  borderCollapse: 'collapse',
-  tableLayout: 'fixed',
   height: '100%',
   marginLeft: '5%',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '4px',
 }
 
-const roomCellStyle: React.CSSProperties = {
+const itemStyle: React.CSSProperties = {
   border: '1px solid #000',
-  padding: '8px',
-  verticalAlign: 'middle',
-  width: '40px',
-  textAlign: 'center',
-}
-
-const infoCellStyle: React.CSSProperties = {
-  border: '1px solid #000',
-  textAlign: 'center',
-  height: '65px',
+  minHeight: '65px',
   overflow: 'hidden',
+  display: 'grid',
+  gridTemplateRows: '18px 1fr',
+}
+
+const headerStyle: React.CSSProperties = {
+  borderBottom: '1px solid #000',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'flex-start',
+  gap: '4px',
+  fontSize: '10px',
+  lineHeight: '1.1em',
+  padding: '2px 4px',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+}
+
+const infoStyle: React.CSSProperties = {
+  textAlign: 'center',
+  overflow: 'hidden',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   padding: '4px',
 }
 
@@ -35,26 +51,38 @@ const infoWrapperStyle: React.CSSProperties = {
   fontSize: '10px',
 }
 
+function fallbackRow(room: string): TimetableGuestInfoRow {
+  return { room, guestName: '', guestCountLabel: '', stayProgressLabel: '', memo: '空室' }
+}
+
+function headerLabel(row: TimetableGuestInfoRow): string {
+  const details = [row.guestName, row.guestCountLabel, row.stayProgressLabel]
+    .filter((value) => value !== '')
+    .join(' ')
+  return details === '' ? `${row.room}号室` : `${row.room}号室 ${details}`
+}
+
 export function GuestInfo({ guestInfoRows }: Props) {
   return (
-    <table style={tableStyle}>
-      <tbody>
-        {ROOM_NUMBERS.map((room) => {
-          const info = guestInfoRows[room] ?? '空室'
-          const isVacant = info === '空室'
-          return (
-            <tr key={room}>
-              <td style={roomCellStyle}>{room}</td>
-              <td
-                style={infoCellStyle}
-                data-testid={isVacant ? 'guest-info-vacant' : `guest-info-row-${room}`}
-              >
-                <div style={infoWrapperStyle}>{info}</div>
-              </td>
-            </tr>
-          )
-        })}
-      </tbody>
-    </table>
+    <div style={listStyle}>
+      {ROOM_NUMBERS.map((room) => {
+        const row = guestInfoRows[room] ?? fallbackRow(room)
+        const isVacant = row.memo === '空室'
+        return (
+          <div
+            key={room}
+            style={itemStyle}
+            data-testid={isVacant ? 'guest-info-vacant' : `guest-info-row-${room}`}
+          >
+            <div style={headerStyle}>
+              {headerLabel(row)}
+            </div>
+            <div style={infoStyle}>
+              <div style={infoWrapperStyle}>{row.memo}</div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
   )
 }
