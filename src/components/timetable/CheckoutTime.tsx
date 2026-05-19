@@ -3,19 +3,33 @@ type Props = {
   lateCheckoutRooms: string[]
 }
 
-const cellStyle: React.CSSProperties = {
+const headerCellStyle: React.CSSProperties = {
   border: '1px solid #000',
-  padding: '8px',
-  verticalAlign: 'middle',
+  backgroundColor: '#f0f0f0',
+  padding: '2px 8px',
   fontSize: '11px',
   textAlign: 'left',
+  fontWeight: 'normal',
+  boxSizing: 'border-box',
+}
+
+const bodyCellStyle: React.CSSProperties = {
+  border: '1px solid #000',
+  padding: '0 8px',
+  verticalAlign: 'middle',
+  height: '28px',
+  boxSizing: 'border-box',
 }
 
 const roomListStyle: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-evenly',
-  fontSize: '18px',
+  alignItems: 'center',
+  height: '28px',
+  overflow: 'hidden',
+  fontSize: '16px',
   lineHeight: 1,
+  whiteSpace: 'nowrap',
 }
 
 function RoomList({ rooms }: { rooms: string[] }) {
@@ -37,26 +51,27 @@ export function CheckoutTime({ checkoutRooms, lateCheckoutRooms }: Props) {
         tableLayout: 'fixed',
       }}
     >
+      <thead>
+        <tr>
+          <th style={{ ...headerCellStyle, width: '20%' }}>early</th>
+          <th style={{ ...headerCellStyle, width: '60%' }}>通常</th>
+          <th style={{ ...headerCellStyle, width: '20%' }}>late</th>
+        </tr>
+      </thead>
       <tbody>
         <tr>
-          <td style={{ ...cellStyle, width: '20%' }}>early</td>
+          <td style={{ ...bodyCellStyle, width: '20%' }} />
           <td
-            style={{ ...cellStyle, width: '60%' }}
+            style={{ ...bodyCellStyle, width: '60%' }}
             data-testid="checkout-notice"
           >
-            <div>
-              <span>通常</span>
-              <RoomList rooms={checkoutRooms} />
-            </div>
+            <RoomList rooms={checkoutRooms} />
           </td>
           <td
-            style={{ ...cellStyle, width: '20%' }}
+            style={{ ...bodyCellStyle, width: '20%' }}
             data-testid="late-checkout-notice"
           >
-            <div>
-              <span>late</span>
-              <RoomList rooms={lateCheckoutRooms} />
-            </div>
+            <RoomList rooms={lateCheckoutRooms} />
           </td>
         </tr>
       </tbody>
