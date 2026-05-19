@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
@@ -44,6 +44,12 @@ export function DailyDashboard({ today }: Props) {
   const cleaningBoardPrintDate = selectedDate === today ? tomorrow : selectedDate
   const cleaningBoardButtonLabel =
     selectedDate === today ? '明日の掃除ボード' : 'この日の掃除ボード'
+
+  // useEffect の deps に渡すため useCallback で安定化する。
+  // インラインラムダのままだとレンダーごとに参照が変わり、afterprint リスナーが毎回付け直される。
+  const handleTimetablePrintReady = useCallback(() => window.print(), [])
+  const handleAfterPrint = useCallback(() => setPrintMode(null), [])
+
   const printButtonSx = {
     textTransform: 'none',
     fontSize: '0.72rem',
@@ -276,15 +282,15 @@ export function DailyDashboard({ today }: Props) {
       {printMode === 'timetable' && (
         <TimetablePrintContent
           date={selectedDate}
-          onPrintReady={() => window.print()}
-          onAfterPrint={() => setPrintMode(null)}
+          onPrintReady={handleTimetablePrintReady}
+          onAfterPrint={handleAfterPrint}
         />
       )}
       {printMode === 'cleaning-board' && (
         <CleaningBoardPrintContent
           date={cleaningBoardPrintDate}
-          onPrintReady={() => window.print()}
-          onAfterPrint={() => setPrintMode(null)}
+          onPrintReady={handleTimetablePrintReady}
+          onAfterPrint={handleAfterPrint}
         />
       )}
     </Box>

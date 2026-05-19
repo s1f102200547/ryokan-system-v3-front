@@ -191,7 +191,7 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
               </Box>
               <Box sx={{ gridArea: 'evening', position: 'relative', ml: 2 }}>
                 <Box sx={{ position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: 700, pr: '6px', whiteSpace: 'nowrap' }}>
-                  露天
+                  夕露天
                 </Box>
                 <OpenAirBathEvening eveningBathSlots={data.eveningBathSlots} />
               </Box>
@@ -220,7 +220,7 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
               <Box sx={{ gridArea: 'bathco', mt: 1 }}>
                 <Box sx={{ position: 'relative', mb: 1, ml: 2 }}>
                   <Box sx={{ position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: 700, pr: '6px', whiteSpace: 'nowrap' }}>
-                    露天
+                    朝露天
                   </Box>
                   <OpenAirBathMorning morningBathSlots={data.morningBathSlots} />
                 </Box>
