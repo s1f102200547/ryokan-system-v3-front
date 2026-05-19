@@ -35,6 +35,3 @@ export const BREAKFAST_B_TIMES = ['7:30b', '8:00b', '8:30b', '9:00b', '9:30b'] a
 
 // 朝食ヘッダー列（時刻表示用）
 export const BREAKFAST_HEADER_TIMES = ['7:30', '8:00', '8:30', '9:00', '9:30'] as const
-
-// C/O 時刻列
-export const CHECKOUT_TIMES = ['7:30', '8:00', '8:30', '9:00', '9:30', '11:00'] as const

@@ -1,5 +1,3 @@
-import { CHECKOUT_TIMES } from '@/constants/timetable'
-
 type Props = {
   lateCheckoutRooms: string[]
 }
@@ -23,27 +21,19 @@ export function CheckoutTime({ lateCheckoutRooms }: Props) {
     >
       <tbody>
         <tr>
-          {CHECKOUT_TIMES.map((t) => {
-            if (t === '11:00') {
-              return (
-                <td
-                  key={t}
-                  style={{ ...cellStyle, display: 'flex', alignItems: 'center' }}
-                  data-testid="late-checkout-notice"
-                >
-                  <span style={{ flex: 1, textAlign: 'center', fontSize: '18px', lineHeight: 1 }}>
-                    {lateCheckoutRooms.join('')}
-                  </span>
-                  <span>{t}</span>
-                </td>
-              )
-            }
-            return (
-              <td key={t} style={cellStyle}>
-                {t}
-              </td>
-            )
-          })}
+          <td style={{ ...cellStyle, width: '20%' }}>early</td>
+          <td style={{ ...cellStyle, width: '60%' }}>通常</td>
+          <td
+            style={{ ...cellStyle, width: '20%' }}
+            data-testid="late-checkout-notice"
+          >
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ flex: 1, textAlign: 'center', fontSize: '18px', lineHeight: 1 }}>
+                {lateCheckoutRooms.join('')}
+              </span>
+              <span>late</span>
+            </div>
+          </td>
         </tr>
       </tbody>
     </table>
