@@ -21,7 +21,7 @@ export const OPEN_AIR_TIMES_EVENING = [
 
 // 朝露天風呂 列
 export const OPEN_AIR_TIMES_MORNING = [
-  '7:30', '8:00', '8:30', '9:00', '9:30',
+  '7:30', '8:00', '8:30', '9:00',
 ] as const
 
 // 夕食 列（'PENDING' は '未定' キーに対応）

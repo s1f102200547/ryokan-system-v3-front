@@ -31,7 +31,7 @@ export function OpenAirBathMorning({ morningBathSlots }: Props) {
   return (
     <table
       style={{
-        width: '83.3%',
+        width: '66.6%',
         borderCollapse: 'collapse',
         tableLayout: 'fixed',
         marginTop: '5px',
