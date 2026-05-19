@@ -16,7 +16,7 @@ export function Dinner({ dinnerSlots }: Props) {
   return (
     <table
       style={{
-        width: '87.5%',
+        width: '72%',
         borderCollapse: 'collapse',
         tableLayout: 'fixed',
         height: '100px',
