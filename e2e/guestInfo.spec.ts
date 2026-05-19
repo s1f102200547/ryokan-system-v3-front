@@ -144,7 +144,7 @@ test.describe('GuestInfo - 予約一覧表示', () => {
     await expect.poll(() => patchBody).toMatchObject({ todos: [] })
   })
 
-  test('トグル切り替えで予約カードを並び替えず連泊を常時表示する', async ({ page }) => {
+  test('予約カードを部屋番号順に表示しトグル切り替え後も順序を維持する', async ({ page }) => {
     await page.route('/api/guest-info*', (route) => route.fulfill({
       status: 200,
       json: {
@@ -156,13 +156,13 @@ test.describe('GuestInfo - 予約一覧表示', () => {
 
     await page.goto('/daily-dashboard?date=2026-01-01&today=2026-01-01')
     await expect(page.getByTestId('reservation-card')).toHaveCount(3)
-    await expect(page.getByTestId('reservation-card').nth(0)).toContainText('43')
-    await expect(page.getByTestId('reservation-card').nth(1)).toContainText('21')
+    await expect(page.getByTestId('reservation-card').nth(0)).toContainText('21')
+    await expect(page.getByTestId('reservation-card').nth(1)).toContainText('43')
     await expect(page.getByTestId('reservation-card').nth(2)).toContainText('連泊')
 
     await page.getByRole('button', { name: '到着' }).click()
-    await expect(page.getByTestId('reservation-card').nth(0)).toContainText('43')
-    await expect(page.getByTestId('reservation-card').nth(1)).toContainText('21')
+    await expect(page.getByTestId('reservation-card').nth(0)).toContainText('21')
+    await expect(page.getByTestId('reservation-card').nth(1)).toContainText('43')
     await expect(page.getByTestId('reservation-card').nth(2)).toContainText('連泊')
   })
 })
