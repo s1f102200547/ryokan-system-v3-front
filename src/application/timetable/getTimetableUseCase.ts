@@ -109,7 +109,7 @@ function checkInSlotKey(arrivalTime: string | null): ValidArrivalTime {
 function checkInSlotLabel(room: string, arrivalTime: string | null): string {
   const key = checkInSlotKey(arrivalTime)
   if ((key === '13:00以前' || key === '19:00以降') && arrivalTime !== null) {
-    return `${room}(${arrivalTime}時)`
+    return `${room}(${arrivalTime})`
   }
   return room
 }

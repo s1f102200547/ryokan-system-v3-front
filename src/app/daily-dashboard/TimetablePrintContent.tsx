@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import Alert from '@mui/material/Alert'
 import Backdrop from '@mui/material/Backdrop'
 import Box from '@mui/material/Box'
@@ -79,19 +79,18 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
     if (!isLoading && data) {
       onPrintReady()
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, data])
+  }, [isLoading, data, onPrintReady])
 
   useEffect(() => {
     window.addEventListener('afterprint', onAfterPrint)
     return () => window.removeEventListener('afterprint', onAfterPrint)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [onAfterPrint])
 
   const dateLabel = formatTimetableDateLabel(date)
   const nextDateLabel = formatNextDateLabel(date)
   const weekdayChecks = getWeekdayChecks(date)
-  const printTime = new Date()
+  // コンポーネント生成時刻を固定する（印刷ボタン押下時刻として表示するため）
+  const printTime = useMemo(() => new Date(), [])
 
   return (
     <>
