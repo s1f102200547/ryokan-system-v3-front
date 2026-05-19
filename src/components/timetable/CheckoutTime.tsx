@@ -11,6 +11,23 @@ const cellStyle: React.CSSProperties = {
   textAlign: 'left',
 }
 
+const roomListStyle: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-evenly',
+  fontSize: '18px',
+  lineHeight: 1,
+}
+
+function RoomList({ rooms }: { rooms: string[] }) {
+  return (
+    <span style={roomListStyle}>
+      {rooms.map((room) => (
+        <span key={room}>{room}</span>
+      ))}
+    </span>
+  )
+}
+
 export function CheckoutTime({ checkoutRooms, lateCheckoutRooms }: Props) {
   return (
     <table
@@ -29,9 +46,7 @@ export function CheckoutTime({ checkoutRooms, lateCheckoutRooms }: Props) {
           >
             <div>
               <span>通常</span>
-              <span style={{ display: 'block', textAlign: 'center', fontSize: '18px', lineHeight: 1 }}>
-                {checkoutRooms.join('')}
-              </span>
+              <RoomList rooms={checkoutRooms} />
             </div>
           </td>
           <td
@@ -40,9 +55,7 @@ export function CheckoutTime({ checkoutRooms, lateCheckoutRooms }: Props) {
           >
             <div>
               <span>late</span>
-              <span style={{ display: 'block', textAlign: 'center', fontSize: '18px', lineHeight: 1 }}>
-                {lateCheckoutRooms.join('')}
-              </span>
+              <RoomList rooms={lateCheckoutRooms} />
             </div>
           </td>
         </tr>
