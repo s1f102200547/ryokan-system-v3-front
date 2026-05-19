@@ -185,7 +185,7 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
                 `,
               }}
             >
-              <Box sx={{ gridArea: 'checkin' }}>
+              <Box sx={{ gridArea: 'checkin', width: '62%' }}>
                 <CheckInTime checkInSlots={data.checkInSlots} />
               </Box>
               <Box sx={{ gridArea: 'evening' }}>
