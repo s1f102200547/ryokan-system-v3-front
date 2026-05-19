@@ -158,11 +158,11 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
           })}
         </Box>
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: '2.5fr 5fr 2.5fr', alignItems: 'center', mb: 0.5 }}>
           <Box data-testid="timetable-date" sx={{ fontSize: '20px', fontWeight: 'bold' }}>
             {dateLabel}
           </Box>
-          <Box data-testid="weekday-checks" sx={{ fontSize: '12px' }}>
+          <Box data-testid="weekday-checks" sx={{ gridColumn: '3', ml: -10, fontSize: '12px' }}>
             {data ? buildChecksLabel(weekdayChecks, data.todos ?? []) : weekdayChecks}
           </Box>
         </Box>
