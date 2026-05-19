@@ -1,9 +1,5 @@
 import { BREAKFAST_HEADER_TIMES } from '@/constants/timetable'
 
-type Props = {
-  nextDateLabel: string // 例: "4/13"
-}
-
 const cellStyle: React.CSSProperties = {
   border: '1px solid #000',
   borderBottom: 'none',
@@ -14,28 +10,25 @@ const cellStyle: React.CSSProperties = {
   fontSize: '11px',
 }
 
-export function BreakfastHeader({ nextDateLabel }: Props) {
+export function BreakfastHeader() {
   return (
-    <>
-      <div style={{ fontSize: '11px', marginBottom: '2px' }}>{nextDateLabel}</div>
-      <table
-        style={{
-          width: '83.3%',
-          borderCollapse: 'collapse',
-          tableLayout: 'fixed',
-          backgroundColor: '#f0f0f0',
-        }}
-      >
-        <thead>
-          <tr>
-            {BREAKFAST_HEADER_TIMES.map((t) => (
-              <th key={t} style={cellStyle}>
-                {t}
-              </th>
-            ))}
-          </tr>
-        </thead>
-      </table>
-    </>
+    <table
+      style={{
+        width: '83.3%',
+        borderCollapse: 'collapse',
+        tableLayout: 'fixed',
+        backgroundColor: '#f0f0f0',
+      }}
+    >
+      <thead>
+        <tr>
+          {BREAKFAST_HEADER_TIMES.map((t) => (
+            <th key={t} style={cellStyle}>
+              {t}
+            </th>
+          ))}
+        </tr>
+      </thead>
+    </table>
   )
 }

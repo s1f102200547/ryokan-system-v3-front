@@ -179,7 +179,7 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
                 gridTemplateAreas: `
                   "checkin  checkin  checkin"
                   "evening  evening  evening"
-                  "number   dinner   guestinfo"
+                  ".        dinner   guestinfo"
                   "bf       bf       guestinfo"
                   "bathco   bathco   guestinfo"
                 `,
@@ -191,9 +191,6 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
               <Box sx={{ gridArea: 'evening' }}>
                 <OpenAirBathEvening eveningBathSlots={data.eveningBathSlots} />
               </Box>
-              <Box sx={{ gridArea: 'number' }}>
-                <NumberOfBreakfast />
-              </Box>
               <Box sx={{ gridArea: 'dinner' }}>
                 <Dinner dinnerSlots={data.dinnerSlots} />
               </Box>
@@ -201,7 +198,11 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
                 <GuestInfo guestInfoRows={data.guestInfoRows} />
               </Box>
               <Box sx={{ gridArea: 'bf' }}>
-                <BreakfastHeader nextDateLabel={nextDateLabel} />
+                <Box sx={{ mb: '2px' }}>
+                  <Box sx={{ fontSize: '11px', lineHeight: 1.35 }}>{nextDateLabel}</Box>
+                  <NumberOfBreakfast />
+                </Box>
+                <BreakfastHeader />
                 <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
                   <Breakfast breakfastSlots={data.breakfastSlots} />
                   <CheckoutNotice checkoutRooms={data.checkoutRooms} />
