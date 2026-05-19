@@ -1,8 +1,8 @@
+import { BREAKFAST_A_TIMES, BREAKFAST_B_TIMES } from '@/constants/timetable'
+
 type Props = {
   breakfastSlots: Record<string, string[]>
 }
-
-import { BREAKFAST_A_TIMES, BREAKFAST_B_TIMES } from '@/constants/timetable'
 
 // 場所ラベル
 const LOCATION_LABEL: Record<string, string> = {

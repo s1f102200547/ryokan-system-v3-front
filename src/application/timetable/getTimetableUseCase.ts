@@ -109,7 +109,7 @@ function checkInSlotKey(arrivalTime: string | null): ValidArrivalTime {
 function checkInSlotLabel(room: string, arrivalTime: string | null): string {
   const key = checkInSlotKey(arrivalTime)
   if ((key === '13:00以前' || key === '19:00以降') && arrivalTime !== null) {
-    return `${room}(${arrivalTime}時)`
+    return `${room}(${arrivalTime})`
   }
   return room
 }
@@ -214,10 +214,10 @@ function buildBreakfastSlots(staying: RoomStay[], targetDate: string): Record<st
 
 /** checkoutRooms: nextDay の isTodayCheckout を使用 */
 function buildCheckoutRooms(nextDayStateMap: Map<string, RoomCheckInState>): string[] {
-  return ROOM_NUMBERS.filter((room) => nextDayStateMap.get(room)!.isTodayCheckout).map(roomMark)
+  return ROOM_NUMBERS.filter((room) => nextDayStateMap.get(room)!.isTodayCheckout)
 }
 
 /** lateCheckoutRooms: nextDay の isLateCheckout を使用 */
 function buildLateCheckoutRooms(nextDayStateMap: Map<string, RoomCheckInState>): string[] {
-  return ROOM_NUMBERS.filter((room) => nextDayStateMap.get(room)!.isLateCheckout).map(roomMark)
+  return ROOM_NUMBERS.filter((room) => nextDayStateMap.get(room)!.isLateCheckout)
 }

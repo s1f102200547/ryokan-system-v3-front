@@ -13,9 +13,9 @@ export type { DailyTodo }
  * dinnerSlots       : 夕食時刻 → ラベル配列（NONE/CANCEL は除外、PENDING → '未定'）
  * guestInfoRows     : 部屋番号 → 人数・泊目・timetable_info（空室なら memo は '空室'）
  * breakfastSlots    : 朝食時刻キー → 部屋マーク配列
- * checkoutRooms     : 翌日チェックアウトの部屋マーク配列（CheckoutNotice 用）
+ * checkoutRooms     : 翌日チェックアウトの部屋番号配列
  * morningBathSlots  : 朝露天風呂 時刻 → 部屋マーク配列
- * lateCheckoutRooms : 翌日レイトアウトの部屋マーク配列
+ * lateCheckoutRooms : 翌日レイトアウトの部屋番号配列
  * todos             : 当日の追加 todo リスト
  */
 export type TimetableGuestInfoRow = {

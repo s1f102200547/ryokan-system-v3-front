@@ -1,49 +1,78 @@
-import { CHECKOUT_TIMES } from '@/constants/timetable'
-
 type Props = {
+  checkoutRooms: string[]
   lateCheckoutRooms: string[]
 }
 
-const cellStyle: React.CSSProperties = {
+const headerCellStyle: React.CSSProperties = {
   border: '1px solid #000',
-  padding: '8px',
-  verticalAlign: 'middle',
+  backgroundColor: '#f0f0f0',
+  padding: '2px 8px',
   fontSize: '11px',
-  textAlign: 'left',
+  textAlign: 'center',
+  fontWeight: 'normal',
+  boxSizing: 'border-box',
 }
 
-export function CheckoutTime({ lateCheckoutRooms }: Props) {
+const bodyCellStyle: React.CSSProperties = {
+  border: '1px solid #000',
+  padding: '0 8px',
+  verticalAlign: 'middle',
+  height: '28px',
+  boxSizing: 'border-box',
+}
+
+const roomListStyle: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-evenly',
+  alignItems: 'center',
+  height: '28px',
+  overflow: 'hidden',
+  fontSize: '16px',
+  lineHeight: 1,
+  whiteSpace: 'nowrap',
+}
+
+function RoomList({ rooms }: { rooms: string[] }) {
+  return (
+    <span style={roomListStyle}>
+      {rooms.map((room) => (
+        <span key={room}>{room}</span>
+      ))}
+    </span>
+  )
+}
+
+export function CheckoutTime({ checkoutRooms, lateCheckoutRooms }: Props) {
   return (
     <table
       style={{
-        width: '99.9%',
+        width: '83.3%',
         borderCollapse: 'collapse',
         tableLayout: 'fixed',
       }}
     >
+      <thead>
+        <tr>
+          <th style={{ ...headerCellStyle, width: '20%' }}>early</th>
+          <th style={{ ...headerCellStyle, width: '60%' }}>通常</th>
+          <th style={{ ...headerCellStyle, width: '20%' }}>late</th>
+        </tr>
+      </thead>
       <tbody>
         <tr>
-          {CHECKOUT_TIMES.map((t) => {
-            if (t === '11:00') {
-              return (
-                <td
-                  key={t}
-                  style={{ ...cellStyle, display: 'flex', alignItems: 'center' }}
-                  data-testid="late-checkout-notice"
-                >
-                  <span style={{ flex: 1, textAlign: 'center', fontSize: '18px', lineHeight: 1 }}>
-                    {lateCheckoutRooms.join('')}
-                  </span>
-                  <span>{t}</span>
-                </td>
-              )
-            }
-            return (
-              <td key={t} style={cellStyle}>
-                {t}
-              </td>
-            )
-          })}
+          <td style={{ ...bodyCellStyle, width: '20%' }} />
+          <td
+            style={{ ...bodyCellStyle, width: '60%' }}
+            data-testid="checkout-notice"
+          >
+            <RoomList rooms={checkoutRooms} />
+          </td>
+          <td
+            style={{ ...bodyCellStyle, width: '20%' }}
+            data-testid="late-checkout-notice"
+          >
+            <RoomList rooms={lateCheckoutRooms} />
+          </td>
         </tr>
       </tbody>
     </table>
