@@ -16,6 +16,7 @@ const listStyle: React.CSSProperties = {
 
 const itemStyle: React.CSSProperties = {
   border: '1px solid #000',
+  flex: '1 1 0',
   minHeight: '70px',
   overflow: 'hidden',
   display: 'grid',
