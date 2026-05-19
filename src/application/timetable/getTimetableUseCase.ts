@@ -214,10 +214,10 @@ function buildBreakfastSlots(staying: RoomStay[], targetDate: string): Record<st
 
 /** checkoutRooms: nextDay の isTodayCheckout を使用 */
 function buildCheckoutRooms(nextDayStateMap: Map<string, RoomCheckInState>): string[] {
-  return ROOM_NUMBERS.filter((room) => nextDayStateMap.get(room)!.isTodayCheckout).map(roomMark)
+  return ROOM_NUMBERS.filter((room) => nextDayStateMap.get(room)!.isTodayCheckout)
 }
 
 /** lateCheckoutRooms: nextDay の isLateCheckout を使用 */
 function buildLateCheckoutRooms(nextDayStateMap: Map<string, RoomCheckInState>): string[] {
-  return ROOM_NUMBERS.filter((room) => nextDayStateMap.get(room)!.isLateCheckout).map(roomMark)
+  return ROOM_NUMBERS.filter((room) => nextDayStateMap.get(room)!.isLateCheckout)
 }

@@ -71,9 +71,9 @@ function mockFor0413(): TimetableData {
       },
     },
     breakfastSlots: {},
-    checkoutRooms: ['㉑'],
+    checkoutRooms: ['21'],
     morningBathSlots: {},
-    lateCheckoutRooms: ['㉑'],
+    lateCheckoutRooms: ['21'],
     todos: [],
   }
 }
@@ -267,12 +267,12 @@ test.describe('タイムテーブル印刷コンテンツ（4/13）', () => {
     await expect(page.getByTestId('timetable-date')).toContainText('4/13')
   })
 
-  test('4/13印刷エリアのCheckoutNoticeに㉑が表示される', async ({ page }) => {
-    await expect(page.getByTestId('checkout-notice')).toContainText('㉑')
+  test('4/13印刷エリアのCheckoutNoticeに21が表示される', async ({ page }) => {
+    await expect(page.getByTestId('checkout-notice')).toContainText('21')
   })
 
-  test('4/13印刷エリアのLateCheckoutに㉑が表示される', async ({ page }) => {
-    await expect(page.getByTestId('late-checkout-notice')).toContainText('㉑')
+  test('4/13印刷エリアのLateCheckoutに21が表示される', async ({ page }) => {
+    await expect(page.getByTestId('late-checkout-notice')).toContainText('21')
   })
 })
 
