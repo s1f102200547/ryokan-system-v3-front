@@ -19,7 +19,7 @@ const itemStyle: React.CSSProperties = {
   minHeight: '70px',
   overflow: 'hidden',
   display: 'grid',
-  gridTemplateRows: '18px 1fr',
+  gridTemplateRows: '25px 1fr',
 }
 
 const headerStyle: React.CSSProperties = {
