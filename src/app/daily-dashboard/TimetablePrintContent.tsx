@@ -202,7 +202,7 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
                 </Box>
                 <Dinner dinnerSlots={data.dinnerSlots} />
               </Box>
-              <Box sx={{ gridArea: 'guestinfo', gridColumn: '3', gridRow: '1 / -1', height: '100%', alignSelf: 'stretch' }}>
+              <Box sx={{ gridArea: 'guestinfo', gridColumn: '3', gridRow: '1 / -1', width: '90%', height: '100%', alignSelf: 'stretch', ml: -10 }}>
                 <GuestInfo guestInfoRows={data.guestInfoRows} />
               </Box>
               <Box sx={{ gridArea: 'bf', position: 'relative', ml: 2 }}>

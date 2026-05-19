@@ -6,9 +6,8 @@ type Props = {
 }
 
 const listStyle: React.CSSProperties = {
-  width: '95%',
+  width: '100%',
   height: '100%',
-  marginLeft: '5%',
   display: 'flex',
   flexDirection: 'column',
   gap: '4px',
