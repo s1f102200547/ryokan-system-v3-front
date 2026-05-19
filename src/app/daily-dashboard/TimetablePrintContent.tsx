@@ -16,7 +16,6 @@ import { Dinner } from '@/components/timetable/Dinner'
 import { GuestInfo } from '@/components/timetable/GuestInfo'
 import { BreakfastHeader } from '@/components/timetable/BreakfastHeader'
 import { Breakfast } from '@/components/timetable/Breakfast'
-import { CheckoutNotice } from '@/components/timetable/CheckoutNotice'
 import { OpenAirBathMorning } from '@/components/timetable/OpenAirBathMorning'
 import { CheckoutTime } from '@/components/timetable/CheckoutTime'
 
@@ -214,7 +213,6 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
                 <BreakfastHeader />
                 <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
                   <Breakfast breakfastSlots={data.breakfastSlots} />
-                  <CheckoutNotice checkoutRooms={data.checkoutRooms} />
                 </Box>
               </Box>
               <Box sx={{ gridArea: 'bathco', mt: 1 }}>
@@ -228,7 +226,10 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
                   <Box sx={{ position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', pr: '2px', whiteSpace: 'nowrap' }}>
                     C/O
                   </Box>
-                  <CheckoutTime lateCheckoutRooms={data.lateCheckoutRooms} />
+                  <CheckoutTime
+                    checkoutRooms={data.checkoutRooms}
+                    lateCheckoutRooms={data.lateCheckoutRooms}
+                  />
                 </Box>
               </Box>
             </Box>

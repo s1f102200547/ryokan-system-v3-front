@@ -1,4 +1,5 @@
 type Props = {
+  checkoutRooms: string[]
   lateCheckoutRooms: string[]
 }
 
@@ -10,7 +11,7 @@ const cellStyle: React.CSSProperties = {
   textAlign: 'left',
 }
 
-export function CheckoutTime({ lateCheckoutRooms }: Props) {
+export function CheckoutTime({ checkoutRooms, lateCheckoutRooms }: Props) {
   return (
     <table
       style={{
@@ -22,7 +23,17 @@ export function CheckoutTime({ lateCheckoutRooms }: Props) {
       <tbody>
         <tr>
           <td style={{ ...cellStyle, width: '20%' }}>early</td>
-          <td style={{ ...cellStyle, width: '60%' }}>通常</td>
+          <td
+            style={{ ...cellStyle, width: '60%' }}
+            data-testid="checkout-notice"
+          >
+            <div>
+              <span>通常</span>
+              <span style={{ display: 'block', textAlign: 'center', fontSize: '18px', lineHeight: 1 }}>
+                {checkoutRooms.join('')}
+              </span>
+            </div>
+          </td>
           <td
             style={{ ...cellStyle, width: '20%' }}
             data-testid="late-checkout-notice"
