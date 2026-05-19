@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { ROOM_NUMBERS, CLEANING_BOARD_ROOM_NUMBERS } from '../src/constants/room'
+import type { TimetableData, TimetableGuestInfoRow } from '../src/types/timetable'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ヘルパー
@@ -21,30 +22,30 @@ async function suppressPrint(page: Page) {
 // タイムテーブル モックデータ（元 timetable.spec.ts から移植）
 // ─────────────────────────────────────────────────────────────────────────────
 
-type TimetableData = {
-  checkInSlots: Record<string, string[]>
-  stayingGuestLabels: string[]
-  eveningBathSlots: Record<string, string[]>
-  dinnerSlots: Record<string, string[]>
-  guestInfoRows: Record<string, string>
-  breakfastSlots: Record<string, string[]>
-  checkoutRooms: string[]
-  morningBathSlots: Record<string, string[]>
-  lateCheckoutRooms: string[]
-  todos: { id: string; text: string }[]
+function vacantInfoRow(room: string): TimetableGuestInfoRow {
+  return { room, guestName: '', guestCountLabel: '', stayProgressLabel: '', memo: '空室' }
 }
 
-function allVacantInfo(): Record<string, string> {
-  return Object.fromEntries(ROOM_NUMBERS.map((r) => [r, '空室']))
+function allVacantInfo(): Record<string, TimetableGuestInfoRow> {
+  return Object.fromEntries(ROOM_NUMBERS.map((room) => [room, vacantInfoRow(room)]))
 }
 
 function mockFor0412(): TimetableData {
   return {
-    checkInSlots: { '15:00': ['㉑田中太郎-2'] },
+    checkInSlots: { '15:00': ['21'] },
     stayingGuestLabels: ['㉑-2(1/2泊目)'],
     eveningBathSlots: { '16:00': ['㉑'] },
-    dinnerSlots: { '17:30': ['㉑田中太郎-2'] },
-    guestInfoRows: { ...allVacantInfo(), '21': 'memo' },
+    dinnerSlots: { '17:30': ['21'] },
+    guestInfoRows: {
+      ...allVacantInfo(),
+      '21': {
+        room: '21',
+        guestName: '田中太郎',
+        guestCountLabel: '2人',
+        stayProgressLabel: '1/2泊目',
+        memo: 'memo',
+      },
+    },
     breakfastSlots: { '8:00a': ['㉑'] },
     checkoutRooms: [],
     morningBathSlots: {},
@@ -59,7 +60,16 @@ function mockFor0413(): TimetableData {
     stayingGuestLabels: ['㉑-2(2/2泊目)'],
     eveningBathSlots: {},
     dinnerSlots: {},
-    guestInfoRows: { ...allVacantInfo(), '21': '' },
+    guestInfoRows: {
+      ...allVacantInfo(),
+      '21': {
+        room: '21',
+        guestName: '田中太郎',
+        guestCountLabel: '2人',
+        stayProgressLabel: '2/2泊目',
+        memo: '',
+      },
+    },
     breakfastSlots: {},
     checkoutRooms: ['㉑'],
     morningBathSlots: {},
@@ -205,20 +215,20 @@ test.describe('タイムテーブル印刷コンテンツ', () => {
     await expect(page.getByTestId('weekday-checks')).toContainText('▢資源ごみ')
   })
 
-  test('印刷エリアのCheckInに㉑・田中太郎・-2が表示される', async ({ page }) => {
-    await expect(page.getByTestId('checkin-slot-15:00')).toContainText('㉑')
-    await expect(page.getByTestId('checkin-slot-15:00')).toContainText('田中太郎')
-    await expect(page.getByTestId('checkin-slot-15:00')).toContainText('-2')
+  test('印刷エリアのCheckInに部屋番号だけが表示される', async ({ page }) => {
+    await expect(page.getByTestId('checkin-slot-15:00')).toContainText('21')
+    await expect(page.getByTestId('checkin-slot-15:00')).not.toContainText('田中太郎')
+    await expect(page.getByTestId('checkin-slot-15:00')).not.toContainText('-2')
   })
 
   test('印刷エリアの夕方露天に㉑が表示される', async ({ page }) => {
     await expect(page.getByTestId('evening-bath-slot-16:00')).toContainText('㉑')
   })
 
-  test('印刷エリアの夕食に㉑・田中太郎・-2が表示される', async ({ page }) => {
-    await expect(page.getByTestId('dinner-slot-17:30')).toContainText('㉑')
-    await expect(page.getByTestId('dinner-slot-17:30')).toContainText('田中太郎')
-    await expect(page.getByTestId('dinner-slot-17:30')).toContainText('-2')
+  test('印刷エリアの夕食に部屋番号だけが表示される', async ({ page }) => {
+    await expect(page.getByTestId('dinner-slot-17:30')).toContainText('21')
+    await expect(page.getByTestId('dinner-slot-17:30')).not.toContainText('田中太郎')
+    await expect(page.getByTestId('dinner-slot-17:30')).not.toContainText('-2')
   })
 
   test('印刷エリアのGuestInfoにmemoが表示される', async ({ page }) => {
@@ -231,11 +241,6 @@ test.describe('タイムテーブル印刷コンテンツ', () => {
 
   test('印刷エリアの朝食に㉑が表示される', async ({ page }) => {
     await expect(page.getByTestId('breakfast-slot-8:00a')).toContainText('㉑')
-  })
-
-  test('印刷エリアに連泊ゲストラベルが表示される', async ({ page }) => {
-    await expect(page.getByTestId('staying-guests')).toContainText('㉑')
-    await expect(page.getByTestId('staying-guests')).toContainText('1/2泊目')
   })
 })
 

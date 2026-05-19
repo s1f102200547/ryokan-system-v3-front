@@ -12,7 +12,7 @@ import {
   OPEN_AIR_TIMES_MORNING,
 } from '@/constants/timetable'
 import type { ValidArrivalTime } from '@/constants/timetable'
-import type { TimetableData } from '@/types/timetable'
+import type { TimetableData, TimetableGuestInfoRow } from '@/types/timetable'
 
 const QUERY_RANGE_DAYS = 30
 
@@ -72,18 +72,46 @@ function nightIdx(checkInDate: string, targetDate: string): number {
   return dateDiff(checkInDate, targetDate)
 }
 
-/** {部屋マーク}{宿泊者名}-{大人数}[({子供数})] */
-function guestLabel(room: string, r: Reservation): string {
-  const children = r.child_count > 0 ? `(${r.child_count})` : ''
-  return `${roomMark(room)}${r.guest_name}-${r.adult_count}${children}`
-}
-
 /** {部屋マーク}-{大人数}[({子供数})]({現在泊目}/{全泊数}泊目) */
 function stayingLabel(room: string, r: Reservation, targetDate: string): string {
   const children = r.child_count > 0 ? `(${r.child_count})` : ''
   const total = dateDiff(r.check_in_date, r.check_out_date)
   const current = nightIdx(r.check_in_date, targetDate) + 1
   return `${roomMark(room)}-${r.adult_count}${children}(${current}/${total}泊目)`
+}
+
+function guestCountLabel(r: Reservation): string {
+  const total = r.adult_count + r.child_count
+  return r.child_count > 0 ? `${total}人 うち${r.child_count}名は子供` : `${total}人`
+}
+
+function parseClockMinutes(time: string): number | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(time)
+  if (match === null) return null
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null
+  return hours * 60 + minutes
+}
+
+function checkInSlotKey(arrivalTime: string | null): ValidArrivalTime {
+  if (arrivalTime === null) return '未定'
+  const minutes = parseClockMinutes(arrivalTime)
+  if (minutes === null) return '未定'
+  if (minutes < 14 * 60) return '13:00以前'
+  if (minutes >= 19 * 60) return '19:00以降'
+  if ((VALID_ARRIVAL_TIMES as readonly string[]).includes(arrivalTime)) {
+    return arrivalTime as ValidArrivalTime
+  }
+  return '未定'
+}
+
+function checkInSlotLabel(room: string, arrivalTime: string | null): string {
+  const key = checkInSlotKey(arrivalTime)
+  if ((key === '13:00以前' || key === '19:00以降') && arrivalTime !== null) {
+    return `${room}(${arrivalTime}時)`
+  }
+  return room
 }
 
 // ---------------------------------------------------------------------------
@@ -96,17 +124,8 @@ function buildCheckInSlots(stateMap: Map<string, RoomCheckInState>): Record<stri
   for (const room of ROOM_NUMBERS) {
     const r = stateMap.get(room)!.todayCheckInReservation
     if (r === null) continue
-    const isValid =
-      r.arrival_time !== null &&
-      (VALID_ARRIVAL_TIMES as readonly string[]).includes(r.arrival_time)
-    const key = isValid ? (r.arrival_time as ValidArrivalTime) : 'OTHER'
-    const label =
-      r.arrival_time === null
-        ? `${guestLabel(room, r)}（未定）`
-        : !isValid
-          ? `${guestLabel(room, r)}（${r.arrival_time}着）`
-          : guestLabel(room, r)
-    ;(slots[key] ??= []).push(label)
+    const key = checkInSlotKey(r.arrival_time)
+    ;(slots[key] ??= []).push(checkInSlotLabel(room, r.arrival_time))
   }
   return slots
 }
@@ -143,7 +162,7 @@ function buildDinnerSlots(staying: RoomStay[], targetDate: string): Record<strin
     const value = r.dinner_time[idx]
     if (value === undefined || value === 'NONE' || value === 'CANCEL') continue
     const key = value === 'PENDING' ? '未定' : value
-    ;(slots[key] ??= []).push(guestLabel(room, r))
+    ;(slots[key] ??= []).push(room)
   }
   return slots
 }
@@ -153,15 +172,29 @@ function buildGuestInfoRows(
   stateMap: Map<string, RoomCheckInState>,
   staying: RoomStay[],
   targetDate: string,
-): Record<string, string> {
+): Record<string, TimetableGuestInfoRow> {
   const stayingByRoom = new Map(staying.map(({ room, reservation }) => [room, reservation]))
   return Object.fromEntries(
     ROOM_NUMBERS.map((room) => {
-      if (stateMap.get(room)!.isTodayVacant) return [room, '空室']
+      if (stateMap.get(room)!.isTodayVacant) {
+        return [room, { room, guestName: '', guestCountLabel: '', stayProgressLabel: '', memo: '空室' }]
+      }
       const r = stayingByRoom.get(room)
-      if (r === undefined) return [room, '空室']
+      if (r === undefined) {
+        return [room, { room, guestName: '', guestCountLabel: '', stayProgressLabel: '', memo: '空室' }]
+      }
       const idx = nightIdx(r.check_in_date, targetDate)
-      return [room, r.timetable_info[idx] ?? '']
+      const total = dateDiff(r.check_in_date, r.check_out_date)
+      return [
+        room,
+        {
+          room,
+          guestName: r.guest_name,
+          guestCountLabel: guestCountLabel(r),
+          stayProgressLabel: `${idx + 1}/${total}泊目`,
+          memo: r.timetable_info[idx] ?? '',
+        },
+      ]
     }),
   )
 }

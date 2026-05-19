@@ -4,8 +4,7 @@ type Props = {
   checkInSlots: Record<string, string[]>
 }
 
-// 全列数 = VALID_ARRIVAL_TIMES(7) + "その他"(1) = 8
-const TOTAL_COLUMNS = VALID_ARRIVAL_TIMES.length + 1
+const TOTAL_COLUMNS = VALID_ARRIVAL_TIMES.length
 const colWidth = `${100 / TOTAL_COLUMNS}%`
 
 const headerCellStyle: React.CSSProperties = {
@@ -19,24 +18,23 @@ const headerCellStyle: React.CSSProperties = {
 
 const bodyCellStyle: React.CSSProperties = {
   border: '1px solid #000',
-  fontSize: '10px',
+  fontSize: '12px',
   verticalAlign: 'top',
   whiteSpace: 'nowrap',
-  height: '100px',
+  height: '70px',
   width: colWidth,
 }
 
 const elseCellStyle: React.CSSProperties = {
   border: '1px solid #000',
-  fontSize: '10px',
+  fontSize: '12px',
   verticalAlign: 'top',
   whiteSpace: 'pre',
+  height: '70px',
   width: colWidth,
 }
 
 export function CheckInTime({ checkInSlots }: Props) {
-  const otherItems = checkInSlots['OTHER'] ?? []
-
   return (
     <table
       style={{
@@ -52,7 +50,6 @@ export function CheckInTime({ checkInSlots }: Props) {
               {t}
             </th>
           ))}
-          <th style={headerCellStyle}>その他</th>
         </tr>
       </thead>
       <tbody>
@@ -60,7 +57,7 @@ export function CheckInTime({ checkInSlots }: Props) {
           {VALID_ARRIVAL_TIMES.map((t) => (
             <td
               key={t}
-              style={bodyCellStyle}
+              style={t === '13:00以前' || t === '19:00以降' ? elseCellStyle : bodyCellStyle}
               data-testid={`checkin-slot-${t}`}
             >
               {(checkInSlots[t] ?? []).map((label, i) => (
@@ -68,11 +65,6 @@ export function CheckInTime({ checkInSlots }: Props) {
               ))}
             </td>
           ))}
-          <td style={elseCellStyle} data-testid="checkin-slot-OTHER">
-            {otherItems.map((label, i) => (
-              <div key={i}>{label}</div>
-            ))}
-          </td>
         </tr>
       </tbody>
     </table>
