@@ -20,7 +20,6 @@ export function Dinner({ dinnerSlots }: Props) {
         borderCollapse: 'collapse',
         tableLayout: 'fixed',
         height: '100px',
-        marginLeft: '12.4%',
       }}
     >
       <thead>

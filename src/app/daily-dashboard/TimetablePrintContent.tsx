@@ -179,7 +179,7 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
                 gridTemplateAreas: `
                   "checkin  checkin  checkin"
                   "evening  evening  evening"
-                  ".        dinner   guestinfo"
+                  "dinner   dinner   guestinfo"
                   "bf       bf       guestinfo"
                   "bathco   bathco   guestinfo"
                 `,
