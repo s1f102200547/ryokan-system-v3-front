@@ -64,7 +64,7 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
   const allActive: DisplayEntry[] = [
     ...(data?.normal ?? []).map((r) => ({ reservation: r, isStaying: false })),
     ...(data?.staying ?? []).map((r) => ({ reservation: r, isStaying: true })),
-  ]
+  ].sort((a, b) => compareRoom(a.reservation, b.reservation))
   const cancelled = sortByRoom(data?.cancelled ?? [])
 
   return (
