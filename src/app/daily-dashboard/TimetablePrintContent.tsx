@@ -185,19 +185,19 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
                 `,
               }}
             >
-              <Box sx={{ gridArea: 'checkin', width: '62%', position: 'relative' }}>
+              <Box sx={{ gridArea: 'checkin', width: '62%', position: 'relative', ml: 2 }}>
                 <Box sx={{ position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: 700, pr: '6px', whiteSpace: 'nowrap' }}>
                   到着
                 </Box>
                 <CheckInTime checkInSlots={data.checkInSlots} />
               </Box>
-              <Box sx={{ gridArea: 'evening', position: 'relative' }}>
+              <Box sx={{ gridArea: 'evening', position: 'relative', ml: 2 }}>
                 <Box sx={{ position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: 700, pr: '6px', whiteSpace: 'nowrap' }}>
                   露天
                 </Box>
                 <OpenAirBathEvening eveningBathSlots={data.eveningBathSlots} />
               </Box>
-              <Box sx={{ gridArea: 'dinner', position: 'relative' }}>
+              <Box sx={{ gridArea: 'dinner', position: 'relative', ml: 2 }}>
                 <Box sx={{ position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: 700, pr: '6px', whiteSpace: 'nowrap' }}>
                   夕食
                 </Box>
