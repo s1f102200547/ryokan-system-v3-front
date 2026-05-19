@@ -218,7 +218,7 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
                 </Box>
               </Box>
               <Box sx={{ gridArea: 'bathco', mt: 1 }}>
-                <Box sx={{ position: 'relative' }}>
+                <Box sx={{ position: 'relative', mb: 1 }}>
                   <Box sx={{ position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', pr: '2px', whiteSpace: 'nowrap' }}>
                     露天
                   </Box>

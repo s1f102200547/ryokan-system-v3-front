@@ -6,7 +6,6 @@ type Props = {
 
 const cellStyle: React.CSSProperties = {
   border: '1px solid #000',
-  borderBottom: 'none',
   padding: '6px',
   verticalAlign: 'middle',
   width: `${100 / OPEN_AIR_TIMES_MORNING.length}%`,
