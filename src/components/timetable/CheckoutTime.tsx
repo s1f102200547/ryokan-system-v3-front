@@ -8,7 +8,7 @@ const headerCellStyle: React.CSSProperties = {
   backgroundColor: '#f0f0f0',
   padding: '2px 8px',
   fontSize: '11px',
-  textAlign: 'left',
+  textAlign: 'center',
   fontWeight: 'normal',
   boxSizing: 'border-box',
 }
