@@ -26,11 +26,9 @@ export function OpenAirBathEvening({ eveningBathSlots }: Props) {
         width: '87.5%',
         borderCollapse: 'collapse',
         tableLayout: 'fixed',
-        marginLeft: 'auto',
         marginTop: '5px',
         marginBottom: '10px',
         height: '25px',
-        transform: 'translateX(-0.05%)',
       }}
     >
       <tbody>
