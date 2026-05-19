@@ -27,11 +27,11 @@ export function CheckoutTime({ lateCheckoutRooms }: Props) {
             style={{ ...cellStyle, width: '20%' }}
             data-testid="late-checkout-notice"
           >
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <span style={{ flex: 1, textAlign: 'center', fontSize: '18px', lineHeight: 1 }}>
+            <div>
+              <span>late</span>
+              <span style={{ display: 'block', textAlign: 'center', fontSize: '18px', lineHeight: 1 }}>
                 {lateCheckoutRooms.join('')}
               </span>
-              <span>late</span>
             </div>
           </td>
         </tr>
