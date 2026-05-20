@@ -36,7 +36,7 @@ export function Dinner({ dinnerSlots }: Props) {
           {DINNER_TIME_KEYS.map((t) => (
             <td
               key={t}
-              style={{ ...cellStyle, textAlign: 'center', whiteSpace: 'pre-wrap' }}
+              style={{ ...cellStyle, textAlign: 'left', verticalAlign: 'top', whiteSpace: 'pre-wrap', padding: '2px 4px' }}
               data-testid={`dinner-slot-${t}`}
             >
               {(dinnerSlots[t] ?? []).join('\n')}
