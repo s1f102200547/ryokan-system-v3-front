@@ -63,7 +63,7 @@ const printStyles = (
         '.print-area': {
           position: 'absolute',
           top: 30,
-          left: 30,
+          left: 55,
           transform: 'scale(0.9, 0.9)',
           transformOrigin: 'top left',
         },
