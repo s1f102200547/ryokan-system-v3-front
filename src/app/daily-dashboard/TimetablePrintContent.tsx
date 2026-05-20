@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import Alert from '@mui/material/Alert'
 import Backdrop from '@mui/material/Backdrop'
 import Box from '@mui/material/Box'
@@ -16,7 +16,6 @@ import { Dinner } from '@/components/timetable/Dinner'
 import { GuestInfo } from '@/components/timetable/GuestInfo'
 import { BreakfastHeader } from '@/components/timetable/BreakfastHeader'
 import { Breakfast } from '@/components/timetable/Breakfast'
-import { CheckoutNotice } from '@/components/timetable/CheckoutNotice'
 import { OpenAirBathMorning } from '@/components/timetable/OpenAirBathMorning'
 import { CheckoutTime } from '@/components/timetable/CheckoutTime'
 
@@ -80,19 +79,18 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
     if (!isLoading && data) {
       onPrintReady()
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, data])
+  }, [isLoading, data, onPrintReady])
 
   useEffect(() => {
     window.addEventListener('afterprint', onAfterPrint)
     return () => window.removeEventListener('afterprint', onAfterPrint)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [onAfterPrint])
 
   const dateLabel = formatTimetableDateLabel(date)
   const nextDateLabel = formatNextDateLabel(date)
   const weekdayChecks = getWeekdayChecks(date)
-  const printTime = new Date()
+  // コンポーネント生成時刻を固定する（印刷ボタン押下時刻として表示するため）
+  const printTime = useMemo(() => new Date(), [])
 
   return (
     <>
@@ -159,11 +157,11 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
           })}
         </Box>
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: '2.5fr 5fr 2.5fr', alignItems: 'center', mb: 0.5 }}>
           <Box data-testid="timetable-date" sx={{ fontSize: '20px', fontWeight: 'bold' }}>
             {dateLabel}
           </Box>
-          <Box data-testid="weekday-checks" sx={{ fontSize: '12px' }}>
+          <Box data-testid="weekday-checks" sx={{ gridColumn: '3', ml: -10, fontSize: '12px' }}>
             {data ? buildChecksLabel(weekdayChecks, data.todos ?? []) : weekdayChecks}
           </Box>
         </Box>
@@ -179,46 +177,61 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
                 gridTemplateAreas: `
                   "checkin  checkin  checkin"
                   "evening  evening  evening"
-                  "number   dinner   guestinfo"
+                  "dinner   dinner   guestinfo"
                   "bf       bf       guestinfo"
                   "bathco   bathco   guestinfo"
                 `,
               }}
             >
-              <Box sx={{ gridArea: 'checkin' }}>
+              <Box sx={{ gridArea: 'checkin', width: '62%', position: 'relative', ml: 2 }}>
+                <Box sx={{ position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: 700, pr: '6px', whiteSpace: 'nowrap' }}>
+                  到着
+                </Box>
                 <CheckInTime checkInSlots={data.checkInSlots} />
               </Box>
-              <Box sx={{ gridArea: 'evening' }}>
+              <Box sx={{ gridArea: 'evening', position: 'relative', ml: 2 }}>
+                <Box sx={{ position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: 700, pr: '6px', whiteSpace: 'nowrap' }}>
+                  露天
+                </Box>
                 <OpenAirBathEvening eveningBathSlots={data.eveningBathSlots} />
               </Box>
-              <Box sx={{ gridArea: 'number' }}>
-                <NumberOfBreakfast />
-              </Box>
-              <Box sx={{ gridArea: 'dinner' }}>
+              <Box sx={{ gridArea: 'dinner', position: 'relative', ml: 2 }}>
+                <Box sx={{ position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: 700, pr: '6px', whiteSpace: 'nowrap' }}>
+                  夕食
+                </Box>
                 <Dinner dinnerSlots={data.dinnerSlots} />
               </Box>
-              <Box sx={{ gridArea: 'guestinfo' }}>
+              <Box sx={{ gridArea: 'guestinfo', gridColumn: '3', gridRow: '1 / -1', width: '90%', height: '100%', alignSelf: 'stretch', ml: -10 }}>
                 <GuestInfo guestInfoRows={data.guestInfoRows} />
               </Box>
-              <Box sx={{ gridArea: 'bf' }}>
-                <BreakfastHeader nextDateLabel={nextDateLabel} />
+              <Box sx={{ gridArea: 'bf', position: 'relative', ml: 2 }}>
+                <Box sx={{ position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: 700, pr: '6px', whiteSpace: 'nowrap' }}>
+                  朝食
+                </Box>
+                <Box sx={{ mt: 2}}>
+                  <Box sx={{ fontSize: '11px', lineHeight: 1.35 }}>{nextDateLabel}</Box>
+                  <NumberOfBreakfast />
+                </Box>
+                <BreakfastHeader />
                 <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
                   <Breakfast breakfastSlots={data.breakfastSlots} />
-                  <CheckoutNotice checkoutRooms={data.checkoutRooms} />
                 </Box>
               </Box>
               <Box sx={{ gridArea: 'bathco', mt: 1 }}>
-                <Box sx={{ position: 'relative' }}>
-                  <Box sx={{ position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', pr: '2px', whiteSpace: 'nowrap' }}>
+                <Box sx={{ position: 'relative', mb: 1, ml: 2 }}>
+                  <Box sx={{ position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: 700, pr: '6px', whiteSpace: 'nowrap' }}>
                     露天
                   </Box>
                   <OpenAirBathMorning morningBathSlots={data.morningBathSlots} />
                 </Box>
-                <Box sx={{ position: 'relative' }}>
-                  <Box sx={{ position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', pr: '2px', whiteSpace: 'nowrap' }}>
+                <Box sx={{ position: 'relative', ml: 2 }}>
+                  <Box sx={{ position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', fontWeight: 700, pr: '6px', whiteSpace: 'nowrap' }}>
                     C/O
                   </Box>
-                  <CheckoutTime lateCheckoutRooms={data.lateCheckoutRooms} />
+                  <CheckoutTime
+                    checkoutRooms={data.checkoutRooms}
+                    lateCheckoutRooms={data.lateCheckoutRooms}
+                  />
                 </Box>
               </Box>
             </Box>

@@ -102,6 +102,7 @@ describe('GET /api/timetable', () => {
     expect(body).toHaveProperty('checkoutRooms')
     expect(body).toHaveProperty('morningBathSlots')
     expect(body).toHaveProperty('lateCheckoutRooms')
+    expect(body).toHaveProperty('todos')
   })
 
   it('checkInSlots・stayingGuestLabels の内容がそのまま返る', async () => {

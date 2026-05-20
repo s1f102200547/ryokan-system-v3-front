@@ -6,9 +6,8 @@ type Props = {
 }
 
 const listStyle: React.CSSProperties = {
-  width: '95%',
+  width: '100%',
   height: '100%',
-  marginLeft: '5%',
   display: 'flex',
   flexDirection: 'column',
   gap: '4px',
@@ -16,10 +15,11 @@ const listStyle: React.CSSProperties = {
 
 const itemStyle: React.CSSProperties = {
   border: '1px solid #000',
+  flex: '1 1 0',
   minHeight: '70px',
   overflow: 'hidden',
   display: 'grid',
-  gridTemplateRows: '18px 1fr',
+  gridTemplateRows: '25px 1fr',
 }
 
 const headerStyle: React.CSSProperties = {
