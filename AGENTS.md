@@ -28,6 +28,7 @@
 - `any` 型を使わない。必要なら `unknown` + type guard
 - Import alias: `@/*` → `./src/*`
 - 必要な時に適宜`docs/*`, `docs/Schema/*` を参照
+- 定数は`constants/`に書け
 
 ## hooks層の注意事項
 - React 19 で新しく強化されたルールで、useEffect の中で setState を直接呼ぶのはアンチパターン
