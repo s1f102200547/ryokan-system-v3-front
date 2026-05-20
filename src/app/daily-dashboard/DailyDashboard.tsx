@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
@@ -32,11 +33,13 @@ type Props = {
 }
 
 export function DailyDashboard({ today }: Props) {
-  const { selectedDate, dateLabel, diffLabel, setDate, goToPrevDay, goToNextDay, goToToday } =
+  const { selectedDate, dateLabel, diffLabel, setDate, goToPrevDay, goToNextDay, goToToday,
+          isPrevDisabled, isNextDisabled, minDate, maxDate, outOfRangeWarning } =
     useDateNavigation(today)
 
   const [calendarAnchor, setCalendarAnchor] = useState<HTMLElement | null>(null)
   const [printMode, setPrintMode] = useState<PrintMode>(null)
+  const [warningDismissed, setWarningDismissed] = useState(false)
   const [selectedToggle, setSelectedToggle] = useState<GuestInfoToggle | null>(null)
   const { todos, isLoading: todosLoading, error: todosError, isSaving, saveError, addTodo, removeTodo } = useDailyTodos(selectedDate)
   const tomorrow = addDays(today, 1)
@@ -76,6 +79,16 @@ export function DailyDashboard({ today }: Props) {
     <Box sx={{ width: '90%', mx: 'auto', p: 3 }}>
       <DashboardTabs />
 
+      {outOfRangeWarning && !warningDismissed && (
+        <Alert
+          severity="warning"
+          sx={{ mt: 2 }}
+          onClose={() => setWarningDismissed(true)}
+        >
+          {outOfRangeWarning}
+        </Alert>
+      )}
+
       {/* 日付ナビゲーション */}
       <Box
         sx={{
@@ -90,7 +103,7 @@ export function DailyDashboard({ today }: Props) {
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <IconButton onClick={goToPrevDay} aria-label="前日" data-testid="prev-day">
+          <IconButton onClick={goToPrevDay} aria-label="前日" data-testid="prev-day" disabled={isPrevDisabled}>
             <NavigateBeforeIcon fontSize="medium" />
           </IconButton>
 
@@ -128,7 +141,7 @@ export function DailyDashboard({ today }: Props) {
             </Typography>
           </Box>
 
-          <IconButton onClick={goToNextDay} aria-label="翌日" data-testid="next-day">
+          <IconButton onClick={goToNextDay} aria-label="翌日" data-testid="next-day" disabled={isNextDisabled}>
             <NavigateNextIcon fontSize="medium" />
           </IconButton>
 
@@ -169,6 +182,8 @@ export function DailyDashboard({ today }: Props) {
         >
           <DateCalendar
             value={dayjs(selectedDate)}
+            minDate={dayjs(minDate)}
+            maxDate={dayjs(maxDate)}
             onChange={(newValue) => {
               if (newValue) {
                 setDate(newValue.format('YYYY-MM-DD'))

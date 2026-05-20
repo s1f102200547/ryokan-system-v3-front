@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { GET } from './route'
+import { FIXED_TODAY, setupFakeToday } from '@tests/utils/routeTestHelper'
+import { GET } from '@/app/api/guest-info/route'
 import { InfraError } from '@/types/errors'
 
 vi.mock('@/application/guestInfo/getGuestInfoUseCase')
@@ -13,6 +14,8 @@ vi.mock('@/lib/slack', () => ({ notifySlackFireAndForget: vi.fn() }))
 
 const mockUseCase = vi.mocked(getGuestInfoUseCase)
 const mockVerifySession = vi.mocked(verifySession)
+
+setupFakeToday()
 
 function makeRequest(date?: string, withSession = true) {
   const url = date
@@ -33,7 +36,7 @@ describe('GET /api/guest-info', () => {
 
   it('未認証で401', async () => {
     mockVerifySession.mockResolvedValue(null)
-    const res = await GET(makeRequest('2026-04-01', false))
+    const res = await GET(makeRequest(FIXED_TODAY, false))
     expect(res.status).toBe(401)
   })
 
@@ -47,9 +50,24 @@ describe('GET /api/guest-info', () => {
     expect(res.status).toBe(400)
   })
 
+  it('存在しない日付（2026-02-30）で400', async () => {
+    const res = await GET(makeRequest('2026-02-30'))
+    expect(res.status).toBe(400)
+  })
+
+  it('範囲外の日付（過去: 2000-01-01）で400', async () => {
+    const res = await GET(makeRequest('2000-01-01'))
+    expect(res.status).toBe(400)
+  })
+
+  it('範囲外の日付（未来: 2099-12-31）で400', async () => {
+    const res = await GET(makeRequest('2099-12-31'))
+    expect(res.status).toBe(400)
+  })
+
   it('正常リクエストで200とGuestInfoDataを返す', async () => {
     mockUseCase.mockResolvedValue(mockData)
-    const res = await GET(makeRequest('2026-04-01'))
+    const res = await GET(makeRequest(FIXED_TODAY))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body).toHaveProperty('normal')
@@ -59,13 +77,13 @@ describe('GET /api/guest-info', () => {
 
   it('InfraErrorで503', async () => {
     mockUseCase.mockRejectedValue(new InfraError('FIRESTORE_UNAVAILABLE', 'down'))
-    const res = await GET(makeRequest('2026-04-01'))
+    const res = await GET(makeRequest(FIXED_TODAY))
     expect(res.status).toBe(503)
   })
 
   it('想定外エラーで500', async () => {
     mockUseCase.mockRejectedValue(new Error('unexpected'))
-    const res = await GET(makeRequest('2026-04-01'))
+    const res = await GET(makeRequest(FIXED_TODAY))
     expect(res.status).toBe(500)
   })
 })

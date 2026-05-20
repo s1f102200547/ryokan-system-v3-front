@@ -43,13 +43,30 @@ Firebase Auth の失敗分類:
 - パスワード違い、無効 token、期限切れ token、revoke 済み token などは認証失敗として `401`。
 - ネットワーク障害、Firebase サービス障害、想定外の SDK エラーは `AUTH_UNAVAILABLE` 相当のインフラ障害として `503`。
 
-## 時間帯制限
+## 最小権限の法則（アクセス制限）
+
+必要な範囲を超えたデータへのアクセスを UI・API の両層で制限する。
+
+### 時間帯制限
 
 本番環境のみ `proxy.ts` で 6:00-23:00 JST の時間帯制限を行う。
 
 - 時間外アクセスは `/time-restricted` へ redirect。
 - 時間内に `/time-restricted` へアクセスした場合は `/` へ redirect。
 - この制限もセキュリティ境界ではなく、運用上の UX 制御として扱う。
+
+### 日付範囲制限
+
+Route Handler の Zod バリデーション（`src/lib/api/dateSchema.ts`）と UI ナビゲーション（`src/hooks/date/useDateNavigation.ts`）の両層で、アクセス可能な日付を制限する。
+
+| 方向 | 制限 | 定数 |
+|---|---|---|
+| 過去 | 今日から 100 日以内 | `DATE_RANGE_PAST_DAYS` (`src/constants/date.ts`) |
+| 未来 | 今日から 365 日以内 | `DATE_RANGE_FUTURE_DAYS` (`src/constants/date.ts`) |
+
+UI 層: 範囲外 URL が直接入力された場合は今日の日付を表示し、警告 Alert を表示する。カレンダーピッカーの `minDate`/`maxDate` も同じ定数で制限される。
+
+API 層: `QueryDateSchema`（クエリパラメータ用）・`PathDateSchema`（パスパラメータ用）の `.refine()` で 3 段階検証（フォーマット → 存在確認 → 範囲確認）を行い、範囲外は `400` を返す。
 
 ## CSP
 

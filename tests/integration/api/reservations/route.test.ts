@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { POST } from './route'
+import { POST } from '@/app/api/reservations/route'
 import { InfraError } from '@/types/errors'
 
 vi.mock('@/application/guestInfo/addReservationCommand')

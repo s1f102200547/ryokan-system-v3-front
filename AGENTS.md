@@ -28,6 +28,7 @@
 - `any` 型を使わない。必要なら `unknown` + type guard
 - Import alias: `@/*` → `./src/*`
 - 必要な時に適宜`docs/*`, `docs/Schema/*` を参照
+- 定数は`constants/`に書け
 
 ## hooks層の注意事項
 - React 19 で新しく強化されたルールで、useEffect の中で setState を直接呼ぶのはアンチパターン
@@ -39,6 +40,7 @@
 - `application/` は UseCase/Command の手順を表現する。読み取りは UseCase、状態変更は Command。
 - `components/` は表示とイベント通知、`hooks/` は API 呼び出し・loading/error・日本語メッセージ変換を担当する。
 - Route Handler は session 検証、Zod 入力検証、Application/Infra 呼び出し、HTTP response 変換を担当する。
+- テストは `src/` 外の `tests/` に分離する。`tests/unit/` は Domain 層、`tests/integration/` は Route Handler、`tests/utils/` は共通ヘルパー（`routeTestHelper` 等）、`tests/setup/` は Vitest グローバルセットアップ。`@tests/*` エイリアスで `tests/` 配下を絶対 import する。
 
 ## CI/CD
 - CI は `pull_request` to `main` と `push` to `main` で `lint`、`typecheck`、`audit`、`unit-test`、`e2e`、`zap-scan` を実行する。

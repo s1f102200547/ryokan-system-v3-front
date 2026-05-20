@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { GET } from './route'
+import { GET } from '@/app/api/a-tax-table/route'
 import { InfraError } from '@/types/errors'
 
 vi.mock('@/application/aTaxTable/getATaxTableUseCase')

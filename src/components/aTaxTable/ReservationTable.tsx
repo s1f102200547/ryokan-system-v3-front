@@ -82,27 +82,31 @@ function ATaxCheckboxCell({
   id,
   checked,
   onToggle,
+  onError,
 }: {
   id: string
   checked: boolean
   onToggle: (id: string, checked: boolean) => void
+  onError: (msg: string) => void
 }) {
   const { execute } = useUpdateATax()
   const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const next = e.target.checked
     onToggle(id, next)
-    await execute(id, { a_tax_received: next })
+    const err = await execute(id, { a_tax_received: next })
+    if (err) onError(err)
   }
   return <Checkbox checked={checked} onChange={handleChange} size="small" />
 }
 
-function StaffNameCell({ id, value }: { id: string; value: string }) {
+function StaffNameCell({ id, value, onError }: { id: string; value: string; onError: (msg: string) => void }) {
   const { execute } = useUpdateATax()
   const [text, setText] = useState(value)
 
   const handleBlur = async () => {
     if (text === value) return
-    await execute(id, { a_tax_received_by_staff_name: text })
+    const err = await execute(id, { a_tax_received_by_staff_name: text })
+    if (err) onError(err)
   }
 
   return (
@@ -117,13 +121,14 @@ function StaffNameCell({ id, value }: { id: string; value: string }) {
   )
 }
 
-function SafeBalanceCheckerCell({ date, value }: { date: string; value: string }) {
+function SafeBalanceCheckerCell({ date, value, onError }: { date: string; value: string; onError: (msg: string) => void }) {
   const { execute } = useUpdateSafeBalanceChecker()
   const [text, setText] = useState(value)
 
   const handleBlur = async () => {
     if (text === value) return
-    await execute(date, text)
+    const err = await execute(date, text)
+    if (err) onError(err)
   }
 
   return (
@@ -162,7 +167,6 @@ type Props = {
 
 export function ReservationTable({ processedRows, loading, onToggle }: Props) {
   const [error, setError] = useState<string | null>(null)
-  void setError // suppress unused warning — used in cell error handling
 
   const cellSx = useMemo(() => ({ py: 0.5, px: 1, fontSize: '0.75rem' }), [])
 
@@ -197,7 +201,7 @@ export function ReservationTable({ processedRows, loading, onToggle }: Props) {
               <TableRow key={row.id} hover>
                 <TableCell sx={cellSx} align="center">
                   {row.booking_site !== 'chillnn' && (
-                    <ATaxCheckboxCell id={row.id} checked={row.a_tax_received} onToggle={onToggle} />
+                    <ATaxCheckboxCell id={row.id} checked={row.a_tax_received} onToggle={onToggle} onError={setError} />
                   )}
                 </TableCell>
                 <TableCell sx={cellSx} align="center">{row.check_in_date}</TableCell>
@@ -209,12 +213,12 @@ export function ReservationTable({ processedRows, loading, onToggle }: Props) {
                 <TableCell sx={cellSx} align="center">¥{row.tax.toLocaleString()}</TableCell>
                 <TableCell sx={cellSx} align="center">
                   {row.booking_site !== 'chillnn' && (
-                    <StaffNameCell id={row.id} value={row.a_tax_received_by_staff_name} />
+                    <StaffNameCell id={row.id} value={row.a_tax_received_by_staff_name} onError={setError} />
                   )}
                 </TableCell>
                 <TableCell sx={cellSx} align="center">
                   {row.isLastDate && (
-                    <SafeBalanceCheckerCell date={row.check_in_date} value={row.safeBalanceChecker} />
+                    <SafeBalanceCheckerCell date={row.check_in_date} value={row.safeBalanceChecker} onError={setError} />
                   )}
                 </TableCell>
                 <TableCell sx={cellSx} align="center">
