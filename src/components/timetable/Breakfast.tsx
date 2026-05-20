@@ -32,15 +32,26 @@ function BreakfastCell({ timeKey, marks }: { timeKey: string; marks: string[] })
       <div style={{ fontSize: '9px' }}>
         {LOCATION_LABEL[timeKey]}
       </div>
-      <div style={{ fontSize: '9px', width: '100%', display: 'flex', alignItems: 'baseline', gap: '2px' }}>
-        <span style={{ display: 'inline-flex', alignItems: 'baseline', minWidth: '38px', flexShrink: 0 }}>
+      <div
+        style={{
+          fontSize: '9px',
+          width: '80%',
+          margin: '0 auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '3px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'baseline', minHeight: '18px' }}>
           <span>Room:</span>
           {marks.map((m, i) => (
             <span key={i} style={{ fontSize: '18px', lineHeight: 1 }}>{m}</span>
           ))}
-        </span>
-        <span>menu:</span>
-        <span style={{ marginLeft: 'auto' }}>×&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', width: '100%' }}>
+          <span>menu:</span>
+          <span style={{ marginLeft: 'auto' }}>×&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+        </div>
       </div>
     </div>
   )
