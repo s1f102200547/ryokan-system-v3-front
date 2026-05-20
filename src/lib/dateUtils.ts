@@ -1,4 +1,6 @@
 export const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
+export const DATE_RANGE_PAST_DAYS = 100
+export const DATE_RANGE_FUTURE_DAYS = 365
 
 export function getTodayJST(): string {
   const now = new Date()

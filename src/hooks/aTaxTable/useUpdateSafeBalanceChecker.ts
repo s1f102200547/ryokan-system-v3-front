@@ -6,7 +6,7 @@ export function useUpdateSafeBalanceChecker() {
   const [isPending, setIsPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const execute = useCallback(async (date: string, staffName: string): Promise<void> => {
+  const execute = useCallback(async (date: string, staffName: string): Promise<string | null> => {
     setIsPending(true)
     setError(null)
     try {
@@ -16,14 +16,18 @@ export function useUpdateSafeBalanceChecker() {
         body: JSON.stringify({ staffName }),
       })
       if (!res.ok) {
-        setError(
+        const msg =
           res.status === 503
             ? '一時的に通信に失敗しました。しばらく待ってから再度お試しください。'
-            : '保存に失敗しました。管理者に通知済みです。',
-        )
+            : '保存に失敗しました。管理者に通知済みです。'
+        setError(msg)
+        return msg
       }
+      return null
     } catch {
-      setError('通信エラーが発生しました。ネットワーク接続を確認してください')
+      const msg = '通信エラーが発生しました。ネットワーク接続を確認してください'
+      setError(msg)
+      return msg
     } finally {
       setIsPending(false)
     }

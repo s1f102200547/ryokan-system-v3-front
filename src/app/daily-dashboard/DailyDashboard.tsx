@@ -32,7 +32,8 @@ type Props = {
 }
 
 export function DailyDashboard({ today }: Props) {
-  const { selectedDate, dateLabel, diffLabel, setDate, goToPrevDay, goToNextDay, goToToday } =
+  const { selectedDate, dateLabel, diffLabel, setDate, goToPrevDay, goToNextDay, goToToday,
+          isPrevDisabled, isNextDisabled, minDate, maxDate } =
     useDateNavigation(today)
 
   const [calendarAnchor, setCalendarAnchor] = useState<HTMLElement | null>(null)
@@ -90,7 +91,7 @@ export function DailyDashboard({ today }: Props) {
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <IconButton onClick={goToPrevDay} aria-label="前日" data-testid="prev-day">
+          <IconButton onClick={goToPrevDay} aria-label="前日" data-testid="prev-day" disabled={isPrevDisabled}>
             <NavigateBeforeIcon fontSize="medium" />
           </IconButton>
 
@@ -128,7 +129,7 @@ export function DailyDashboard({ today }: Props) {
             </Typography>
           </Box>
 
-          <IconButton onClick={goToNextDay} aria-label="翌日" data-testid="next-day">
+          <IconButton onClick={goToNextDay} aria-label="翌日" data-testid="next-day" disabled={isNextDisabled}>
             <NavigateNextIcon fontSize="medium" />
           </IconButton>
 
@@ -169,6 +170,8 @@ export function DailyDashboard({ today }: Props) {
         >
           <DateCalendar
             value={dayjs(selectedDate)}
+            minDate={dayjs(minDate)}
+            maxDate={dayjs(maxDate)}
             onChange={(newValue) => {
               if (newValue) {
                 setDate(newValue.format('YYYY-MM-DD'))
