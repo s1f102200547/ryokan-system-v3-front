@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
@@ -33,11 +34,12 @@ type Props = {
 
 export function DailyDashboard({ today }: Props) {
   const { selectedDate, dateLabel, diffLabel, setDate, goToPrevDay, goToNextDay, goToToday,
-          isPrevDisabled, isNextDisabled, minDate, maxDate } =
+          isPrevDisabled, isNextDisabled, minDate, maxDate, outOfRangeWarning } =
     useDateNavigation(today)
 
   const [calendarAnchor, setCalendarAnchor] = useState<HTMLElement | null>(null)
   const [printMode, setPrintMode] = useState<PrintMode>(null)
+  const [warningDismissed, setWarningDismissed] = useState(false)
   const [selectedToggle, setSelectedToggle] = useState<GuestInfoToggle | null>(null)
   const { todos, isLoading: todosLoading, error: todosError, isSaving, saveError, addTodo, removeTodo } = useDailyTodos(selectedDate)
   const tomorrow = addDays(today, 1)
@@ -76,6 +78,16 @@ export function DailyDashboard({ today }: Props) {
   return (
     <Box sx={{ width: '90%', mx: 'auto', p: 3 }}>
       <DashboardTabs />
+
+      {outOfRangeWarning && !warningDismissed && (
+        <Alert
+          severity="warning"
+          sx={{ mt: 2 }}
+          onClose={() => setWarningDismissed(true)}
+        >
+          {outOfRangeWarning}
+        </Alert>
+      )}
 
       {/* 日付ナビゲーション */}
       <Box

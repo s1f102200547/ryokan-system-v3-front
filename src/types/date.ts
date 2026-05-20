@@ -10,4 +10,5 @@ export type UseDateNavigationReturn = {
   isNextDisabled: boolean
   minDate: string
   maxDate: string
+  outOfRangeWarning: string | null
 }

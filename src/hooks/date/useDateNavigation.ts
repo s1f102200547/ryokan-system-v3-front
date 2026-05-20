@@ -12,14 +12,19 @@ export function useDateNavigation(today: string): UseDateNavigationReturn {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const rawDate = searchParams.get('date')
-  const selectedDate = rawDate !== null && DATE_REGEX.test(rawDate) ? rawDate : today
-
   const minDate = addDays(today, -DATE_RANGE_PAST_DAYS)
   const maxDate = addDays(today, DATE_RANGE_FUTURE_DAYS)
 
   const clamp = (date: string) =>
     date < minDate ? minDate : date > maxDate ? maxDate : date
+
+  const rawDate = searchParams.get('date')
+  const isValidFormat = rawDate !== null && DATE_REGEX.test(rawDate)
+  const isOutOfRange = isValidFormat && (rawDate! < minDate || rawDate! > maxDate)
+  const selectedDate = isValidFormat && !isOutOfRange ? rawDate! : today
+  const outOfRangeWarning: string | null = isOutOfRange
+    ? '指定された日付は表示可能な範囲外です。今日の日付を表示しています。'
+    : null
 
   const navigate = (date: string) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -46,5 +51,6 @@ export function useDateNavigation(today: string): UseDateNavigationReturn {
     isNextDisabled: selectedDate >= maxDate,
     minDate,
     maxDate,
+    outOfRangeWarning,
   }
 }
