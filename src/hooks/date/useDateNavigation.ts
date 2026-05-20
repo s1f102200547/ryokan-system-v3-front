@@ -1,7 +1,8 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { DATE_REGEX, addDays, formatDateLabel, formatDiffLabel, DATE_RANGE_PAST_DAYS, DATE_RANGE_FUTURE_DAYS } from '@/lib/dateUtils'
+import { DATE_REGEX, addDays, formatDateLabel, formatDiffLabel } from '@/lib/dateUtils'
+import { DATE_RANGE_PAST_DAYS, DATE_RANGE_FUTURE_DAYS } from '@/constants/date'
 import type { UseDateNavigationReturn } from '@/types/date'
 
 // today: Server Component で getTodayJST() を呼び出し、props 経由で渡す。

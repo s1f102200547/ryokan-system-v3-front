@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { getTodayJST, dateDiff, DATE_RANGE_PAST_DAYS, DATE_RANGE_FUTURE_DAYS } from '@/lib/dateUtils'
+import { getTodayJST, dateDiff } from '@/lib/dateUtils'
+import { DATE_RANGE_PAST_DAYS, DATE_RANGE_FUTURE_DAYS } from '@/constants/date'
 
 function isRealDate(v: string): boolean {
   const [y, m, d] = v.split('-').map(Number)
