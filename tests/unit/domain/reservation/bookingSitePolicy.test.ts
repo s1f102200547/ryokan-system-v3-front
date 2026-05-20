@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isATaxExempt, calcATax } from './bookingSitePolicy'
+import { isATaxExempt, calcATax } from '@/domain/reservation/bookingSitePolicy'
 
 describe('isATaxExempt', () => {
   it('chillnn は免税', () => {

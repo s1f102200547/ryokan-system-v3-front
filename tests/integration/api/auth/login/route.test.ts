@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { POST } from './route'
+import { POST } from '@/app/api/auth/login/route'
 
 // adminAuth の verifyIdToken / createSessionCookie をモック
 vi.mock('@/lib/firebase/admin', () => ({

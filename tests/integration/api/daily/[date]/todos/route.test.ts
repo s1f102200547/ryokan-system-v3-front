@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest'
-import { GET, PATCH } from './route'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { FIXED_TODAY, setupFakeToday } from '@tests/utils/routeTestHelper'
+import { GET, PATCH } from '@/app/api/daily/[date]/todos/route'
 import { InfraError } from '@/types/errors'
 
 vi.mock('@/infra/daily/firestoreDailyRepository')
@@ -14,16 +15,7 @@ vi.mock('@/lib/slack', () => ({ notifySlackFireAndForget: vi.fn() }))
 const mockRepo = vi.mocked(firestoreDailyRepository)
 const mockVerifySession = vi.mocked(verifySession)
 
-const FIXED_TODAY = '2026-05-20'
-const FIXED_NOW_UTC = new Date('2026-05-20T01:00:00.000Z')
-
-beforeAll(() => {
-  vi.useFakeTimers()
-  vi.setSystemTime(FIXED_NOW_UTC)
-})
-afterAll(() => {
-  vi.useRealTimers()
-})
+setupFakeToday()
 
 const params = Promise.resolve({ date: FIXED_TODAY })
 const validBody = { todos: [{ id: 'todo-1', text: '送迎あり 15:30' }] }

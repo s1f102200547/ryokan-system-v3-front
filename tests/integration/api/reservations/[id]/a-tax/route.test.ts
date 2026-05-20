@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { PATCH } from './route'
+import { PATCH } from '@/app/api/reservations/[id]/a-tax/route'
 import { InfraError } from '@/types/errors'
 
 vi.mock('@/infra/reservation/firestoreReservationRepository')
