@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { login } from './loginPolicy'
+import { login } from '@/domain/auth/loginPolicy'
 import type { AuthProvider } from '@/domain/ports/authProvider'
 
 // describe: 「login関数のテストですよ」というグループ化

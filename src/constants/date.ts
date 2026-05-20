@@ -1,0 +1,2 @@
+export const DATE_RANGE_PAST_DAYS = 100
+export const DATE_RANGE_FUTURE_DAYS = 365

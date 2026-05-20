@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { PATCH } from './route'
+import { PATCH } from '@/app/api/reservations/[id]/cancel/route'
 import { InfraError } from '@/types/errors'
 
-vi.mock('@/application/guestInfo/restoreReservationCommand')
-import { restoreReservationCommand } from '@/application/guestInfo/restoreReservationCommand'
+vi.mock('@/application/guestInfo/cancelReservationCommand')
+import { cancelReservationCommand } from '@/application/guestInfo/cancelReservationCommand'
 
 vi.mock('@/lib/auth/verifySession')
 import { verifySession } from '@/lib/auth/verifySession'
@@ -11,17 +11,17 @@ import { verifySession } from '@/lib/auth/verifySession'
 vi.mock('@/lib/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
 vi.mock('@/lib/slack', () => ({ notifySlackFireAndForget: vi.fn() }))
 
-const mockCommand = vi.mocked(restoreReservationCommand)
+const mockCommand = vi.mocked(cancelReservationCommand)
 const mockVerifySession = vi.mocked(verifySession)
 
 const validBody = {
   staff_name: 'スタッフA',
   target_date: '2026-04-01',
-  reason: '誤キャンセルのため復活',
+  reason: 'テストキャンセル',
 }
 
 function makeRequest(body: unknown = validBody, withSession = true) {
-  return new Request('http://localhost/api/reservations/doc1/restore', {
+  return new Request('http://localhost/api/reservations/doc1/cancel', {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -33,7 +33,7 @@ function makeRequest(body: unknown = validBody, withSession = true) {
 
 const params = Promise.resolve({ id: 'doc1' })
 
-describe('PATCH /api/reservations/[id]/restore', () => {
+describe('PATCH /api/reservations/[id]/cancel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockVerifySession.mockResolvedValue({ uid: 'user-1' })

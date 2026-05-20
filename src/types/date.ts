@@ -6,4 +6,9 @@ export type UseDateNavigationReturn = {
   goToPrevDay: () => void
   goToNextDay: () => void
   goToToday: () => void
+  isPrevDisabled: boolean
+  isNextDisabled: boolean
+  minDate: string
+  maxDate: string
+  outOfRangeWarning: string | null
 }

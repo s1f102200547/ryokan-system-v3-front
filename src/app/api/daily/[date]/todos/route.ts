@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { firestoreDailyRepository } from '@/infra/daily/firestoreDailyRepository'
 import { getSession, handleRouteError } from '@/lib/api/routeHelpers'
-
-const DateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+import { PathDateSchema } from '@/lib/api/dateSchema'
 
 const TodoSchema = z.object({
   id: z.string().min(1),
@@ -22,7 +21,7 @@ export async function GET(
   if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const { date } = await params
-  if (!DateSchema.safeParse(date).success) {
+  if (!PathDateSchema.safeParse(date).success) {
     return NextResponse.json({ error: 'invalid date' }, { status: 400 })
   }
 
@@ -42,7 +41,7 @@ export async function PATCH(
   if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const { date } = await params
-  if (!DateSchema.safeParse(date).success) {
+  if (!PathDateSchema.safeParse(date).success) {
     return NextResponse.json({ error: 'invalid date' }, { status: 400 })
   }
 

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { GET } from './route'
+import { FIXED_TODAY, setupFakeToday } from '@tests/utils/routeTestHelper'
+import { GET } from '@/app/api/timetable/route'
 import type { TimetableData } from '@/types/timetable'
 import { InfraError } from '@/types/errors'
 
@@ -14,6 +15,8 @@ vi.mock('@/lib/slack', () => ({ notifySlackFireAndForget: vi.fn() }))
 
 const mockUseCase = vi.mocked(getTimetableUseCase)
 const mockVerifySession = vi.mocked(verifySession)
+
+setupFakeToday()
 
 function makeRequest(date?: string, withSession = true) {
   const url = date
@@ -57,7 +60,7 @@ describe('GET /api/timetable', () => {
   it('session Cookie がない場合 401 が返る', async () => {
     mockVerifySession.mockResolvedValue(null)
 
-    const response = await GET(makeRequest('2026-04-12', false))
+    const response = await GET(makeRequest(FIXED_TODAY, false))
 
     expect(response.status).toBe(401)
   })
@@ -65,7 +68,7 @@ describe('GET /api/timetable', () => {
   it('session Cookie が無効な場合 401 が返る', async () => {
     mockVerifySession.mockResolvedValue(null)
 
-    const response = await GET(makeRequest('2026-04-12'))
+    const response = await GET(makeRequest(FIXED_TODAY))
 
     expect(response.status).toBe(401)
   })
@@ -84,12 +87,30 @@ describe('GET /api/timetable', () => {
     expect(response.status).toBe(400)
   })
 
+  it('存在しない日付（2026-02-30）で 400 が返る', async () => {
+    const response = await GET(makeRequest('2026-02-30'))
+
+    expect(response.status).toBe(400)
+  })
+
+  it('範囲外の日付（過去: 2000-01-01）で 400 が返る', async () => {
+    const response = await GET(makeRequest('2000-01-01'))
+
+    expect(response.status).toBe(400)
+  })
+
+  it('範囲外の日付（未来: 2099-12-31）で 400 が返る', async () => {
+    const response = await GET(makeRequest('2099-12-31'))
+
+    expect(response.status).toBe(400)
+  })
+
   // ── 正常系 ──────────────────────────────────────────────────────────────
 
   it('正常な date で 200 と TimetableData が返る', async () => {
     mockUseCase.mockResolvedValue(mockData)
 
-    const response = await GET(makeRequest('2026-04-12'))
+    const response = await GET(makeRequest(FIXED_TODAY))
     const body = await response.json()
 
     expect(response.status).toBe(200)
@@ -108,7 +129,7 @@ describe('GET /api/timetable', () => {
   it('checkInSlots・stayingGuestLabels の内容がそのまま返る', async () => {
     mockUseCase.mockResolvedValue(mockData)
 
-    const response = await GET(makeRequest('2026-04-12'))
+    const response = await GET(makeRequest(FIXED_TODAY))
     const body = await response.json()
 
     expect(body.checkInSlots['15:00']).toEqual(['21'])
@@ -123,7 +144,7 @@ describe('GET /api/timetable', () => {
     }
     mockUseCase.mockResolvedValue(data)
 
-    const response = await GET(makeRequest('2026-04-13'))
+    const response = await GET(makeRequest(FIXED_TODAY))
     const body = await response.json()
 
     expect(body.checkoutRooms).toEqual(['㉑'])
@@ -135,7 +156,7 @@ describe('GET /api/timetable', () => {
   it('FIRESTORE_UNAVAILABLE の場合 503 が返る', async () => {
     mockUseCase.mockRejectedValue(new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore down'))
 
-    const response = await GET(makeRequest('2026-04-12'))
+    const response = await GET(makeRequest(FIXED_TODAY))
 
     expect(response.status).toBe(503)
   })
@@ -143,7 +164,7 @@ describe('GET /api/timetable', () => {
   it('FIRESTORE_DATA_CORRUPTION の場合 500 が返る', async () => {
     mockUseCase.mockRejectedValue(new InfraError('FIRESTORE_DATA_CORRUPTION', 'Schema error'))
 
-    const response = await GET(makeRequest('2026-04-12'))
+    const response = await GET(makeRequest(FIXED_TODAY))
 
     expect(response.status).toBe(500)
   })
@@ -151,7 +172,7 @@ describe('GET /api/timetable', () => {
   it('FIRESTORE_PERMISSION の場合 500 が返る', async () => {
     mockUseCase.mockRejectedValue(new InfraError('FIRESTORE_PERMISSION', 'Permission denied'))
 
-    const response = await GET(makeRequest('2026-04-12'))
+    const response = await GET(makeRequest(FIXED_TODAY))
 
     expect(response.status).toBe(500)
   })
@@ -159,7 +180,7 @@ describe('GET /api/timetable', () => {
   it('想定外のエラーの場合 500 が返る', async () => {
     mockUseCase.mockRejectedValue(new Error('unexpected'))
 
-    const response = await GET(makeRequest('2026-04-12'))
+    const response = await GET(makeRequest(FIXED_TODAY))
 
     expect(response.status).toBe(500)
   })

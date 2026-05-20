@@ -61,9 +61,21 @@ src/
 │   └── reservation/
 ├── constants/      # 部屋番号、タイムテーブル、ゲスト情報などのドメイン定数
 ├── lib/            # Route helper, Firebase 初期化, logger, Slack, 日付など
-├── types/          # 共通型、Result 型、InfraError 型
-└── test/           # Vitest setup
+└── types/          # 共通型、Result 型、InfraError 型
+
+tests/
+├── unit/           # Domain 層のユニットテスト（src/ に依存しない純粋 TS テスト）
+│   └── domain/     # auth/, reservation/, room/ の各ビジネスルールテスト
+├── integration/    # Route Handler の統合テスト（verifySession・InfraError・HTTP変換を含む）
+│   └── api/        # src/app/api/ と対応するディレクトリ構造
+├── mocks/          # vi.mock 用のモック実装（将来的な手動モック置き場）
+├── fixtures/       # テストデータ・固定値（将来的な共通 fixture 置き場）
+├── utils/          # テストユーティリティ（routeTestHelper 等）
+└── setup/          # Vitest グローバルセットアップ（setup.ts）
 ```
+
+`@tests/*` エイリアス（`vitest.config.ts` / `tsconfig.json`）で `tests/` 配下を絶対 import できる。
+`@/*` エイリアスは `src/` を指す。
 
 ## Route Handler の責務
 

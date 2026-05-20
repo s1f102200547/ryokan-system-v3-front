@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resizeNightArray, resizeNightFields } from './nightArrays'
+import { resizeNightArray, resizeNightFields } from '@/domain/reservation/nightArrays'
 import { DINNER_NONE } from '@/constants/guestInfo'
 
 describe('resizeNightArray', () => {

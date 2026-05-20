@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { GET, PATCH } from './route'
+import { FIXED_TODAY, setupFakeToday } from '@tests/utils/routeTestHelper'
+import { GET, PATCH } from '@/app/api/daily/[date]/todos/route'
 import { InfraError } from '@/types/errors'
 
 vi.mock('@/infra/daily/firestoreDailyRepository')
@@ -14,18 +15,20 @@ vi.mock('@/lib/slack', () => ({ notifySlackFireAndForget: vi.fn() }))
 const mockRepo = vi.mocked(firestoreDailyRepository)
 const mockVerifySession = vi.mocked(verifySession)
 
-const params = Promise.resolve({ date: '2026-05-06' })
+setupFakeToday()
+
+const params = Promise.resolve({ date: FIXED_TODAY })
 const validBody = { todos: [{ id: 'todo-1', text: '送迎あり 15:30' }] }
 
 function makeGetRequest(withSession = true) {
-  return new Request('http://localhost/api/daily/2026-05-06/todos', {
+  return new Request(`http://localhost/api/daily/${FIXED_TODAY}/todos`, {
     method: 'GET',
     headers: withSession ? { cookie: 'session=valid' } : {},
   })
 }
 
 function makePatchRequest(body: unknown = validBody, withSession = true) {
-  return new Request('http://localhost/api/daily/2026-05-06/todos', {
+  return new Request(`http://localhost/api/daily/${FIXED_TODAY}/todos`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -56,13 +59,31 @@ describe('GET /api/daily/[date]/todos', () => {
     expect(res.status).toBe(400)
   })
 
+  it('存在しない日付（2026-02-30）で400', async () => {
+    const res = await GET(makeGetRequest(), { params: Promise.resolve({ date: '2026-02-30' }) })
+
+    expect(res.status).toBe(400)
+  })
+
+  it('範囲外の日付（過去: 2000-01-01）で400', async () => {
+    const res = await GET(makeGetRequest(), { params: Promise.resolve({ date: '2000-01-01' }) })
+
+    expect(res.status).toBe(400)
+  })
+
+  it('範囲外の日付（未来: 2099-12-31）で400', async () => {
+    const res = await GET(makeGetRequest(), { params: Promise.resolve({ date: '2099-12-31' }) })
+
+    expect(res.status).toBe(400)
+  })
+
   it('正常リクエストで200とtodosを返す', async () => {
     const res = await GET(makeGetRequest(), { params })
     const body = await res.json()
 
     expect(res.status).toBe(200)
     expect(body.todos).toEqual(validBody.todos)
-    expect(mockRepo.fetchDailyTodos).toHaveBeenCalledWith('2026-05-06')
+    expect(mockRepo.fetchDailyTodos).toHaveBeenCalledWith(FIXED_TODAY)
   })
 
   it('FIRESTORE_UNAVAILABLEを503へ変換する', async () => {
@@ -107,6 +128,18 @@ describe('PATCH /api/daily/[date]/todos', () => {
     expect(res.status).toBe(400)
   })
 
+  it('存在しない日付（2026-02-30）で400', async () => {
+    const res = await PATCH(makePatchRequest(), { params: Promise.resolve({ date: '2026-02-30' }) })
+
+    expect(res.status).toBe(400)
+  })
+
+  it('範囲外の日付（過去: 2000-01-01）で400', async () => {
+    const res = await PATCH(makePatchRequest(), { params: Promise.resolve({ date: '2000-01-01' }) })
+
+    expect(res.status).toBe(400)
+  })
+
   it('todosが50件を超えると400', async () => {
     const body = {
       todos: Array.from({ length: 51 }, (_, i) => ({ id: `todo-${i}`, text: 'x' })),
@@ -127,7 +160,7 @@ describe('PATCH /api/daily/[date]/todos', () => {
     const res = await PATCH(makePatchRequest(), { params })
 
     expect(res.status).toBe(200)
-    expect(mockRepo.updateDailyTodos).toHaveBeenCalledWith('2026-05-06', validBody.todos)
+    expect(mockRepo.updateDailyTodos).toHaveBeenCalledWith(FIXED_TODAY, validBody.todos)
   })
 
   it('FIRESTORE_UNAVAILABLEを503へ変換する', async () => {

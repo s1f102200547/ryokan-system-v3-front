@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeRoomCheckInState } from './roomState'
+import { computeRoomCheckInState } from '@/domain/room/roomState'
 import type { Reservation } from '@/types/reservation'
 
 const TARGET_DATE = '2026-04-01'
