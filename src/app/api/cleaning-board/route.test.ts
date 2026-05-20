@@ -87,6 +87,24 @@ describe('GET /api/cleaning-board', () => {
     expect(response.status).toBe(400)
   })
 
+  it('存在しない日付（2026-02-30）で 400 が返る', async () => {
+    const response = await GET(makeRequest('2026-02-30'))
+
+    expect(response.status).toBe(400)
+  })
+
+  it('範囲外の日付（過去: 2000-01-01）で 400 が返る', async () => {
+    const response = await GET(makeRequest('2000-01-01'))
+
+    expect(response.status).toBe(400)
+  })
+
+  it('範囲外の日付（未来: 2099-12-31）で 400 が返る', async () => {
+    const response = await GET(makeRequest('2099-12-31'))
+
+    expect(response.status).toBe(400)
+  })
+
   it('FIRESTORE_UNAVAILABLE の場合 503 が返る', async () => {
     mockUseCase.mockRejectedValue(new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore down'))
 

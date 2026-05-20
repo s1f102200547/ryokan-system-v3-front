@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { PATCH } from './route'
+import { GET, PATCH } from './route'
 import { InfraError } from '@/types/errors'
 
 vi.mock('@/infra/daily/firestoreDailyRepository')
@@ -17,6 +17,13 @@ const mockVerifySession = vi.mocked(verifySession)
 const validBody = { staffName: '締めスタッフA' }
 const params = Promise.resolve({ date: '2026-05-06' })
 
+function makeGetRequest(withSession = true) {
+  return new Request('http://localhost/api/daily/2026-05-06/safe-balance-checker', {
+    method: 'GET',
+    headers: withSession ? { cookie: 'session=valid' } : {},
+  })
+}
+
 function makeRequest(body: unknown = validBody, withSession = true) {
   return new Request('http://localhost/api/daily/2026-05-06/safe-balance-checker', {
     method: 'PATCH',
@@ -27,6 +34,43 @@ function makeRequest(body: unknown = validBody, withSession = true) {
     body: JSON.stringify(body),
   })
 }
+
+describe('GET /api/daily/[date]/safe-balance-checker', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockVerifySession.mockResolvedValue({ uid: 'user-1' })
+    mockRepo.fetchSafeBalanceCheckers = vi.fn().mockResolvedValue({})
+  })
+
+  it('未認証で401', async () => {
+    mockVerifySession.mockResolvedValue(null)
+    const res = await GET(makeGetRequest(false), { params })
+    expect(res.status).toBe(401)
+  })
+
+  it('存在しない日付（2026-02-30）で400', async () => {
+    const res = await GET(makeGetRequest(), { params: Promise.resolve({ date: '2026-02-30' }) })
+    expect(res.status).toBe(400)
+  })
+
+  it('範囲外の日付（過去: 2000-01-01）で400', async () => {
+    const res = await GET(makeGetRequest(), { params: Promise.resolve({ date: '2000-01-01' }) })
+    expect(res.status).toBe(400)
+  })
+
+  it('範囲外の日付（未来: 2099-12-31）で400', async () => {
+    const res = await GET(makeGetRequest(), { params: Promise.resolve({ date: '2099-12-31' }) })
+    expect(res.status).toBe(400)
+  })
+
+  it('正常リクエストで200とstaffNameを返す', async () => {
+    mockRepo.fetchSafeBalanceCheckers = vi.fn().mockResolvedValue({ '2026-05-06': '田中' })
+    const res = await GET(makeGetRequest(), { params })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.staffName).toBe('田中')
+  })
+})
 
 describe('PATCH /api/daily/[date]/safe-balance-checker', () => {
   beforeEach(() => {
@@ -43,6 +87,16 @@ describe('PATCH /api/daily/[date]/safe-balance-checker', () => {
 
   it('staffNameが空文字で400', async () => {
     const res = await PATCH(makeRequest({ staffName: '' }), { params })
+    expect(res.status).toBe(400)
+  })
+
+  it('存在しない日付（2026-02-30）で400', async () => {
+    const res = await PATCH(makeRequest(), { params: Promise.resolve({ date: '2026-02-30' }) })
+    expect(res.status).toBe(400)
+  })
+
+  it('範囲外の日付（過去: 2000-01-01）で400', async () => {
+    const res = await PATCH(makeRequest(), { params: Promise.resolve({ date: '2000-01-01' }) })
     expect(res.status).toBe(400)
   })
 

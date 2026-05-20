@@ -56,6 +56,24 @@ describe('GET /api/daily/[date]/todos', () => {
     expect(res.status).toBe(400)
   })
 
+  it('存在しない日付（2026-02-30）で400', async () => {
+    const res = await GET(makeGetRequest(), { params: Promise.resolve({ date: '2026-02-30' }) })
+
+    expect(res.status).toBe(400)
+  })
+
+  it('範囲外の日付（過去: 2000-01-01）で400', async () => {
+    const res = await GET(makeGetRequest(), { params: Promise.resolve({ date: '2000-01-01' }) })
+
+    expect(res.status).toBe(400)
+  })
+
+  it('範囲外の日付（未来: 2099-12-31）で400', async () => {
+    const res = await GET(makeGetRequest(), { params: Promise.resolve({ date: '2099-12-31' }) })
+
+    expect(res.status).toBe(400)
+  })
+
   it('正常リクエストで200とtodosを返す', async () => {
     const res = await GET(makeGetRequest(), { params })
     const body = await res.json()
@@ -103,6 +121,18 @@ describe('PATCH /api/daily/[date]/todos', () => {
 
   it('date形式が不正で400', async () => {
     const res = await PATCH(makePatchRequest(), { params: Promise.resolve({ date: '2026/05/06' }) })
+
+    expect(res.status).toBe(400)
+  })
+
+  it('存在しない日付（2026-02-30）で400', async () => {
+    const res = await PATCH(makePatchRequest(), { params: Promise.resolve({ date: '2026-02-30' }) })
+
+    expect(res.status).toBe(400)
+  })
+
+  it('範囲外の日付（過去: 2000-01-01）で400', async () => {
+    const res = await PATCH(makePatchRequest(), { params: Promise.resolve({ date: '2000-01-01' }) })
 
     expect(res.status).toBe(400)
   })

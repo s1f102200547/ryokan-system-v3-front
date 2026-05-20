@@ -47,6 +47,21 @@ describe('GET /api/guest-info', () => {
     expect(res.status).toBe(400)
   })
 
+  it('存在しない日付（2026-02-30）で400', async () => {
+    const res = await GET(makeRequest('2026-02-30'))
+    expect(res.status).toBe(400)
+  })
+
+  it('範囲外の日付（過去: 2000-01-01）で400', async () => {
+    const res = await GET(makeRequest('2000-01-01'))
+    expect(res.status).toBe(400)
+  })
+
+  it('範囲外の日付（未来: 2099-12-31）で400', async () => {
+    const res = await GET(makeRequest('2099-12-31'))
+    expect(res.status).toBe(400)
+  })
+
   it('正常リクエストで200とGuestInfoDataを返す', async () => {
     mockUseCase.mockResolvedValue(mockData)
     const res = await GET(makeRequest('2026-04-01'))
