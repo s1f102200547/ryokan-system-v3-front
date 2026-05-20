@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest'
 import { GET } from './route'
 import { InfraError } from '@/types/errors'
 
@@ -13,6 +13,17 @@ vi.mock('@/lib/slack', () => ({ notifySlackFireAndForget: vi.fn() }))
 
 const mockUseCase = vi.mocked(getGuestInfoUseCase)
 const mockVerifySession = vi.mocked(verifySession)
+
+const FIXED_TODAY = '2026-05-20'
+const FIXED_NOW_UTC = new Date('2026-05-20T01:00:00.000Z')
+
+beforeAll(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(FIXED_NOW_UTC)
+})
+afterAll(() => {
+  vi.useRealTimers()
+})
 
 function makeRequest(date?: string, withSession = true) {
   const url = date
@@ -33,7 +44,7 @@ describe('GET /api/guest-info', () => {
 
   it('未認証で401', async () => {
     mockVerifySession.mockResolvedValue(null)
-    const res = await GET(makeRequest('2026-04-01', false))
+    const res = await GET(makeRequest(FIXED_TODAY, false))
     expect(res.status).toBe(401)
   })
 
@@ -64,7 +75,7 @@ describe('GET /api/guest-info', () => {
 
   it('正常リクエストで200とGuestInfoDataを返す', async () => {
     mockUseCase.mockResolvedValue(mockData)
-    const res = await GET(makeRequest('2026-04-01'))
+    const res = await GET(makeRequest(FIXED_TODAY))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body).toHaveProperty('normal')
@@ -74,13 +85,13 @@ describe('GET /api/guest-info', () => {
 
   it('InfraErrorで503', async () => {
     mockUseCase.mockRejectedValue(new InfraError('FIRESTORE_UNAVAILABLE', 'down'))
-    const res = await GET(makeRequest('2026-04-01'))
+    const res = await GET(makeRequest(FIXED_TODAY))
     expect(res.status).toBe(503)
   })
 
   it('想定外エラーで500', async () => {
     mockUseCase.mockRejectedValue(new Error('unexpected'))
-    const res = await GET(makeRequest('2026-04-01'))
+    const res = await GET(makeRequest(FIXED_TODAY))
     expect(res.status).toBe(500)
   })
 })

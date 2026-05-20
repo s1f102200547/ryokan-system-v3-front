@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest'
 import { GET } from './route'
 import type { CleaningBoardData } from '@/types/cleaningBoard'
 import { InfraError } from '@/types/errors'
@@ -14,6 +14,17 @@ vi.mock('@/lib/slack', () => ({ notifySlackFireAndForget: vi.fn() }))
 
 const mockUseCase = vi.mocked(getCleaningBoardUseCase)
 const mockVerifySession = vi.mocked(verifySession)
+
+const FIXED_TODAY = '2026-05-20'
+const FIXED_NOW_UTC = new Date('2026-05-20T01:00:00.000Z')
+
+beforeAll(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(FIXED_NOW_UTC)
+})
+afterAll(() => {
+  vi.useRealTimers()
+})
 
 function makeRequest(date?: string, withSession = true) {
   const url = date
@@ -51,7 +62,7 @@ describe('GET /api/cleaning-board', () => {
   it('session Cookie がない場合 401 が返る', async () => {
     mockVerifySession.mockResolvedValue(null)
 
-    const response = await GET(makeRequest('2026-04-01', false))
+    const response = await GET(makeRequest(FIXED_TODAY, false))
 
     expect(response.status).toBe(401)
   })
@@ -59,7 +70,7 @@ describe('GET /api/cleaning-board', () => {
   it('session Cookie が無効な（ログイン中でない）場合 401 が返る', async () => {
     mockVerifySession.mockResolvedValue(null)
 
-    const response = await GET(makeRequest('2026-04-01'))
+    const response = await GET(makeRequest(FIXED_TODAY))
 
     expect(response.status).toBe(401)
   })
@@ -67,7 +78,7 @@ describe('GET /api/cleaning-board', () => {
   it('正常な date で 200 と CleaningBoardData が返る', async () => {
     mockUseCase.mockResolvedValue(mockData) // 0. usecaseを呼ぶ(返り値は強制的に決まってる)
 
-    const response = await GET(makeRequest('2026-04-01')) // 1. 日付指定してapiを呼ぶ
+    const response = await GET(makeRequest(FIXED_TODAY)) // 1. 日付指定してapiを呼ぶ
     const body = await response.json() // 2. apiからの返り値を取得
 
     expect(response.status).toBe(200)
@@ -108,7 +119,7 @@ describe('GET /api/cleaning-board', () => {
   it('FIRESTORE_UNAVAILABLE の場合 503 が返る', async () => {
     mockUseCase.mockRejectedValue(new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore down'))
 
-    const response = await GET(makeRequest('2026-04-01'))
+    const response = await GET(makeRequest(FIXED_TODAY))
 
     expect(response.status).toBe(503)
   })
@@ -116,7 +127,7 @@ describe('GET /api/cleaning-board', () => {
   it('FIRESTORE_DATA_CORRUPTION の場合 500 が返る', async () => {
     mockUseCase.mockRejectedValue(new InfraError('FIRESTORE_DATA_CORRUPTION', 'Schema error'))
 
-    const response = await GET(makeRequest('2026-04-01'))
+    const response = await GET(makeRequest(FIXED_TODAY))
 
     expect(response.status).toBe(500)
   })
@@ -124,7 +135,7 @@ describe('GET /api/cleaning-board', () => {
   it('想定外のエラーの場合 500 が返る', async () => {
     mockUseCase.mockRejectedValue(new Error('unexpected'))
 
-    const response = await GET(makeRequest('2026-04-01'))
+    const response = await GET(makeRequest(FIXED_TODAY))
 
     expect(response.status).toBe(500)
   })
@@ -147,7 +158,7 @@ describe('GET /api/cleaning-board', () => {
     }
     mockUseCase.mockResolvedValue(data)
 
-    const response = await GET(makeRequest('2026-04-01'))
+    const response = await GET(makeRequest(FIXED_TODAY))
     const body = await response.json()
 
     expect(response.status).toBe(200)
@@ -173,7 +184,7 @@ describe('GET /api/cleaning-board', () => {
     }
     mockUseCase.mockResolvedValue(data)
 
-    const response = await GET(makeRequest('2026-04-01'))
+    const response = await GET(makeRequest(FIXED_TODAY))
     const body = await response.json()
 
     expect(response.status).toBe(200)

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest'
 import { GET, PATCH } from './route'
 import { InfraError } from '@/types/errors'
 
@@ -14,18 +14,29 @@ vi.mock('@/lib/slack', () => ({ notifySlackFireAndForget: vi.fn() }))
 const mockRepo = vi.mocked(firestoreDailyRepository)
 const mockVerifySession = vi.mocked(verifySession)
 
+const FIXED_TODAY = '2026-05-20'
+const FIXED_NOW_UTC = new Date('2026-05-20T01:00:00.000Z')
+
+beforeAll(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(FIXED_NOW_UTC)
+})
+afterAll(() => {
+  vi.useRealTimers()
+})
+
 const validBody = { staffName: '締めスタッフA' }
-const params = Promise.resolve({ date: '2026-05-06' })
+const params = Promise.resolve({ date: FIXED_TODAY })
 
 function makeGetRequest(withSession = true) {
-  return new Request('http://localhost/api/daily/2026-05-06/safe-balance-checker', {
+  return new Request(`http://localhost/api/daily/${FIXED_TODAY}/safe-balance-checker`, {
     method: 'GET',
     headers: withSession ? { cookie: 'session=valid' } : {},
   })
 }
 
 function makeRequest(body: unknown = validBody, withSession = true) {
-  return new Request('http://localhost/api/daily/2026-05-06/safe-balance-checker', {
+  return new Request(`http://localhost/api/daily/${FIXED_TODAY}/safe-balance-checker`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -64,7 +75,7 @@ describe('GET /api/daily/[date]/safe-balance-checker', () => {
   })
 
   it('正常リクエストで200とstaffNameを返す', async () => {
-    mockRepo.fetchSafeBalanceCheckers = vi.fn().mockResolvedValue({ '2026-05-06': '田中' })
+    mockRepo.fetchSafeBalanceCheckers = vi.fn().mockResolvedValue({ [FIXED_TODAY]: '田中' })
     const res = await GET(makeGetRequest(), { params })
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -103,7 +114,7 @@ describe('PATCH /api/daily/[date]/safe-balance-checker', () => {
   it('正常リクエストで200', async () => {
     const res = await PATCH(makeRequest(), { params })
     expect(res.status).toBe(200)
-    expect(mockRepo.updateSafeBalanceChecker).toHaveBeenCalledWith('2026-05-06', '締めスタッフA')
+    expect(mockRepo.updateSafeBalanceChecker).toHaveBeenCalledWith(FIXED_TODAY, '締めスタッフA')
   })
 
   it('InfraErrorで503', async () => {
