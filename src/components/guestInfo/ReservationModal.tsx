@@ -41,6 +41,7 @@ type DebouncedFn = ((id: string) => void) & { flush: () => void; cancel: () => v
 function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose: () => void }) {
   const [tab, setTab] = useState<number>(0)
   const [localData, setLocalData] = useState<Reservation>(reservation)
+  const [isClosing, setIsClosing] = useState(false)
 
   const localDataRef = useRef<Reservation>(localData)
   useEffect(() => { localDataRef.current = localData })
@@ -60,6 +61,15 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
     return () => fn.cancel()
   }, [execute])
 
+  // PATCH完了後にonCloseを呼ぶことで、GETがPATCH完了前に走るレースを防ぐ。
+  // isClosing=trueかつsaveStatus!=='saving'（保存中でない）になった時点でonCloseを呼ぶ。
+  // onBlurによるflushがすでに進行中の場合（pending={}だがsaveStatus==='saving'）も待機する。
+  useEffect(() => {
+    if (isClosing && saveStatus !== 'saving') {
+      onClose()
+    }
+  }, [isClosing, saveStatus, onClose])
+
   const handleClose = useCallback(() => {
     const fn = debouncedUpdateRef.current
     if (fn) {
@@ -69,8 +79,8 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
         fn.cancel()
       }
     }
-    onClose()
-  }, [onClose])
+    setIsClosing(true)
+  }, [])
 
   // Step 54: onBlur on any input field immediately flushes pending debounced save
   const handleBlurFlush = useCallback(() => {
