@@ -54,3 +54,12 @@
  - ログイン失敗時のログや通知も一緒にやる
 
 ## レート制限・DoS対策層
+
+## npm audit（high 以上）が main でも失敗する
+- 2026-10-31 時点で 46件（high 15、critical 2）。CI の `audit` job（`npm audit --audit-level=high`）が通らない
+- `sharp` の libvips など、依存の更新が必要。`npm audit fix --force` は破壊的な更新を含むので個別に確認する
+
+## 新規予約ダイアログの Select にラベルが関連付いていない
+- `AddReservationDialog.tsx` の「部屋」などの `Select` に `labelId` がなく、アクセシブルネームがない
+- スクリーンリーダーで項目名が読まれない。テストでも `getByLabel` で選べない
+

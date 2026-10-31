@@ -52,12 +52,10 @@ src/
 ├── hooks/          # UI 向け状態管理、fetch、ユーザー向けエラーメッセージ変換
 ├── application/    # UseCase/Command。読み取り集約と状態変更の手順を表現
 ├── domain/         # 純粋 TS のビジネスルール
-│   ├── auth/
 │   ├── reservation/
 │   ├── room/
 │   └── ports/
 ├── infra/          # Firestore/Auth など外部依存の実装
-│   ├── auth/
 │   ├── daily/
 │   └── reservation/
 ├── constants/      # 部屋番号、タイムテーブル、ゲスト情報などのドメイン定数
@@ -66,7 +64,7 @@ src/
 
 tests/
 ├── unit/           # Domain 層のユニットテスト（src/ に依存しない純粋 TS テスト）
-│   ├── domain/     # auth/, reservation/, room/ の各ビジネスルールテスト
+│   ├── domain/     # reservation/, room/ の各ビジネスルールテスト
 │   ├── lib/        # 外部 SDK に依存しない lib の純粋関数（起動ガード、CSP）
 │   └── localdev/   # scripts/localdev/lib の純粋関数（保存形式、投入ガード）
 ├── fixtures/

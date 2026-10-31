@@ -160,4 +160,4 @@
 2. 全 Route Handler 共通のファジングテストを追加する。
 3. Route の Zod、Infra の Zod、TS 型の制約の食い違いを横展開で洗い出す。
 4. 境界に触れる変更では、実際に動かして確かめる。
-5. Emulator とダミーデータを用意してから、探索的テストと PBT に進む。
+5. 探索的テストと PBT に進む。前提の Emulator と匿名化データ（人工データ）は用意済み（`make`。`docs/LocalDevelopment.md` §8）。

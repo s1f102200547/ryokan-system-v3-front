@@ -203,3 +203,79 @@ Emulator (demo project) <──────────────────�
 ## 7. 発展
 
 - 匿名化データ全件をデータ読み込み処理（Infra 層のパーサー）に通すテストを置き、「実際のデータの形」を判定基準にする（`docs/BugHunting.md`）。
+
+## 8. 実装（2026-10-31 時点）
+
+### 8.1 使い方
+
+```bash
+cp .env.development.example .env.development   # 初回のみ。本番の鍵は置かない（置くと起動が拒否される）
+make          # Emulator 起動 → データ投入 → 開発サーバー（http://127.0.0.1:3000）。Ctrl+C で全部止まる
+```
+
+- ログイン: `dev@example.com` / `dev-password`（Emulator 専用の固定値）。
+- 投入するデータ: `.localdev/data/` に匿名化データがあればそれ、なければ人工データ（`tests/fixtures/localdev/`）。
+- Emulator は停止するとデータとユーザーを失う。`make` は毎回投入し直す。古い Session Cookie で開くと API が 401 を返し、ログイン画面に移る。
+- 匿名化データの作り直し（月1回程度とリリース前。OPS-1）: `make anonymize`（= `npm run anonymize -- --project ryokan-system --sa anon-reader@ryokan-system.iam.gserviceaccount.com`）。ブラウザでログインし、終了時に認証情報が削除される。
+- 個別に動かす場合: `npm run emulators` / `npm run seed [-- --fixture]` / `npm run dev`。Firebase CLI（`firebase-tools`）と Java が必要。
+
+### 8.2 構成
+
+| 要件 | 実装 |
+|---|---|
+| DEV-2, PROD-1, PROD-2 | `src/lib/firebase/runtimeEnvGuard.ts`（判定。純粋関数）、`src/instrumentation.ts` → `enforceRuntimeEnv.ts`（起動時に検査し、違反なら `process.exit(1)`）、`src/constants/runtimeEnv.ts`（変数名） |
+| DEV-3 | `src/lib/firebase/admin.ts`: development / test は `initializeApp({ projectId })`、production は ADC。鍵での初期化はない |
+| DEV-4 | `src/lib/firebase/client.ts` の `getFirebaseAuth()`。Auth はすべてここを経由する |
+| DEV-5 | `src/lib/csp.ts` の `buildCsp()`。development のときだけ Auth Emulator を `connect-src` に加える |
+| DEV-7 | `playwright.config.ts` の `webServer.env`（ローカルと CI で同じ） |
+| SEED-* | `scripts/localdev/seed.ts`、`scripts/localdev/lib/guards.ts`（`checkSeedTarget`） |
+| ANON-1〜5 | `scripts/localdev/anonymize.sh`（認証の取得と後片付け） |
+| ANON-6〜11、変換規則 | `scripts/localdev/anonymize.ts`、`scripts/localdev/lib/`（`allowlist` / `mask` / `idRemap` / `shuffle` / `transform` / `shapeReport` / `dateValidity` / `serialize`） |
+| Emulator | `firebase.json`（すべて `127.0.0.1`）、`.firebaserc`（`demo-ryokan`） |
+
+環境変数:
+
+| 変数 | development | test（Vitest） | production |
+|---|---|---|---|
+| `FIREBASE_PROJECT_ID` / `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | `demo-ryokan`（一致必須） | `demo-test` | `demo-` 始まりは拒否 |
+| `FIRESTORE_EMULATOR_HOST` / `FIREBASE_AUTH_EMULATOR_HOST` | `127.0.0.1:8080` / `127.0.0.1:9099`（必須） | `127.0.0.1:1`（到達不能） | 設定すると拒否 |
+| `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST` | `127.0.0.1:9099`（サーバー側と一致必須） | `127.0.0.1:1` | 設定すると拒否 |
+| `FIREBASE_PRIVATE_KEY` など本番の認証情報（名前に `PRIVATE_KEY` を含む変数を含む） | 設定すると拒否 | 設定すると拒否 | 見ない（Cloud Run は ADC） |
+
+### 8.3 実装上の決定
+
+仕様に書かれていなかった点や、実装中に分かった点。
+
+- **起動拒否はプロセスを終了させる。** `register()` で throw するだけでは、`next start` / standalone の `server.js` は全リクエストに 500 を返したまま待ち受けを続け、Cloud Run が起動成功と見なす。
+- **`NEXT_PUBLIC_*` は build 時にインライン化される** ため、起動ガードでは変数名を直接書いて参照する（`process.env` の走査では production で見えない）。
+- **Emulator 接続時、Admin SDK は ADC を読まない**（Auth は `owner` トークン、Firestore は insecure channel）。開発 PC に ADC が残っていても本番に届かない。
+- **ブラウザの Auth は最初に使うときに初期化する。** 読み込み時に `getAuth()` を呼ぶと、API key のない build や SSR で失敗しうる。
+- **Vitest は到達不能な Emulator を向く**（`vitest.config.ts` の `test.env`）。Infra を実際に動かすテストを書いても、本番にも ADC にも届かない。
+- **開発サーバーと Emulator は `127.0.0.1` にだけ bind する。** 開発用ユーザーのパスワードが固定値のため。E2E の URL と Cookie も `127.0.0.1` に揃える。
+- **E2E は実際のアカウントを使わない。** ログイン後の画面はモックの Session Cookie と `page.route` で表示する。
+- **投入はローカルの Emulator（`127.0.0.1` / `localhost` / `[::1]`）にだけ行う。** 全データを消す処理なので、仕様（SEED-1）に加えて接続先も確かめる。
+- **保存形式はタグ付き JSON**（`scripts/localdev/lib/serialize.ts`）。integerValue（BigInt）、`NaN` / `Infinity` / `-0`、Timestamp、GeoPoint、Reference、Bytes を保つ。匿名化の読み取りは `useBigInt: true`。
+- **変換は保存形式に対する純粋関数**（`anonymizeCollections`）。乱数は注入する（本番は `node:crypto`、テストは固定シード）。
+- **ID の対応表は1つで、全コレクションで共有する。** UUID は UUID v4、それ以外は同じ長さ・同じ文字の種類の乱数。`''` と `null` は振り直さない。
+- **マスクの細部:** Timestamp はそのまま、GeoPoint は (0, 0)、Bytes は同じ長さの乱数、Reference はパス中の ID だけ振り直す。小数は整数部と小数部の桁数をそれぞれ保つ。`々 〆 ー ｰ ﾞ ﾟ ゝ ゞ ヽ ヾ` とキーキャップ絵文字の数字は記号として残す。「上記以外の文字」の全角判定は East Asian Width の F / W の主な範囲。
+- **`country` のシャッフルでは、キー欠損のレコードは欠損のまま残す。**
+- **マップのキー（フィールド名）はマスクしない。** 個人情報をキーにしたマップがあると漏れる。形のレポートで「新しいフィールド」の警告が出たら中身を確認する。
+- **匿名化しても形のレポートは変わらない**（fixture で unit test）。レポートはフィールドも種類も並び順を固定する。
+
+### 8.4 受け入れ基準の確認状況
+
+| AC | 状態 | 確認方法 |
+|---|---|---|
+| AC-1〜4, AC-10, AC-11 | 確認済み | unit test + 実際の起動（`next dev` / `next start` / standalone `server.js`） |
+| AC-5 | 確認済み | ADC ログイン済みの PC で、ブラウザの外向き通信が `127.0.0.1:9099` だけ |
+| AC-6, AC-7 | 確認済み | 開発用ユーザーでログインし、画面からの保存・キャンセル・追加が Emulator にだけ反映 |
+| AC-8 | 確認済み | unit test + production のレスポンスヘッダー |
+| AC-9 | ローカルで確認済み | `CI=1` で E2E 全件。CI 上での確認は PR で行う |
+| AC-12, AC-13 | 確認済み（エラー・Ctrl+C の経路） | gcloud の設定を一時ディレクトリに向け、ログインを代役に差し替えて実行。正常終了の経路は本番での実行で確認する |
+| AC-14, AC-25 | 確認済み | unit test + 実行 |
+| AC-15 | 確認済み | 目印の文字列を入れたデータで実行し、実行中に書かれたファイルを列挙して検索 |
+| AC-16 | 確認済み | `git check-ignore` + ダミーの `.localdev/` を置いた `docker build` |
+| AC-17〜24 | 確認済み | unit test（`tests/unit/localdev/`） |
+| AC-26 | 確認済み | 2回続けて投入して件数比較 |
+| AC-27 | 確認済み | `gcloud auth list` / ADC ファイル / `firebase login:list` |
+

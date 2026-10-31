@@ -1,7 +1,7 @@
 import { DocumentReference, GeoPoint, Timestamp } from 'firebase-admin/firestore'
 import { z } from 'zod'
 
-// 匿名化データの保存形式（docs/LocalDevelopmentImplementation.md §1.4）
+// 匿名化データの保存形式（docs/LocalDevelopment.md §8.3）
 // JSON で表せない Firestore の値はタグ付きオブジェクトにする。素の JSON の number は doubleValue（有限値）だけを表す
 //   { $t: 'int', v: '9007199254740993' }       integerValue（読み取りは useBigInt: true で BigInt）
 //   { $t: 'number', v: 'NaN' }                 NaN, Infinity, -Infinity, -0

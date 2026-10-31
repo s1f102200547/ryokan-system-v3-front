@@ -36,7 +36,6 @@ Domain 層は最も厚くテストする。
 - `src/domain/room/roomState.ts`
 - `src/domain/reservation/bookingSitePolicy.ts`
 - `src/domain/reservation/nightArrays.ts`
-- `src/domain/auth/loginPolicy.ts`
 
 確認する観点:
 
