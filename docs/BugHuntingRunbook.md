@@ -19,7 +19,7 @@
 | 0 | 準備とベースライン | — | 完了（候補 A〜F は確認でき次第 §5 へ移す） |
 | 1 | #4 を Emulator で再現 | 3, 4 | 完了（再現した） |
 | 2 | 予約の入口検証を Infra に揃える | 3, 4, 6, 7, 17, 19 | 完了 |
-| 3 | 入力起因のエラーを 4xx にする | 1, 2, 5, 16, 18 | 未着手 |
+| 3 | 入力起因のエラーを 4xx にする | 1, 2, 5, 16, 18, 20 | 完了 |
 | 4 | 往復検査と制約の突き合わせ | — | 未着手 |
 | 5 | 全 Route Handler のファジング | — | 未着手 |
 | 6 | TZ・時刻の固定テスト | 8, 9 | 未着手 |
@@ -173,6 +173,21 @@
 5. 境界に触れる変更なので、Emulator で実際に存在しない ID へ PATCH し、404 になることを確かめる（BugHunting.md §3.6）。
 
 **完了条件**: 回帰テストが通る / 実機で 404 を確認 / ErrorHandling.md 更新 / §5 更新 / 共通の締め。
+
+### 実行記録（2026-10-31）
+
+決定（質問への回答）:
+- #2: firebase-admin 13.10 は不正なトークンにも公開鍵の取得失敗にも `auth/argument-error` を返す。メッセージが `Decoding Firebase ID token failed` / `Firebase ID token ` で始まるものだけを 401 にし、それ以外は 503 + 通知。公開鍵の取得失敗は HTTP エラーなら `Error fetching ...`、接続エラーなら生のメッセージ（`connect ETIMEDOUT` など）になるため、障害側を数え上げず、不正なトークン側を数え上げた。
+- #5: `FIRESTORE_NOT_FOUND`（404・通知なし・WARN）を追加。Firestore の例外の変換は `src/infra/firestoreError.ts` に1つにまとめた（2つの Repository に同じ関数があった）。
+- #18: 400 / 404 の文言は案どおり。10 個のフックの文言を `src/hooks/httpErrorMessage.ts` にまとめた。
+
+| 確認 | 結果 |
+|---|---|
+| 回帰テスト | unit（`idTokenError`・`firestoreError`・`infraErrorToHttpStatus`・`httpErrorMessage`・`logger`）、integration（ログイン、`[id]` の4 Route）を追加し、修正前に落ちることを確認 |
+| ログイン（実機） | 不正な JSON・空の body は 400、形式が不正な idToken は 401 |
+| `[id]`（実機） | 存在しない ID は PATCH・cancel・restore・a-tax のすべてで 404、ログは WARN で `cause` に `5 NOT_FOUND`、Slack 通知なし。`a%2Fb`・`__x__` は 400（`..` は URL の正規化で Route に届かない） |
+
+- 新たに見つかったもの: #20（`logger` の `extra.message` がログの本文を上書きしていた）。#16 と同じく「ログから原因が追えない」ので Step 3 で直した。
 
 **指示例**
 > docs/BugHuntingRunbook.md の Step 3 を実行して。firebase-admin のエラーコードは Context7 で確認すること。InfraErrorCode を追加するなら AGENTS.md の規則どおり関連ファイルと doc も更新して。

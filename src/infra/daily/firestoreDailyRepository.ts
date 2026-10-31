@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { adminDb } from '@/lib/firebase/admin'
 import { InfraError } from '@/types/errors'
+import { withFirestoreError } from '@/infra/firestoreError'
 import type { DailyRepository } from '@/domain/ports/dailyRepository'
 
 const DailyTodoSchema = z.object({
@@ -57,14 +58,3 @@ export const firestoreDailyRepository: DailyRepository = {
   },
 }
 
-async function withFirestoreError<T>(fn: () => Promise<T>): Promise<T> {
-  try {
-    return await fn()
-  } catch (e) {
-    if (e instanceof InfraError) throw e
-    const code = (e as { code?: number }).code
-    if (code === 14) throw new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unreachable', e)
-    if (code === 7) throw new InfraError('FIRESTORE_PERMISSION', 'Firestore permission denied', e)
-    throw new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unknown error', e)
-  }
-}

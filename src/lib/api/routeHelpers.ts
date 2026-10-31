@@ -22,10 +22,22 @@ export async function getSession(request: Request) {
   return verifySession(sessionCookie)
 }
 
+// 元の例外を文字列にする。InfraError の message だけでは原因が分からない（例: RangeError が "Firestore unknown error" になる。BugHunting.md #16）
+function describeCause(cause: unknown): string | undefined {
+  if (cause === undefined) return undefined
+  return cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause)
+}
+
 export function handleRouteError(e: unknown, label: string): NextResponse {
   if (e instanceof InfraError) {
     const status = infraErrorToStatus(e.code)
-    logger.error(`${label} InfraError`, { infraErrorCode: e.code, message: e.message })
+    const cause = describeCause(e.cause)
+    // 存在しないドキュメントへの操作は入力が原因。人が対応する障害ではないので通知しない（BugHunting.md #5）
+    if (e.code === 'FIRESTORE_NOT_FOUND') {
+      logger.warn(`${label} 対象なし`, { infraErrorCode: e.code, message: e.message, cause })
+      return NextResponse.json({ error: 'not found' }, { status })
+    }
+    logger.error(`${label} InfraError`, { infraErrorCode: e.code, message: e.message, cause })
     notifySlackFireAndForget(`[ALERT] ${label}エラー(${e.code}): ${e.message}`)
     return NextResponse.json({ error: 'internal server error' }, { status })
   }

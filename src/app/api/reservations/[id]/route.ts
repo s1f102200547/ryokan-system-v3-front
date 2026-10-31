@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { updateReservationCommand } from '@/application/guestInfo/updateReservationCommand'
 import { getSession, handleRouteError } from '@/lib/api/routeHelpers'
+import { DocumentIdSchema } from '@/lib/api/documentIdSchema'
 import { ROOM_NUMBERS } from '@/constants/room'
 import {
   ARRIVAL_TIME_VALUES, BREAKFAST_TIME_VALUES, DINNER_TIME_VALUES, OPEN_AIR_BATH_TIME_VALUES,
@@ -54,6 +55,9 @@ export async function PATCH(
   if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const { id } = await params
+  if (!DocumentIdSchema.safeParse(id).success) {
+    return NextResponse.json({ error: 'invalid id' }, { status: 400 })
+  }
   const body = await request.json().catch(() => null)
   const parsed = PatchBodySchema.safeParse(body)
   if (!parsed.success) {

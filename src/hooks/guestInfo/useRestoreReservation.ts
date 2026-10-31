@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
+import { httpErrorMessage } from '@/hooks/httpErrorMessage'
 
 type RestoreInput = {
   id: string
@@ -29,9 +30,7 @@ export function useRestoreReservation() {
       })
       if (!res.ok) {
         setError(
-          res.status === 503
-            ? '一時的に通信に失敗しました。しばらく待ってから再度お試しください。'
-            : '復活処理に失敗しました。管理者に通知済みです。',
+          httpErrorMessage(res.status, 'save', '復活処理に失敗しました。管理者に通知済みです。'),
         )
         return false
       }

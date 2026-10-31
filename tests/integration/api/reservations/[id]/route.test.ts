@@ -118,4 +118,20 @@ describe('PATCH /api/reservations/[id]', () => {
       expect(notifySlackFireAndForget).not.toHaveBeenCalled()
     })
   })
+
+  // BugHunting.md #5: [id] を検証しておらず、Firestore が投げる例外が 503 + ALERT になっていた
+  describe('[id] の検証', () => {
+    it.each([
+      ['空', ''],
+      ['スラッシュを含む（%2F は Next.js がデコードして渡す）', 'a/b'],
+      ['.', '.'],
+      ['..', '..'],
+      ['予約名（__x__）', '__x__'],
+      ['1500 バイト超', 'あ'.repeat(501)],
+    ])('%s で400', async (_label, id) => {
+      const res = await PATCH(makeRequest({ guest_name: 'テスト' }), { params: Promise.resolve({ id }) })
+      expect(res.status).toBe(400)
+      expect(mockCommand).not.toHaveBeenCalled()
+    })
+  })
 })

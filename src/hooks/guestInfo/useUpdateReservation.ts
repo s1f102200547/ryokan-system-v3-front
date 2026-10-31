@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import type { ReservationPatch } from '@/types/guestInfo'
 import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
+import { httpErrorMessage } from '@/hooks/httpErrorMessage'
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -26,9 +27,7 @@ export function useUpdateReservation() {
       })
       if (!res.ok) {
         const message =
-          res.status === 503
-            ? '一時的に通信に失敗しました。しばらく待ってから再度お試しください。'
-            : '保存に失敗しました。管理者に通知済みです。'
+          httpErrorMessage(res.status, 'save', '保存に失敗しました。管理者に通知済みです。')
         setError(message)
         setSaveStatus('error')
         return

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import type { ATaxTableData } from '@/application/aTaxTable/getATaxTableUseCase'
 import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
+import { httpErrorMessage } from '@/hooks/httpErrorMessage'
 
 type State = {
   data: ATaxTableData | null
@@ -28,9 +29,7 @@ export function useATaxTable(year: number, month: number) {
         if (cancelled) return
         if (!res.ok) {
           const message =
-            res.status === 503
-              ? '一時的に通信に失敗しました。しばらく待ってから再度お試しください。'
-              : 'データの取得に失敗しました。管理者に通知済みです。'
+            httpErrorMessage(res.status, 'fetch', 'データの取得に失敗しました。管理者に通知済みです。')
           setState({ data: null, fetchedKey, error: message })
           return
         }

@@ -71,7 +71,7 @@
 - Application は原則 catch せず伝搬する。
 - Route Handler は `InfraError` を HTTP status に変換し、ログと必要な Slack 通知を行う。
 - Hooks は HTTP status と fetch 失敗をユーザー向け日本語メッセージに変換する。
-- `FIRESTORE_UNAVAILABLE` と `AUTH_UNAVAILABLE` は 503、`FIRESTORE_PERMISSION` と `FIRESTORE_DATA_CORRUPTION` は 500、`AUTH_FAILED` は 401。
+- `FIRESTORE_UNAVAILABLE` と `AUTH_UNAVAILABLE` は 503、`FIRESTORE_PERMISSION` と `FIRESTORE_DATA_CORRUPTION` は 500、`FIRESTORE_NOT_FOUND` は 404（通知しない）、`AUTH_FAILED` は 401。
 - `InfraErrorCode` 追加時は `src/lib/infraErrorToHttpStatus.ts` と `docs/ErrorHandling.md` を更新する。
 
 ## Context7

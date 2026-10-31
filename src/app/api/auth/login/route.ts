@@ -3,21 +3,7 @@ import { z } from 'zod'
 import { adminAuth } from '@/lib/firebase/admin'
 import { logger } from '@/lib/logger'
 import { notifySlackFireAndForget } from '@/lib/slack'
-
-// 認証失敗（ビジネス結果）として扱う Firebase Admin エラーコード
-// これ以外はインフラ障害として 503 を返す
-const CREDENTIAL_ERROR_CODES = new Set([
-  'auth/id-token-expired',
-  'auth/id-token-revoked',
-  'auth/invalid-id-token',
-  'auth/user-disabled',
-])
-
-// firebase-admin の FirebaseError は値ではなく型なので instanceof が使えない
-// code プロパティの存在で判定する
-function isFirebaseError(e: unknown): e is { code: string } {
-  return typeof e === 'object' && e !== null && 'code' in e && typeof (e as { code: unknown }).code === 'string'
-}
+import { isInvalidIdTokenError } from '@/lib/auth/idTokenError'
 
 const BodySchema = z.object({
   idToken: z.string().min(1),
@@ -41,7 +27,8 @@ function msUntilToday23JST(): number {
 }
 
 export async function POST(request: Request) {
-  const parsed = BodySchema.safeParse(await request.json())
+  // 不正な JSON や空の body は 400（BugHunting.md #1）
+  const parsed = BodySchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
     return NextResponse.json({ error: 'invalid request' }, { status: 400 })
   }
@@ -50,9 +37,9 @@ export async function POST(request: Request) {
   try {
     await adminAuth.verifyIdToken(parsed.data.idToken)  // このユーザは本当にログイン済みか?
   } catch (e) {
-    if (isFirebaseError(e) && CREDENTIAL_ERROR_CODES.has(e.code)) {
+    if (isInvalidIdTokenError(e)) {
       // 認証失敗はビジネスロジックで処理する（インフラ障害ではない）
-      logger.warn('ログイン失敗: idToken 検証エラー', { code: e.code })
+      logger.warn('ログイン失敗: idToken 検証エラー', { code: (e as { code: string }).code })
       return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 })
     }
     // ネットワーク障害・Firebase サービス障害などはインフラ障害として 503
