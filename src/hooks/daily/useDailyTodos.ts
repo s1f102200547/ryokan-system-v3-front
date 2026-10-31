@@ -1,5 +1,6 @@
 'use client'
 
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 import { useState, useEffect, useCallback } from 'react'
 import type { DailyTodo } from '@/domain/ports/dailyRepository'
 
@@ -12,7 +13,7 @@ type State = {
 }
 
 async function saveTodos(date: string, todos: DailyTodo[]): Promise<void> {
-  const res = await fetch(`/api/daily/${date}/todos`, {
+  const res = await fetchWithSession(`/api/daily/${date}/todos`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ todos }),
@@ -34,7 +35,7 @@ export function useDailyTodos(date: string) {
 
     const load = async () => {
       try {
-        const res = await fetch(`/api/daily/${date}/todos`)
+        const res = await fetchWithSession(`/api/daily/${date}/todos`)
         if (cancelled) return
         if (!res.ok) {
           setState((prev) => ({ ...prev, todos: [], fetchedDate: date, error: 'データの取得に失敗しました' }))

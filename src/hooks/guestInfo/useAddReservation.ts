@@ -1,5 +1,6 @@
 'use client'
 
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 import { useState, useCallback } from 'react'
 import type { NewReservationInput } from '@/types/guestInfo'
 
@@ -12,7 +13,7 @@ export function useAddReservation() {
     setIsPending(true)
     setError(null)
     try {
-      const res = await fetch('/api/reservations', {
+      const res = await fetchWithSession('/api/reservations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),

@@ -1,5 +1,6 @@
 'use client'
 
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 import { useState, useEffect } from 'react'
 import type { ATaxTableData } from '@/application/aTaxTable/getATaxTableUseCase'
 
@@ -23,7 +24,7 @@ export function useATaxTable(year: number, month: number) {
 
     const load = async () => {
       try {
-        const res = await fetch(`/api/a-tax-table?year=${year}&month=${month}`)
+        const res = await fetchWithSession(`/api/a-tax-table?year=${year}&month=${month}`)
         if (cancelled) return
         if (!res.ok) {
           const message =

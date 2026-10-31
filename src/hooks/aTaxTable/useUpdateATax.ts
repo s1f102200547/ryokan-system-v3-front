@@ -1,5 +1,6 @@
 'use client'
 
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 import { useState, useCallback } from 'react'
 import type { ATaxPatch } from '@/types/guestInfo'
 
@@ -11,7 +12,7 @@ export function useUpdateATax() {
     setIsPending(true)
     setError(null)
     try {
-      const res = await fetch(`/api/reservations/${id}/a-tax`, {
+      const res = await fetchWithSession(`/api/reservations/${id}/a-tax`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patch),

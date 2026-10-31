@@ -1,5 +1,6 @@
 'use client'
 
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 import { useState, useEffect } from 'react'
 import type { GuestInfoData } from '@/application/guestInfo/getGuestInfoUseCase'
 
@@ -25,7 +26,7 @@ export function useGuestInfo(targetDate: string, refreshKey = 0) {
 
     const load = async () => {
       try {
-        const res = await fetch(`/api/guest-info?date=${targetDate}`)
+        const res = await fetchWithSession(`/api/guest-info?date=${targetDate}`)
         if (cancelled) return
         if (!res.ok) {
           const message =
