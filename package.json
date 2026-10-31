@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev -H 127.0.0.1",
     "emulators": "firebase emulators:start --project demo-ryokan --only firestore,auth",
+    "seed": "tsx --env-file=.env.development scripts/localdev/seed.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -41,6 +42,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
     "jsdom": "^29.0.1",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^4.1.2"
   }
