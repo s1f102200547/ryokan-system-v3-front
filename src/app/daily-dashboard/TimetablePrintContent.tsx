@@ -148,6 +148,7 @@ export function TimetablePrintContent({ date, onPrintReady, onAfterPrint }: Prop
           }}
         >
           {printTime.toLocaleString('ja-JP', {
+            timeZone: 'Asia/Tokyo',
             year: 'numeric',
             month: '2-digit',
             day: '2-digit',

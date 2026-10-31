@@ -13,6 +13,7 @@ import { adminAuth } from '@/lib/firebase/admin'
 
 vi.mock('@/lib/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
 vi.mock('@/lib/slack', () => ({ notifySlackFireAndForget: vi.fn() }))
+import { notifySlackFireAndForget } from '@/lib/slack'
 
 const mockVerifyIdToken = vi.mocked(adminAuth.verifyIdToken)
 const mockCreateSessionCookie = vi.mocked(adminAuth.createSessionCookie)
@@ -81,5 +82,43 @@ describe('POST /api/auth/login', () => {
     const response = await POST(makeRequest({ idToken: 'valid-id-token' }))
 
     expect(response.status).toBe(503)
+  })
+
+  // BugHunting.md #1: request.json() を catch しておらず 500 になっていた
+  it.each([
+    ['不正な JSON', '{"idToken":'],
+    ['空の body', ''],
+  ])('%s で 400（Slack に通知しない）', async (_label, raw) => {
+    const response = await POST(new Request('http://localhost/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: raw,
+    }))
+    expect(response.status).toBe(400)
+    expect(notifySlackFireAndForget).not.toHaveBeenCalled()
+  })
+
+  // BugHunting.md #2: 形式が不正な idToken で 503 + ALERT になっていた。
+  // firebase-admin は不正なトークンにも公開鍵の取得失敗にも auth/argument-error を返すため、メッセージで分ける
+  // （メッセージは firebase-admin 13.10 が実際に返すもの）
+  it.each([
+    ['形式が不正', 'Decoding Firebase ID token failed. Make sure you passed the entire string JWT which represents an ID token.'],
+    ['クレームが不正', 'Firebase ID token has incorrect "aud" (audience) claim. Expected "demo-x" but got "other".'],
+    ['署名が不正', 'Firebase ID token has invalid signature. See https://firebase.google.com/docs/auth/admin/verify-id-tokens'],
+  ])('auth/argument-error（%s）は 401（Slack に通知しない）', async (_label, message) => {
+    mockVerifyIdToken.mockRejectedValue({ code: 'auth/argument-error', message })
+    const response = await POST(makeRequest({ idToken: 'x' }))
+    expect(response.status).toBe(401)
+    expect(notifySlackFireAndForget).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['HTTP エラー', 'Error fetching public keys for Google certs: 500'],
+    ['接続できない', 'connect ETIMEDOUT 142.250.0.1:443'],
+  ])('auth/argument-error でも公開鍵の取得失敗（%s）は 503 + Slack 通知', async (_label, message) => {
+    mockVerifyIdToken.mockRejectedValue({ code: 'auth/argument-error', message })
+    const response = await POST(makeRequest({ idToken: 'x' }))
+    expect(response.status).toBe(503)
+    expect(notifySlackFireAndForget).toHaveBeenCalled()
   })
 })

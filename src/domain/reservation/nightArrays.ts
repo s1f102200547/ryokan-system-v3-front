@@ -22,3 +22,25 @@ export function resizeNightFields(fields: NightFields, newNights: number): Requi
     timetable_info:     resizeNightArray(fields.timetable_info     ?? [], newNights, ''),
   }
 }
+
+// --- 縮めた分の記憶（BugHunting.md #19） ---
+// C/O 日を1文字ずつ打つと、入力途中の短い泊数で配列が切り詰められる。
+// モーダルを開いている間は、いちばん長かったときの値を覚えておき、伸ばし直したときに戻す。
+
+export type ArrayFieldMemory = Required<NightFields> & { age_groups: (string | null)[] }
+
+// 編集後の配列で先頭を上書きし、それより後ろは覚えていた値を残す
+export function keepLonger<T>(memory: T[], edited: T[]): T[] {
+  return [...edited, ...memory.slice(edited.length)]
+}
+
+export function rememberArrayFields(memory: ArrayFieldMemory, patch: ReservationPatch): ArrayFieldMemory {
+  return {
+    dinner_time:        patch.dinner_time        ? keepLonger(memory.dinner_time, patch.dinner_time) : memory.dinner_time,
+    dinner_info:        patch.dinner_info        ? keepLonger(memory.dinner_info, patch.dinner_info) : memory.dinner_info,
+    breakfast_time:     patch.breakfast_time     ? keepLonger(memory.breakfast_time, patch.breakfast_time) : memory.breakfast_time,
+    open_air_bath_time: patch.open_air_bath_time ? keepLonger(memory.open_air_bath_time, patch.open_air_bath_time) : memory.open_air_bath_time,
+    timetable_info:     patch.timetable_info     ? keepLonger(memory.timetable_info, patch.timetable_info) : memory.timetable_info,
+    age_groups:         patch.age_groups         ? keepLonger(memory.age_groups, patch.age_groups) : memory.age_groups,
+  }
+}

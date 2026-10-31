@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import type { NewReservationInput } from '@/types/guestInfo'
 import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
+import { httpErrorMessage } from '@/hooks/httpErrorMessage'
 
 export function useAddReservation() {
   const [isPending, setIsPending] = useState(false)
@@ -20,9 +21,7 @@ export function useAddReservation() {
       })
       if (!res.ok) {
         setError(
-          res.status === 503
-            ? '一時的に通信に失敗しました。しばらく待ってから再度お試しください。'
-            : '予約の追加に失敗しました。管理者に通知済みです。',
+          httpErrorMessage(res.status, 'save', '予約の追加に失敗しました。管理者に通知済みです。'),
         )
         return null
       }

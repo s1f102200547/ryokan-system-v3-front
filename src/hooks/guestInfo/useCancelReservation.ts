@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
+import { httpErrorMessage } from '@/hooks/httpErrorMessage'
 
 type CancelInput = {
   id: string
@@ -29,9 +30,10 @@ export function useCancelReservation() {
       })
       if (!res.ok) {
         setError(
-          res.status === 503
-            ? '一時的に通信に失敗しました。しばらく待ってから再度お試しください。'
-            : 'キャンセルに失敗しました。管理者に通知済みです。',
+          // 409: すでにその状態（古い画面からの操作など。BugHunting.md #27）
+          res.status === 409
+            ? 'すでにキャンセル済みです。画面を再読み込みしてください。'
+            : httpErrorMessage(res.status, 'save', 'キャンセルに失敗しました。管理者に通知済みです。'),
         )
         return false
       }

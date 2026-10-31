@@ -16,6 +16,7 @@
 
 ```bash
 npm run test
+npm run test:emulator
 npm run e2e
 ```
 
@@ -68,6 +69,48 @@ Route Handler の `*.test.ts` は、外部依存を mock して HTTP として�
 - 空 body や空 patch を拒否する。
 - 必須理由・staff name など監査に必要な項目を検証する。
 - 日付逆転や範囲外値を拒否する。
+
+## Emulator Test（往復検査）
+
+`tests/emulator/` は Firestore Emulator に実際に書いて読む。Integration test は Application 層を、E2E は API を丸ごと mock するため、「Route が受け付けた値を Firestore に書き、読み戻して画面に出す」経路はここでしか通らない（`docs/BugHunting.md` §1.2）。
+
+```bash
+npm run test:emulator   # firebase emulators:exec で専用の Emulator（Firestore・Auth）を起動して実行（Firebase CLI と Java が必要）
+```
+
+- 設定は `vitest.emulator.config.ts`（`127.0.0.1` の Emulator と demo project のみ。起動ガードも通る）。通常の `npm run test` からは除外している。
+- `make` で開発用の Emulator を起動したままだとポートが衝突する。止めてから実行する。
+- モックは認証（`verifySession`）と Slack だけ。Route Handler → Command → Infra → Emulator を実際に通す。
+- 判定は仕様の中身に依存させない: 受け付けた値は読み戻しても同じ／壊れたドキュメントが他の予約の取得を巻き込まない。
+- 書いたドキュメントは `emutest-` で始まる ID にし、終わったら消す。
+
+制約の突き合わせ（UI の選択肢・Route の Zod・Infra の読み取り検証）は `tests/unit/constraints/` に置く。UI が送る値がすべて Route を通り、Infra の読み取りで fallback に置き換えられないことを検査する。Route の Zod は `src/lib/api/reservationSchemas.ts`、UI の選択肢と許容値は `src/constants/guestInfo.ts` にあり、テストはそれを直接参照する（新しい選択肢を足すと自動で検査対象になる）。
+
+## 時刻・タイムゾーン
+
+`tests/time/` は時刻や TZ で結果が変わりうる処理のテスト。`npm run test:tz` で `TZ=UTC`（Cloud Run・CI）/ `Asia/Tokyo`（開発 PC・ブラウザ）/ `America/Los_Angeles`（夏時間あり）の3回実行し、判定は「TZ によって結果が変わらない」（`docs/BugHunting.md` §3.4）。
+
+- 時刻は `tests/utils/timeHelper.ts` の `setNowJST` で JST の日時として固定する。境界は JST 0:00 / 5:59 / 6:00 / 8:59 / 9:00 / 22:54 / 22:56 / 23:00 / 23:59（`JST_BOUNDARY_TIMES`）。
+- 日付は月末・年末年始・閏日・米国の夏時間の切り替え日、`DATE_RANGE_*` の端と1日外を通す。
+- 期待値は具体的な値で書く（スナップショットは最初に実行した TZ の値を固定してしまうので使わない）。
+- 実装の規則: 「今日」は `getTodayJST()` だけから得る。日付は `YYYY-MM-DD` の文字列のまま比べる。`new Date()` のローカル時刻（`getMonth()` / `getDate()`）、`toISOString()`、`new Date('YYYY-MM-DD')` を日付の判定に使わない。
+
+## PBT（Property-Based Testing）
+
+`tests/pbt/` と `tests/time/dateProperties.test.ts` は fast-check で大量の入力を生成し、単純で一般的な性質を確かめる（`docs/BugHunting.md` §3.5）。
+
+- 性質は md（BugHunting.md §3.5、Schema、仕様の決定）から立てる。コードを読んでから立てると、バグに合わせた性質になる。
+- 入力の生成器は `tests/utils/arbitraries.ts`。本番データの「形」（型違い・null・範囲外・欠損）を混ぜる。
+- 条件を満たす入力だけで確かめる性質（例: 更新の検査を通った patch）は、条件を満たした件数も検査する。件数が少ないと、何も確かめていないのに通ってしまう。
+- 失敗したら、fast-check が縮めた最小の反例（Counterexample）と seed が出る。md に根拠があれば実装のバグ、なければ仕様の穴として人間が判断する。
+
+## Fuzzing
+
+全 Route Handler に、壊れた body・path・query を送る。判定は「入力が原因で 5xx を返さない・Slack に通知しない」（`docs/BugHunting.md` §3.3）。
+
+- 入力の一覧は `tests/utils/fuzzInputs.ts` に1つにまとめる（不正な JSON・深い入れ子・巨大な値・型違い・実在しない日付・ID の制約違反など）。
+- mock 版（`tests/integration/fuzz/routes.fuzz.test.ts`）: Application / Infra を mock し、Route ごとの「正しい入力」から1か所ずつ壊した入力を網羅する。`src/app/api/**/route.ts` を走査し、export された HTTP メソッドがすべて対象に入っていることも検査する（Route を追加したら、対象に足さないとテストが落ちる）。
+- Emulator 版（`tests/emulator/routes.fuzz.test.ts`）: 実際の Firestore / Auth に向けて、エラーの分類まで確かめる。ID の制約に反する `[id]` は 400、ID として有効で存在しないものは 404。ログインは Auth Emulator の `verifyIdToken` を通す。
 
 ## E2E Test
 

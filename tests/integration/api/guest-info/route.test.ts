@@ -26,7 +26,7 @@ function makeRequest(date?: string, withSession = true) {
   })
 }
 
-const mockData = { normal: [], staying: [], cancelled: [] }
+const mockData = { normal: [], staying: [], cancelled: [], roomConflicts: [] }
 
 describe('GET /api/guest-info', () => {
   beforeEach(() => {

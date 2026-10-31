@@ -28,8 +28,6 @@ export type ProcessedRow = ATaxTableRow & {
 export function computeProcessedRows(
   rows: ATaxTableRow[],
   safeBalanceCheckers: Record<string, string>,
-  option: 'previous' | 'current',
-  enableFilter: boolean,
 ): ProcessedRow[] {
   const sorted = rows
     .filter((r) => r.cancel !== 1)
@@ -60,20 +58,7 @@ export function computeProcessedRows(
     }
   })
 
-  if (option === 'previous' || !enableFilter) return enhanced
-
-  // 今月フィルタON: 最初の未受領行の日付〜今日まで
-  const firstUnrec = sorted.find((r) => r.booking_site !== 'chillnn' && !r.a_tax_received)
-  const startDateStr = firstUnrec?.check_in_date ?? new Date().toISOString().slice(0, 10)
-  const startDate = new Date(startDateStr)
-  const today = new Date()
-  today.setHours(23, 59, 59, 999)
-  if (startDate > today) startDate.setTime(today.getTime())
-
-  return enhanced.filter((r) => {
-    const d = new Date(r.check_in_date)
-    return d >= startDate && d <= today
-  })
+  return enhanced
 }
 
 // -------- named cell components --------

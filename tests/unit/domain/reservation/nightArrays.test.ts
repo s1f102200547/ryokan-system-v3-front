@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { resizeNightArray, resizeNightFields } from '@/domain/reservation/nightArrays'
+import { keepLonger, rememberArrayFields, resizeNightArray, resizeNightFields } from '@/domain/reservation/nightArrays'
+import type { ArrayFieldMemory } from '@/domain/reservation/nightArrays'
 import { DINNER_NONE } from '@/constants/guestInfo'
 
 describe('resizeNightArray', () => {
@@ -58,5 +59,52 @@ describe('resizeNightFields', () => {
     const result = resizeNightFields({}, 2)
     expect(result.dinner_time).toEqual([DINNER_NONE, DINNER_NONE])
     expect(result.breakfast_time).toEqual([null, null])
+  })
+})
+
+// BugHunting.md #19: C/O 日を1文字ずつ打つと、途中の短い泊数で入力が消えていた
+describe('keepLonger', () => {
+  it('編集後の配列で先頭を上書きし、それより後ろは覚えていた値を残す', () => {
+    expect(keepLonger(['a', 'b', 'c'], ['x'])).toEqual(['x', 'b', 'c'])
+  })
+
+  it('編集後の配列の方が長ければ、それをそのまま使う', () => {
+    expect(keepLonger(['a'], ['x', 'y', 'z'])).toEqual(['x', 'y', 'z'])
+  })
+})
+
+describe('rememberArrayFields', () => {
+  const memory: ArrayFieldMemory = {
+    dinner_time: [DINNER_NONE, '18:00'],
+    dinner_info: ['', ''],
+    breakfast_time: [null, '8:00a'],
+    open_air_bath_time: [null, null],
+    timetable_info: ['night1', 'night2'],
+    age_groups: ['20s', '30s', '40s'],
+  }
+
+  it('patch に含まれない配列はそのまま', () => {
+    expect(rememberArrayFields(memory, { guest_name: 'x' })).toEqual(memory)
+  })
+
+  it('patch の配列は keepLonger で取り込む', () => {
+    const result = rememberArrayFields(memory, { timetable_info: ['edited'], age_groups: [null] })
+    expect(result.timetable_info).toEqual(['edited', 'night2'])
+    expect(result.age_groups).toEqual([null, '30s', '40s'])
+  })
+
+  it('2泊 → 1泊 → 15泊と変えても、2泊目の入力が戻る', () => {
+    const oneNight = resizeNightFields(memory, 1)
+    const remembered = rememberArrayFields(memory, oneNight)
+    const fifteen = resizeNightFields(remembered, 15)
+    expect(fifteen.dinner_time.slice(0, 3)).toEqual([DINNER_NONE, '18:00', DINNER_NONE])
+    expect(fifteen.timetable_info.slice(0, 3)).toEqual(['night1', 'night2', ''])
+    expect(fifteen.timetable_info).toHaveLength(15)
+  })
+
+  it('大人 3人 → 1人 → 3人と変えても、年代が戻る', () => {
+    const one = resizeNightArray(memory.age_groups, 1, null)
+    const remembered = rememberArrayFields(memory, { adult_count: 1, age_groups: one })
+    expect(resizeNightArray(remembered.age_groups, 3, null)).toEqual(['20s', '30s', '40s'])
   })
 })

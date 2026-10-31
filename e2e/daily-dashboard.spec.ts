@@ -110,14 +110,9 @@ type CleaningBoardRow = {
   autoNotes?: string[]
 }
 
-type UnassignedReservation = {
-  id: string
-  check_in_date: string
-}
 
 type CleaningBoardData = {
   rows: CleaningBoardRow[]
-  unassignedReservations: UnassignedReservation[]
 }
 
 function makeEmptyRows(): CleaningBoardRow[] {
@@ -133,11 +128,8 @@ function makeEmptyRows(): CleaningBoardRow[] {
   }))
 }
 
-function mockCleaningBoard(
-  rows: CleaningBoardRow[] = makeEmptyRows(),
-  unassignedReservations: UnassignedReservation[] = [],
-): CleaningBoardData {
-  return { rows, unassignedReservations }
+function mockCleaningBoard(rows: CleaningBoardRow[] = makeEmptyRows()): CleaningBoardData {
+  return { rows }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

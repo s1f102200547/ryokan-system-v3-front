@@ -1,11 +1,14 @@
 import { firestoreReservationRepository } from '@/infra/reservation/firestoreReservationRepository'
 import { addDays } from '@/lib/dateUtils'
+import { findRoomConflicts } from '@/domain/room/roomConflicts'
+import type { RoomConflict } from '@/domain/room/roomConflicts'
 import type { Reservation } from '@/types/reservation'
 
 export type GuestInfoData = {
   normal: Reservation[]    // cancel !== 1、check_in_date === targetDate
   staying: Reservation[]   // cancel !== 1、check_in_date < targetDate < check_out_date
   cancelled: Reservation[] // cancel === 1、check_in_date === targetDate
+  roomConflicts: RoomConflict[] // 対象日の夜に同じ部屋の有効な予約が2件以上（BugHunting.md #11）
 }
 
 export async function getGuestInfoUseCase(targetDate: string): Promise<GuestInfoData> {
@@ -25,5 +28,5 @@ export async function getGuestInfoUseCase(targetDate: string): Promise<GuestInfo
     }
   }
 
-  return { normal, staying, cancelled }
+  return { normal, staying, cancelled, roomConflicts: findRoomConflicts([...normal, ...staying], targetDate) }
 }

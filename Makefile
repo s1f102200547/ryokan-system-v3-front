@@ -23,10 +23,12 @@ dev: ## 開発サーバーだけを起動する（Emulator は別に起動して
 anonymize: ## 本番から匿名化データを作る（ブラウザでログイン。終了時に認証情報を削除）
 	npm run anonymize -- --project ryokan-system --sa anon-reader@ryokan-system.iam.gserviceaccount.com
 
-check: ## lint・型チェック・unit/integration test・E2E
+check: ## lint・型チェック・unit/integration test・Emulator の往復検査・E2E（make で起動した Emulator / 開発サーバーは止めてから）
 	npm run lint
 	npx tsc --noEmit
 	npm run test -- --run
+	npm run test:tz
+	npm run test:emulator
 	npm run e2e
 
 help: ## ターゲット一覧

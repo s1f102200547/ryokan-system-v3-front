@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getATaxTableUseCase } from '@/application/aTaxTable/getATaxTableUseCase'
-import { getSession, handleRouteError } from '@/lib/api/routeHelpers'
+import { handleRouteError, requireSession } from '@/lib/api/routeHelpers'
 
 const QuerySchema = z.object({
   year: z.coerce.number().int().min(2020).max(2099),
@@ -9,8 +9,8 @@ const QuerySchema = z.object({
 })
 
 export async function GET(request: Request) {
-  const session = await getSession(request)
-  if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const unauthorized = await requireSession(request, 'ATaxTable取得')
+  if (unauthorized) return unauthorized
 
   const { searchParams } = new URL(request.url)
   const parsed = QuerySchema.safeParse({

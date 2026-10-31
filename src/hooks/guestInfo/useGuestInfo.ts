@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import type { GuestInfoData } from '@/application/guestInfo/getGuestInfoUseCase'
 import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
+import { httpErrorMessage } from '@/hooks/httpErrorMessage'
 
 type State = {
   data: GuestInfoData | null
@@ -30,9 +31,7 @@ export function useGuestInfo(targetDate: string, refreshKey = 0) {
         if (cancelled) return
         if (!res.ok) {
           const message =
-            res.status === 503
-              ? '一時的に通信に失敗しました。しばらく待ってから再度お試しください。'
-              : 'データの取得に失敗しました。管理者に通知済みです。'
+            httpErrorMessage(res.status, 'fetch', 'データの取得に失敗しました。管理者に通知済みです。')
           setState({ data: null, stateKey, loadedDate: targetDate, error: message })
           return
         }

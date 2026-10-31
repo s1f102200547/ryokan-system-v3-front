@@ -16,7 +16,8 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import { debounce } from '@/lib/debounce'
 import { dateDiff } from '@/lib/dateUtils'
-import { resizeNightFields, resizeNightArray } from '@/domain/reservation/nightArrays'
+import { rememberArrayFields, resizeNightFields, resizeNightArray } from '@/domain/reservation/nightArrays'
+import type { ArrayFieldMemory } from '@/domain/reservation/nightArrays'
 import { useUpdateReservation } from '@/hooks/guestInfo/useUpdateReservation'
 import { ReservationCardSet1 } from './cardset1/ReservationCardSet1'
 import { ReservationCardSet2 } from './cardset2/ReservationCardSet2'
@@ -41,46 +42,60 @@ type DebouncedFn = ((id: string) => void) & { flush: () => void; cancel: () => v
 function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose: () => void }) {
   const [tab, setTab] = useState<number>(0)
   const [localData, setLocalData] = useState<Reservation>(reservation)
-  const [isClosing, setIsClosing] = useState(false)
 
   const localDataRef = useRef<Reservation>(localData)
   useEffect(() => { localDataRef.current = localData })
 
   const pendingPayloadRef = useRef<ReservationPatch>({})
+  // 泊数・大人の人数を縮めても、伸ばし直したときに入力を戻すための記憶（BugHunting.md #19）
+  const arrayMemoryRef = useRef<ArrayFieldMemory>({
+    dinner_time: reservation.dinner_time,
+    dinner_info: reservation.dinner_info,
+    breakfast_time: reservation.breakfast_time,
+    open_air_bath_time: reservation.open_air_bath_time,
+    timetable_info: reservation.timetable_info,
+    age_groups: reservation.age_groups,
+  })
   const { execute, saveStatus, error, clearError } = useUpdateReservation()
   const debouncedUpdateRef = useRef<DebouncedFn | null>(null)
 
-  useEffect(() => {
-    const fn = debounce((id: string) => {
+  // 進行中の保存。保存は1件ずつ、前の保存が終わってから送る（応答の順序が入れ替わらないように）
+  const savingRef = useRef<Promise<void>>(Promise.resolve())
+
+  // 保留中の変更を送る。通信エラー・サーバーの障害で失敗した変更は保留に戻し、
+  // 次の入力か「閉じる」で送り直す。以前は失敗した変更を捨てていたため、画面には入力が残るのに保存されていなかった（BugHunting.md #24）。
+  // 入力の誤り（400）などは送り直しても通らないので捨てる（画面には理由が出ている）
+  const save = useCallback((id: string): Promise<void> => {
+    savingRef.current = savingRef.current.then(async () => {
       const payload = pendingPayloadRef.current
       if (Object.keys(payload).length === 0) return
       pendingPayloadRef.current = {}
-      void execute(id, payload)
-    }, SAVE_DEBOUNCE_MS)
-    debouncedUpdateRef.current = fn
-    return () => fn.cancel()
+      const result = await execute(id, payload)
+      if (result === 'retry') {
+        // 待っている間に入力された新しい値を優先する
+        pendingPayloadRef.current = { ...payload, ...pendingPayloadRef.current }
+      }
+    })
+    return savingRef.current
   }, [execute])
 
-  // PATCH完了後にonCloseを呼ぶことで、GETがPATCH完了前に走るレースを防ぐ。
-  // isClosing=trueかつsaveStatus!=='saving'（保存中でない）になった時点でonCloseを呼ぶ。
-  // onBlurによるflushがすでに進行中の場合（pending={}だがsaveStatus==='saving'）も待機する。
   useEffect(() => {
-    if (isClosing && saveStatus !== 'saving') {
-      onClose()
-    }
-  }, [isClosing, saveStatus, onClose])
+    const fn = debounce((id: string) => { void save(id) }, SAVE_DEBOUNCE_MS)
+    debouncedUpdateRef.current = fn
+    return () => fn.cancel()
+  }, [save])
 
-  const handleClose = useCallback(() => {
-    const fn = debouncedUpdateRef.current
-    if (fn) {
-      if (Object.keys(pendingPayloadRef.current).length > 0) {
-        fn.flush()
-      } else {
-        fn.cancel()
-      }
-    }
-    setIsClosing(true)
-  }, [])
+  // 保留中の変更（失敗した変更を含む）を送り、進行中の保存も終わってから閉じる。
+  // 保存の完了前に閉じると、一覧の再取得が保存より先に走る。送り直しても失敗したら、閉じる前に確認する
+  const handleClose = useCallback(async () => {
+    debouncedUpdateRef.current?.cancel()
+    await save(reservation.id)
+    if (
+      Object.keys(pendingPayloadRef.current).length > 0 &&
+      !window.confirm('保存できていない変更があります。閉じると失われます。閉じますか？')
+    ) return
+    onClose()
+  }, [save, onClose, reservation.id])
 
   // Step 54: onBlur on any input field immediately flushes pending debounced save
   const handleBlurFlush = useCallback(() => {
@@ -90,28 +105,22 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
   const handleFieldChange = useCallback(
     (field: keyof ReservationPatch, value: unknown) => {
       const current = localDataRef.current
+      const memory = arrayMemoryRef.current
       let patch: ReservationPatch = { [field]: value }
 
+      // 今の配列ではなく記憶から伸び縮みさせる。途中で縮めた分も、伸ばし直せば戻る
       if (field === 'check_out_date' && typeof value === 'string') {
         const newNights = dateDiff(current.check_in_date, value)
         if (newNights > 0) {
-          const resized = resizeNightFields(
-            {
-              dinner_time: current.dinner_time,
-              dinner_info: current.dinner_info,
-              breakfast_time: current.breakfast_time,
-              open_air_bath_time: current.open_air_bath_time,
-              timetable_info: current.timetable_info,
-            },
-            newNights,
-          )
-          patch = { ...patch, ...resized }
+          patch = { ...patch, ...resizeNightFields(memory, newNights) }
         }
       }
 
       if (field === 'adult_count' && typeof value === 'number') {
-        patch = { ...patch, age_groups: resizeNightArray<string | null>(current.age_groups, value, null) }
+        patch = { ...patch, age_groups: resizeNightArray<string | null>(memory.age_groups, value, null) }
       }
+
+      arrayMemoryRef.current = rememberArrayFields(memory, patch)
 
       pendingPayloadRef.current = { ...pendingPayloadRef.current, ...patch }
       setLocalData((prev) => ({ ...prev, ...patch }))

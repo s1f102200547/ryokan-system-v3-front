@@ -66,6 +66,7 @@ Firebase Auth の失敗分類:
 
 - 時間外アクセスは `/time-restricted` へ redirect。
 - 時間内に `/time-restricted` へアクセスした場合は `/` へ redirect。
+- `proxy.ts` の matcher は `/api` を含まないため、ログイン API（`/api/auth/login`）でも本番は時間外を 403 にする（`src/lib/businessHours.ts` を共有）。深夜にログイン API を直接呼んで、その日の 23:00 まで有効な Cookie を得られないようにする。他の API は Cookie が 23:00 に切れるので、時間外には使えない。
 - この制限もセキュリティ境界ではなく、運用上の UX 制御として扱う。
 
 ### 日付範囲制限

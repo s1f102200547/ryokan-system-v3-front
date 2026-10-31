@@ -6,7 +6,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./tests/setup/setup.ts'],
     globals: true,
-    exclude: ['**/node_modules/**', '**/e2e/**'],
+    // tests/emulator/ は Emulator に接続する往復検査。vitest.emulator.config.ts で別に実行する
+    exclude: ['**/node_modules/**', '**/e2e/**', 'tests/emulator/**'],
     // Emulator 経路で初期化し、接続先を到達不能なアドレスにする。
     // 誤って Firestore / Auth を呼ぶテストは本番にも ADC にも届かず、すぐ失敗する
     env: {

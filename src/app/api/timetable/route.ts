@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { getTimetableUseCase } from '@/application/timetable/getTimetableUseCase'
-import { getSession, handleRouteError } from '@/lib/api/routeHelpers'
+import { handleRouteError, requireSession } from '@/lib/api/routeHelpers'
 import { QueryDateSchema } from '@/lib/api/dateSchema'
 
 export async function GET(request: Request) {
-  const session = await getSession(request)
-  if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const unauthorized = await requireSession(request, 'タイムテーブル取得')
+  if (unauthorized) return unauthorized
 
   const { searchParams } = new URL(request.url)
   const parsed = QueryDateSchema.safeParse({ date: searchParams.get('date') })

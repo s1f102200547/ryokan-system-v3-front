@@ -41,7 +41,6 @@ const mockData: CleaningBoardData = {
       autoNotes: [],
     },
   ],
-  unassignedReservations: [],
 }
 
 describe('GET /api/cleaning-board', () => {
@@ -75,7 +74,6 @@ describe('GET /api/cleaning-board', () => {
 
     expect(response.status).toBe(200)
     expect(body).toHaveProperty('rows')
-    expect(body).toHaveProperty('unassignedReservations')
   })
 
   it('date パラメータなしで 400 が返る', async () => {
@@ -146,7 +144,6 @@ describe('GET /api/cleaning-board', () => {
           autoNotes: [],
         },
       ],
-      unassignedReservations: [],
     }
     mockUseCase.mockResolvedValue(data)
 
@@ -172,7 +169,6 @@ describe('GET /api/cleaning-board', () => {
           autoNotes: ['21: レイトアウト11:00', '21: 前日空室のためセットアップ済み'],
         },
       ],
-      unassignedReservations: [],
     }
     mockUseCase.mockResolvedValue(data)
 

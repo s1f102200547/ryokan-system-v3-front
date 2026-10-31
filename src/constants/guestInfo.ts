@@ -1,4 +1,5 @@
 import countries from 'world-countries'
+import type { BookingSite } from '@/types/guestInfo'
 
 export const A_TAX_RATE_PER_PERSON_PER_NIGHT = 200 // ¥/人/泊（実装前に確認すること）
 
@@ -7,6 +8,33 @@ export const DINNER_NONE = 'NONE'
 export const DINNER_CANCEL = 'CANCEL'
 export const DINNER_PENDING = 'PENDING'
 export const DINNER_CLOCK_TIMES = ['17:30', '18:00', '18:30', '19:00', '19:30', '20:00'] as const
+
+// 1件の予約の泊数の上限。画面の取得窓（対象日の前後 30 日の C/I）を超える滞在は表示されないため（BugHunting.md #12）
+export const MAX_NIGHTS = 30
+
+// --- 予約フィールドの許容値 ---
+// Route の入口検証と Infra の読み取り検証が共通で参照する（BugHunting.md R1）。
+// 読み取りで fallback に置き換えられる値を、書き込みで受け付けないようにするため
+
+// 6:00は許容しない。0 padding想定。
+export const ARRIVAL_TIME_VALUES = [
+  '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00',
+  '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00',
+] as const
+
+export const DINNER_TIME_VALUES = [DINNER_NONE, DINNER_CANCEL, DINNER_PENDING, ...DINNER_CLOCK_TIMES] as const
+
+export const BREAKFAST_TIME_VALUES = [
+  '7:30a', '8:00a', '9:00a', '8:30a', '9:30a',
+  '7:30b', '8:00b', '9:00b', '8:30b', '9:30b',
+] as const
+
+export const OPEN_AIR_BATH_TIME_VALUES = [
+  // 夕方
+  '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00',
+  // 朝
+  '7:30', '8:00', '8:30', '9:00', '9:30',
+] as const
 
 // --- Select options ---
 
@@ -63,6 +91,16 @@ export const dinnerTimeOptions = [
   { value: DINNER_PENDING, label: '時間未定' },
   ...DINNER_CLOCK_TIMES.map((t) => ({ value: t, label: t })),
   { value: DINNER_CANCEL,  label: 'キャンセル' },
+]
+
+// 大人・子供の人数（0〜9）
+export const countOptions = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({ value: n, label: String(n) }))
+
+export const bookingSiteOptions: { value: BookingSite; label: string }[] = [
+  { value: 'chillnn',     label: 'Chillnn（A税不要）' },
+  { value: 'booking.com', label: 'Booking.com' },
+  { value: 'expedia',     label: 'Expedia' },
+  { value: 'other',       label: 'その他' },
 ]
 
 export const lateCOOptions = [
