@@ -108,6 +108,14 @@ Emulator は停止するとデータとユーザーを失うので、起動の�
 
 `npm run seed` は Emulator 系の変数・demo project・ローカルの接続先（127.0.0.1 / localhost）が揃っていなければ何も書かずに終了する。
 
+本番の形を持つ匿名化データは、月1回程度とリリース前に作り直す（`docs/LocalDevelopment.md` OPS-1）。出力は `.localdev/`（Git・Docker の対象外）。
+
+```bash
+npm run anonymize -- --project ryokan-system --sa anon-reader@ryokan-system.iam.gserviceaccount.com
+```
+
+閲覧専用 SA の権限を借りて読み取り、終了時（正常終了・エラー・Ctrl+C）に gcloud・ADC・Firebase CLI の認証情報を削除する。
+
 本番相当の standalone build を確認する場合:
 
 ```bash

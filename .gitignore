@@ -32,6 +32,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# ローカル開発の匿名化データとレポート（Git に含めない。docs/LocalDevelopment.md ANON-8）
+/.localdev/
+
 # firebase emulators
 firebase-debug.log*
 firestore-debug.log*

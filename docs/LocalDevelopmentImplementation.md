@@ -11,7 +11,8 @@
 | 8 | ほぼ完了（2026-10-31） | 鍵 `06fcc5a2…` を無効化（SA の公開証明書一覧から消えたことで確認）。gcloud / ADC / Firebase CLI からログアウト済み（AC-27）。残り: 数日後に本番（ログイン、gmail-listener の取り込み、dinner-system）に影響がなければ鍵を削除する。同じ SA の別の鍵を `dinner-system-front`（Secret Manager 経由）が使っている。このプロジェクト外の PC 上にも SA の鍵ファイルがある（gmail-listener、dinner-system-front） |
 | 5 | 実装済み（ブランチ `feat/local-dev-seed`） | `npm run seed [-- --fixture]`。下記「Phase 5 の確認結果」 |
 | 6 | 実装済み（ブランチ `feat/local-dev-anonymize`） | 変換ロジック（純粋関数）とテスト。下記「Phase 6 で決めたこと」 |
-| 7, 9 | 未着手 | |
+| 7 | 実装済み（ブランチ `feat/local-dev-anonymize`） | `npm run anonymize -- --project <ID> --sa <SA>`。本番での初回実行は未実施。下記「Phase 7 の確認結果」 |
+| 9 | 一部 | 各 Phase で関係する docs は更新済み |
 
 ### 実装中に分かったこと
 
@@ -57,6 +58,30 @@
 - **マップのキー（フィールド名）はマスクしない。** 値だけをマスクする。未知のフィールドの中に、個人情報をキーにしたマップがあると漏れる。形のレポートで新しいフィールドが警告されたら、キーに個人情報がないか確認する。
 - Reference はパス中のドキュメント ID だけを ID の対応表で振り直す（Q-1）。Timestamp はそのまま、GeoPoint は (0, 0)、Bytes は同じ長さの乱数。
 - 匿名化しても形のレポートは変わらない（fixture で20通りの乱数を unit test、暗号論的乱数で50回を手動確認）。レポートはフィールドも種類も並び順を固定する。
+
+### Phase 7 の確認結果（2026-10-31）
+
+本番からの読み取りにはログインが必要なため、読み取り元をディレクトリに差し替える `--source <dir>`（テストモード）で確認した。
+
+| 確認 | 結果 |
+|---|---|
+| AC-14（Emulator 系の変数で拒否） | `anonymize.sh` はログインを始める前に、`anonymize.ts` も単独で拒否。`--project demo-*` も拒否 |
+| AC-12（エラー終了 / Ctrl+C） | `CLOUDSDK_CONFIG` を一時ディレクトリに向け、ログインを失敗する・待ち続ける代役に差し替えて実行。どちらも終了時に後片付けが走り、ADC のファイルは残らない（exit 1 / 130）。Ctrl+C は Python から新しいセッションで起動し、プロセスグループに SIGINT を送って再現 |
+| AC-13（前回の残りを削除） | ダミーの ADC ファイルを置いて開始すると、ログイン前に削除して警告を出す |
+| AC-15（変換前のデータを書かない） | マスク対象に目印の文字列を入れたデータで実行し、実行中に作成・更新されたファイルを `find -newer` で列挙。出力先の `data/` / `reports/` と npm のログだけで、目印はどのファイルにも画面出力にもない（`strace` / `inotifywait` はこの PC に入っていないため代替） |
+| AC-16 | `.localdev/` を `.gitignore` と `.dockerignore` に追加し、`git check-ignore` で確認。目印入りのダミー `.localdev/data/` を置いて `docker build` し、イメージ内に `.localdev`・`scripts/`・fixture・`firebase.json`・`.env*` がなく、目印も見つからないことを確認 |
+| AC-22 | `data/meta.json` に `anonymizedAt`（JST の日付）を記録 |
+| AC-24（形の変化の警告） | 同じ入力の2回目は警告なし。新しいフィールドを足した入力で警告 |
+| AC-19（自己検査） | 日付と部屋の一致件数を表示し、不一致があれば書き出さずに終了 |
+| 未確認 | 本番での正常終了（AC-12 の正常終了の経路）、本番データでの形のレポート、匿名化データを画面で使うこと |
+
+本番での初回実行の手順:
+
+```bash
+npm run anonymize -- --project ryokan-system --sa anon-reader@ryokan-system.iam.gserviceaccount.com
+# ブラウザでログイン → 読み取り・変換・書き出し → 終了時に認証情報が削除される
+make        # .localdev/data/ があれば匿名化データを投入して起動する
+```
 
 ---
 
