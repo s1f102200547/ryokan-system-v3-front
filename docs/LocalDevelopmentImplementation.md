@@ -6,8 +6,9 @@
 
 | Phase | 状態 | 備考 |
 |---|---|---|
-| 0 | 一部完了 | Context7 / SDK ソースでの確認は完了（下記）。GCP の作業（Cloud Run の環境変数確認、閲覧専用 SA、鍵 ID の控え）は未実施 |
-| 1〜4 | 実装済み（ブランチ `feat/local-dev-emulator`） | 開発者の `.env.development` の置き換え（Phase 4-3 の後半）は未実施 |
+| 0 | 完了 | Cloud Run `ryokan-system` の環境変数は `SLACK_WEBHOOK_URL` のみ（鍵なし）。実行用 SA（既定の Compute SA）は `roles/firebase.admin` を持つ。閲覧専用 SA `anon-reader`（`roles/datastore.viewer` のみ、鍵なし）を作成。`.env.development` の鍵は `firebase-adminsdk-fbsvc` の鍵 `06fcc5a2…`（2026-04-02 作成）と公開鍵の照合で特定 |
+| 1〜4 | 実装済み（ブランチ `feat/local-dev-emulator`） | 開発者の `.env.development` も Emulator 用に置き換え済み |
+| 8 | 一部 | 鍵 `06fcc5a2…` の無効化と、PC からのログアウトは未実施。同じ SA の別の鍵を `dinner-system-front`（Secret Manager 経由）が使っている。このプロジェクト外の PC 上にも SA の鍵ファイルがある（gmail-listener、dinner-system-front） |
 | 5〜9 | 未着手 | |
 
 ### 実装中に分かったこと

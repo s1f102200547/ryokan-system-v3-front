@@ -89,6 +89,31 @@ gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
 
 ---
 
+## 5.1 GCP — 匿名化用の閲覧専用 SA（ローカル開発データ生成）
+
+ローカル開発用の匿名化データ（`docs/LocalDevelopment.md` §4.3）を作るときだけ、開発者がこの SA の権限を借りて本番 Firestore を読み取る。**鍵は発行しない**（`gcloud auth application-default login --impersonate-service-account` で借りる）。
+
+```bash
+SA=anon-reader@YOUR_PROJECT_ID.iam.gserviceaccount.com
+
+gcloud iam service-accounts create anon-reader \
+  --display-name="匿名化用 閲覧専用（ローカル開発データ生成）" \
+  --project=YOUR_PROJECT_ID
+
+# 読み取りのみ
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:$SA" \
+  --role="roles/datastore.viewer" --condition=None
+
+# 権限を借りられる開発者
+gcloud iam service-accounts add-iam-policy-binding $SA \
+  --member="user:DEVELOPER_EMAIL" \
+  --role="roles/iam.serviceAccountTokenCreator" \
+  --project=YOUR_PROJECT_ID
+```
+
+> 開発用途で本番の SA 鍵を発行しない。ローカル開発は Firebase Emulator だけに接続する（`docs/LocalDevelopment.md`）。
+
 ## 6. GCP — Workload Identity Federation 設定
 
 GitHub Actions がキーファイルなしで GCP に認証するための仕組み。
