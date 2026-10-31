@@ -1,6 +1,6 @@
 import { FirebaseError } from 'firebase/app'
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
-import { firebaseApp } from '@/lib/firebase/client'
+import { signInWithEmailAndPassword } from 'firebase/auth'
+import { getFirebaseAuth } from '@/lib/firebase/client'
 import { CREDENTIAL_ERROR_CODES } from '@/lib/firebase/credentialErrorCodes'
 import { InfraError } from '@/types/errors'
 import type { AuthProvider } from '@/domain/ports/authProvider'
@@ -9,11 +9,7 @@ import type { AuthProvider } from '@/domain/ports/authProvider'
 export const firebaseAuthProvider: AuthProvider = {
   async authenticate(email, password) {
     try {
-      const credential = await signInWithEmailAndPassword(
-        getAuth(firebaseApp),
-        email,
-        password,
-      )
+      const credential = await signInWithEmailAndPassword(getFirebaseAuth(), email, password)
       return { success: true, userId: credential.user.uid }
     } catch (e) {
       if (e instanceof FirebaseError) {
