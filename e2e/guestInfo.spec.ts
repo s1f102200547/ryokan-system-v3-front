@@ -292,6 +292,59 @@ test.describe('GuestInfo - モーダル（auto-save）', () => {
     })
   })
 
+  // BugHunting.md #24: 通信エラーで保存に失敗した変更が捨てられ、再送されなかった
+  test.describe('保存の失敗', () => {
+    async function editName(page: Page, name: string) {
+      await page.getByTestId('reservation-card').first().click()
+      await page.getByText('name').first().click()
+      await page.getByLabel('ゲスト名').fill(name)
+      await page.keyboard.press('Tab')  // blur → すぐに保存
+    }
+
+    test('通信エラーで失敗した変更は、閉じるときに送り直す', async ({ page }) => {
+      const bodies: string[] = []
+      let calls = 0
+      await page.route('**/api/reservations/test-id-1', async (route) => {
+        bodies.push(route.request().postData() ?? '')
+        calls++
+        if (calls === 1) await route.abort('failed')
+        else await route.fulfill({ status: 200, json: { ok: true } })
+      })
+      await editName(page, '再送テスト')
+      await expect(page.getByText('通信エラーが発生しました')).toBeVisible()
+      await page.getByRole('button', { name: '閉じる' }).click()
+      await expect(page.getByRole('dialog')).not.toBeVisible()
+      expect(bodies).toHaveLength(2)
+      expect(JSON.parse(bodies[1])).toMatchObject({ guest_name: '再送テスト' })
+    })
+
+    test('送り直しても失敗するときは、閉じる前に確認する', async ({ page }) => {
+      await page.route('**/api/reservations/test-id-1', (route) => route.fulfill({ status: 503, json: {} }))
+      await editName(page, '保存できない')
+      await expect(page.getByText('一時的に通信に失敗しました')).toBeVisible()
+
+      const messages: string[] = []
+      page.once('dialog', (d) => { messages.push(d.message()); void d.dismiss() })
+      await page.getByRole('button', { name: '閉じる' }).click()
+      await expect.poll(() => messages).toEqual([expect.stringContaining('保存できていない変更があります')])
+      await expect(page.getByRole('dialog')).toBeVisible()   // キャンセルしたら閉じない
+
+      page.once('dialog', (d) => void d.accept())
+      await page.getByRole('button', { name: '閉じる' }).click()
+      await expect(page.getByRole('dialog')).not.toBeVisible()
+    })
+
+    test('入力の誤り（400）は送り直さず、確認なしで閉じる', async ({ page }) => {
+      let calls = 0
+      await page.route('**/api/reservations/test-id-1', (route) => { calls++; return route.fulfill({ status: 400, json: {} }) })
+      await editName(page, '入力の誤り')
+      await expect(page.getByText('入力内容に誤りがあるため保存できませんでした')).toBeVisible()
+      await page.getByRole('button', { name: '閉じる' }).click()
+      await expect(page.getByRole('dialog')).not.toBeVisible()
+      expect(calls).toBe(1)
+    })
+  })
+
   test('予約カードクリックでモーダルが開く', async ({ page }) => {
     await page.getByTestId('reservation-card').first().click()
     await expect(page.getByRole('dialog')).toBeVisible()

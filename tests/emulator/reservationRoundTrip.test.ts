@@ -6,6 +6,8 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest'
 import { PATCH } from '@/app/api/reservations/[id]/route'
 import { POST } from '@/app/api/reservations/route'
+import { PATCH as CANCEL } from '@/app/api/reservations/[id]/cancel/route'
+import { PATCH as RESTORE } from '@/app/api/reservations/[id]/restore/route'
 import { adminDb } from '@/lib/firebase/admin'
 import { firestoreReservationRepository } from '@/infra/reservation/firestoreReservationRepository'
 import { addDays, getTodayJST } from '@/lib/dateUtils'
@@ -183,6 +185,31 @@ describe('POST /api/reservations の往復', () => {
     expect(read!.dinner_time).toHaveLength(2)
     expect(read!.age_groups).toHaveLength(3)
     expect(read!.mail_memo).toHaveLength(1)
+  })
+})
+
+// --- キャンセル・復活の操作履歴 ---
+
+// BugHunting.md #25: 同じ日・同じスタッフ・同じ理由で繰り返すと、arrayUnion が同じ内容の要素を追加せず、履歴が消えていた
+describe('キャンセル・復活の操作履歴', () => {
+  it('同じ内容で繰り返しても、操作のたびに履歴が末尾に増える', async () => {
+    const id = await createDoc({ ...baseDoc(), mail_memo: [{ month: '1', day: '1', name: 'gmail', summary: '予約', text: 'x', source: 'booking' }] })
+    const body = JSON.stringify({ staff_name: '山田', target_date: CHECK_IN, reason: '電話で確認' })
+    const ops = [CANCEL, RESTORE, CANCEL, RESTORE, CANCEL]
+    for (const op of ops) {
+      const res = await op(
+        new Request(`http://localhost/api/reservations/${id}/x`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json', cookie: 'session=emulator-test' }, body,
+        }),
+        { params: Promise.resolve({ id }) },
+      )
+      expect(res.status, await res.clone().text()).toBe(200)
+    }
+    const read = await readBack(id)
+    expect(read?.cancel).toBe(1)
+    expect(read?.mail_memo.map((m) => m.summary)).toEqual([
+      '予約', '手動キャンセル', '手動キャンセル復活', '手動キャンセル', '手動キャンセル復活', '手動キャンセル',
+    ])
   })
 })
 

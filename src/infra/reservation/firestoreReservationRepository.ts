@@ -1,5 +1,4 @@
 import { ZodError, z } from 'zod'
-import { FieldValue } from 'firebase-admin/firestore'
 import { v7 as uuidv7 } from 'uuid'
 import { adminDb } from '@/lib/firebase/admin'
 import { InfraError } from '@/types/errors'
@@ -86,21 +85,11 @@ export const firestoreReservationRepository: ReservationRepository = {
   },
 
   async cancelReservation(id, mailMemoEntry) {
-    return withFirestoreError(async () => {
-      await adminDb.collection('guestInfoV2').doc(id).update({
-        cancel: 1,
-        mail_memo: FieldValue.arrayUnion(mailMemoEntry),
-      })
-    })
+    return setCancelWithMemo(id, 1, mailMemoEntry)
   },
 
   async restoreReservation(id, mailMemoEntry) {
-    return withFirestoreError(async () => {
-      await adminDb.collection('guestInfoV2').doc(id).update({
-        cancel: 0,
-        mail_memo: FieldValue.arrayUnion(mailMemoEntry),
-      })
-    })
+    return setCancelWithMemo(id, 0, mailMemoEntry)
   },
 
   async addReservation(input: NewReservationInput, initialMailMemo: MailMemoEntry) {
@@ -214,6 +203,22 @@ const isOpenAirBathTime = (v: unknown): v is OpenAirBathTimeValue =>
 
 const isString = (v: unknown): v is string => typeof v === 'string'
 const isStringOrNull = (v: unknown): v is string | null => v === null || typeof v === 'string'
+
+// キャンセル・復活の状態を変え、操作履歴（mail_memo）の末尾に1件追加する。
+// FieldValue.arrayUnion は同じ内容の要素を追加しないため、同じ日・同じスタッフ・同じ理由で
+// キャンセルと復活を繰り返すと履歴が残らなかった。トランザクションで読んで末尾に足す（BugHunting.md #25）
+async function setCancelWithMemo(id: string, cancel: 0 | 1, mailMemoEntry: MailMemoEntry): Promise<void> {
+  return withFirestoreError(async () => {
+    const ref = adminDb.collection('guestInfoV2').doc(id)
+    await adminDb.runTransaction(async (tx) => {
+      const data = (await tx.get(ref)).data()
+      if (data === undefined) throw new InfraError('FIRESTORE_NOT_FOUND', `Reservation not found: ${id}`)
+      // 履歴が配列でない（壊れている）ときは、新しい1件から始める
+      const memo: unknown[] = Array.isArray(data.mail_memo) ? data.mail_memo : []
+      tx.update(ref, { cancel, mail_memo: [...memo, mailMemoEntry] })
+    })
+  })
+}
 
 // 取得したドキュメントを予約に変換する。破損したものは読み飛ばし、他の予約の取得を巻き込まない（BugHunting.md #4, #10）
 function toReservations(docs: FirebaseFirestore.QueryDocumentSnapshot[]): Reservation[] {
