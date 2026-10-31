@@ -1,8 +1,8 @@
 'use client'
 
-import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 import { useState, useEffect } from 'react'
 import type { ATaxTableData } from '@/application/aTaxTable/getATaxTableUseCase'
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 
 type State = {
   data: ATaxTableData | null

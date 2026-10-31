@@ -1,8 +1,8 @@
 'use client'
 
-import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 import { useState, useEffect, useCallback } from 'react'
 import type { DailyTodo } from '@/domain/ports/dailyRepository'
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 
 type State = {
   todos: DailyTodo[]

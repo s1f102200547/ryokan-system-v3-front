@@ -1,8 +1,8 @@
 'use client'
 
-import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 import { useState, useEffect } from 'react'
 import type { TimetableData } from '@/types/timetable'
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 
 type State = {
   data: TimetableData | null

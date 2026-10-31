@@ -1,7 +1,7 @@
 'use client'
 
-import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 import { useState, useCallback } from 'react'
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 
 export function useUpdateSafeBalanceChecker() {
   const [isPending, setIsPending] = useState(false)

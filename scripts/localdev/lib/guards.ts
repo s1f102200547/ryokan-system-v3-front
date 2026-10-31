@@ -1,4 +1,5 @@
-import { DEMO_PROJECT_PREFIX, EMULATOR_HOST_SUFFIX, EMULATOR_HUB_ENV } from '@/constants/runtimeEnv'
+import { DEMO_PROJECT_PREFIX } from '@/constants/runtimeEnv'
+import { isDemoProjectId, isEmulatorEnv } from '@/lib/firebase/runtimeEnvGuard'
 import type { Result } from '@/types/result'
 
 type Env = Readonly<Record<string, string | undefined>>
@@ -23,7 +24,7 @@ export function checkSeedTarget(env: Env): Result<SeedTarget, string[]> {
     if (!host) errors.push(`${name} が設定されていません`)
     else if (!LOCAL_HOST_PATTERN.test(host)) errors.push(`${name} がローカルの Emulator（127.0.0.1 / localhost）を指していません`)
   }
-  if (!projectId || !projectId.startsWith(DEMO_PROJECT_PREFIX) || projectId.length <= DEMO_PROJECT_PREFIX.length) {
+  if (!isDemoProjectId(projectId)) {
     errors.push(`FIREBASE_PROJECT_ID が ${DEMO_PROJECT_PREFIX} で始まっていません`)
   }
 
@@ -33,8 +34,7 @@ export function checkSeedTarget(env: Env): Result<SeedTarget, string[]> {
 
 // ANON-5: Emulator 系の変数が1つでもある環境では匿名化を拒否する（Emulator を本番と取り違えないため）
 export function checkAnonymizeEnv(env: Env): Result<null, string[]> {
-  const found = Object.keys(env).filter((name) =>
-    env[name] !== undefined && (name.endsWith(EMULATOR_HOST_SUFFIX) || name === EMULATOR_HUB_ENV))
+  const found = Object.keys(env).filter((name) => env[name] !== undefined && isEmulatorEnv(name))
   return found.length === 0
     ? { success: true, value: null }
     : { success: false, error: found.map((name) => `${name} が設定されています（Emulator 系の変数がある環境では実行しません）`) }

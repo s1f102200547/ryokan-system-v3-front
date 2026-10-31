@@ -1,7 +1,7 @@
 'use client'
 
-import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 import { useState, useEffect, useCallback } from 'react'
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 
 type State = {
   staffName: string

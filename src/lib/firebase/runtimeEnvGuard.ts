@@ -88,13 +88,13 @@ function definedEnvNames(env: RuntimeEnv): string[] {
   return Object.keys(env).filter((name) => env[name] !== undefined)
 }
 
-function isDemoProjectId(projectId: string | undefined): boolean {
+export function isDemoProjectId(projectId: string | undefined): boolean {
   return projectId !== undefined
     && projectId.startsWith(DEMO_PROJECT_PREFIX)
     && projectId.length > DEMO_PROJECT_PREFIX.length
 }
 
-function isEmulatorEnv(name: string): boolean {
+export function isEmulatorEnv(name: string): boolean {
   return name.endsWith(EMULATOR_HOST_SUFFIX) || name === EMULATOR_HUB_ENV
 }
 
@@ -114,7 +114,7 @@ export function formatRuntimeEnvViolations(violations: RuntimeEnvViolation[]): s
 // process.env を検査用に読み出す。
 // NEXT_PUBLIC_* は build 時にインライン化され、production では process.env を走査しても見えない。
 // 名前を直接書いて参照することで、build 時に埋め込まれた値も検査の対象にする（PROD-1）
-export function readRuntimeEnv(): RuntimeEnv {
+function readRuntimeEnv(): RuntimeEnv {
   return {
     ...process.env,
     NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
