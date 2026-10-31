@@ -7,8 +7,8 @@
 | Phase | 状態 | 備考 |
 |---|---|---|
 | 0 | 完了 | Cloud Run `ryokan-system` の環境変数は `SLACK_WEBHOOK_URL` のみ（鍵なし）。実行用 SA（既定の Compute SA）は `roles/firebase.admin` を持つ。閲覧専用 SA `anon-reader`（`roles/datastore.viewer` のみ、鍵なし）を作成。`.env.development` の鍵は `firebase-adminsdk-fbsvc` の鍵 `06fcc5a2…`（2026-04-02 作成）と公開鍵の照合で特定 |
-| 1〜4 | 実装済み（ブランチ `feat/local-dev-emulator`） | 開発者の `.env.development` も Emulator 用に置き換え済み |
-| 8 | 一部 | 鍵 `06fcc5a2…` の無効化と、PC からのログアウトは未実施。同じ SA の別の鍵を `dinner-system-front`（Secret Manager 経由）が使っている。このプロジェクト外の PC 上にも SA の鍵ファイルがある（gmail-listener、dinner-system-front） |
+| 1〜4 | 実装済み（ブランチ `feat/local-dev-emulator`） | 開発者の `.env.development` も Emulator 用に置き換え済み。AC-10 / AC-11 はリポジトリ本体の build でも再確認済み。CI（AC-9）は PR で確認する |
+| 8 | ほぼ完了（2026-10-31） | 鍵 `06fcc5a2…` を無効化（SA の公開証明書一覧から消えたことで確認）。gcloud / ADC / Firebase CLI からログアウト済み（AC-27）。残り: 数日後に本番（ログイン、gmail-listener の取り込み、dinner-system）に影響がなければ鍵を削除する。同じ SA の別の鍵を `dinner-system-front`（Secret Manager 経由）が使っている。このプロジェクト外の PC 上にも SA の鍵ファイルがある（gmail-listener、dinner-system-front） |
 | 5〜9 | 未着手 | |
 
 ### 実装中に分かったこと
