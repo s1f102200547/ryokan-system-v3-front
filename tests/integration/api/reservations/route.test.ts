@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { POST } from '@/app/api/reservations/route'
 import { InfraError } from '@/types/errors'
+import { setupFakeToday } from '@tests/utils/routeTestHelper'
 
 vi.mock('@/application/guestInfo/addReservationCommand')
 import { addReservationCommand } from '@/application/guestInfo/addReservationCommand'
@@ -37,6 +38,9 @@ function makeRequest(body: unknown = validBody, withSession = true) {
   })
 }
 
+// FIXED_TODAY = 2026-05-20
+setupFakeToday()
+
 describe('POST /api/reservations', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -57,6 +61,19 @@ describe('POST /api/reservations', () => {
   it('check_out_date <= check_in_date で400', async () => {
     const res = await POST(makeRequest({ ...validBody, check_out_date: '2026-04-01' }))
     expect(res.status).toBe(400)
+  })
+
+  // BugHunting.md #7: 書式だけでなく実在日と範囲も見る
+  it.each([
+    ['C/I が実在しない日', { check_in_date: '2026-02-30' }],
+    ['C/O が実在しない日', { check_out_date: '2026-04-31' }],
+    ['C/O が入力途中の値', { check_out_date: 'Invalid Date' }],
+    ['C/O が範囲外の未来（年の打ち間違い）', { check_out_date: '2062-04-03' }],
+    ['C/I が範囲外の過去', { check_in_date: '2025-01-01' }],
+  ])('%s で400', async (_label, override) => {
+    const res = await POST(makeRequest({ ...validBody, ...override }))
+    expect(res.status).toBe(400)
+    expect(mockCommand).not.toHaveBeenCalled()
   })
 
   it('正常リクエストで201とreservation_numberを返す', async () => {

@@ -232,11 +232,11 @@ JST 0:00〜9:00 は UTC では前日なので、本番の営業時間（6:00〜2
 |---|---|---|---|---|
 | 1 | `POST /api/auth/login` が不正な JSON と空の body で 500（`request.json()` に catch がない。他の Route は `.catch(() => null)` 済み） | R5 | 実機 | 未対応 |
 | 2 | 形式が不正な idToken で `auth/argument-error` が `CREDENTIAL_ERROR_CODES` に含まれず、503 + Slack [ALERT]。不正な入力だけで障害通知を大量に発生させられる | R5 | 実機 | 未対応 |
-| 3 | `PATCH /api/reservations/[id]` が `check_out_date <= check_in_date` を受け付ける。予約モーダルの C/O 日の DatePicker は `minDate` があってもキーボード入力を止めず、同日・逆転の日付がそのまま 200 で保存される（2026-10-31 再現） | R1 | 実機 | 未対応 |
-| 4 | 3 の結果 DB に泊数が **負** の予約が入ると、`toReservation` の `Array(nights)` が `RangeError: Invalid array length` を投げる（泊数 0 は例外にならない）。`FIRESTORE_DATA_CORRUPTION` ではないのでスキップされず、`withFirestoreError` が `FIRESTORE_UNAVAILABLE` に分類するため **503 + ALERT** になる。予約 1 件で、その C/I 日の前後 30 日のタイムテーブル・清掃ボード、C/I 日から 30 日後までのゲスト情報、その月の宿泊税テーブルがすべて表示できなくなる。UI 経路（キーボード入力）とデータ経路（fixture `fixture-corrupted-reversed-dates`）の両方で再現（2026-10-31）。Gmail 取り込みの逆転データでも同じことが起きる | R1, R2, R4, R5 | 実機 | 未対応（最優先） |
+| 3 | `PATCH /api/reservations/[id]` が `check_out_date <= check_in_date` を受け付ける。予約モーダルの C/O 日の DatePicker は `minDate` があってもキーボード入力を止めず、同日・逆転の日付がそのまま 200 で保存される（2026-10-31 再現） | R1 | 実機 | 対応済み（Step 2） |
+| 4 | 3 の結果 DB に泊数が **負** の予約が入ると、`toReservation` の `Array(nights)` が `RangeError: Invalid array length` を投げる（泊数 0 は例外にならない）。`FIRESTORE_DATA_CORRUPTION` ではないのでスキップされず、`withFirestoreError` が `FIRESTORE_UNAVAILABLE` に分類するため **503 + ALERT** になる。予約 1 件で、その C/I 日の前後 30 日のタイムテーブル・清掃ボード、C/I 日から 30 日後までのゲスト情報、その月の宿泊税テーブルがすべて表示できなくなる。UI 経路（キーボード入力）とデータ経路（fixture `fixture-corrupted-reversed-dates`）の両方で再現（2026-10-31）。Gmail 取り込みの逆転データでも同じことが起きる | R1, R2, R4, R5 | 実機 | 対応済み（Step 2） |
 | 5 | 存在しない ID・不正な ID への PATCH / cancel / restore / a-tax が、Firestore の NOT_FOUND などを `FIRESTORE_UNAVAILABLE` に分類し、503 + ALERT になる。`[id]` は検証していない | R5 | コード | 未対応 |
-| 6 | `PATCH /api/reservations/[id]` が泊別配列・`arrival_time`・`age_groups` の値と長さを検査しない。保存は成功するが、読み戻すと fallback に化ける（長さが違えば全夜分が初期化される） | R1, R2, R4 | コード | 未対応 |
-| 7 | POST / PATCH / cancel / restore の日付が書式しか見ず、実在日（`2026-02-30`）も範囲も検査しない（GET 系の `dateSchema` と食い違う） | R1, R3 | コード | 未対応 |
+| 6 | `PATCH /api/reservations/[id]` が泊別配列・`arrival_time`・`age_groups` の値と長さを検査しない。保存は成功するが、読み戻すと fallback に化ける（長さが違えば全夜分が初期化される） | R1, R2, R4 | コード | 対応済み（Step 2） |
+| 7 | POST / PATCH / cancel / restore の日付が書式しか見ず、実在日（`2026-02-30`）も範囲も検査しない（GET 系の `dateSchema` と食い違う） | R1, R3 | コード | 対応済み（Step 2） |
 | 8 | `addReservationCommand` の操作履歴（`mail_memo`）の月日がサーバーのローカル時刻。Cloud Run（UTC）では JST 6:00〜9:00 の手動追加が前日の日付になる | R3 | コード | 未対応 |
 | 9 | `computeProcessedRows`（宿泊税テーブルの今月フィルタ）が今日を `toISOString()`（UTC）で求め、`new Date('YYYY-MM-DD')`（UTC）とローカル時刻を比べている。JST 0:00〜9:00 に範囲が1日ずれる可能性 | R3 | コード | 未対応 |
 | 10 | 破損ドキュメントが `console.error` だけでスキップされ、予約が画面から黙って消える | R2 | 仕様 | 通知の方針を決める |
@@ -246,8 +246,9 @@ JST 0:00〜9:00 は UTC では前日なので、本番の営業時間（6:00〜2
 | 14 | `/api` に時間帯制限がかからず、深夜のログインで当日 23:00 まで有効な Cookie が発行される | R8 | 仕様 | 時間帯制限を API にも適用するか決める |
 | 15 | `.env.development` のキー名の不一致でログイン不可 | — | 実機 | 開発環境の Emulator 化で解消（鍵を置かない。名前に `PRIVATE_KEY` を含む変数は起動ガードで拒否。`docs/LocalDevelopment.md`） |
 | 16 | `withFirestoreError` が元の例外をログに出さない。#4 のログは `Firestore unknown error` だけで、`RangeError` であることが Cloud Logging から分からない | R5 | 実機 | 未対応 |
-| 17 | C/O 日の DatePicker に日付を直接入力すると、入力途中の値（`11/3` → `11/31` の `"Invalid Date"` など）で `onChange` が呼ばれ、そのまま保存される。途中で有効な日付になったときは泊別配列のリサイズも走り、最後の値と一緒に送られる | R1, R4 | 実機 | 未対応 |
+| 17 | C/O 日の DatePicker に日付を直接入力すると、入力途中の値（`11/3` → `11/31` の `"Invalid Date"` など）で `onChange` が呼ばれ、そのまま保存される。途中で有効な日付になったときは泊別配列のリサイズも走り、最後の値と一緒に送られる | R1, R4 | 実機 | 対応済み（Step 2） |
 | 18 | `useUpdateReservation` が 503 以外の失敗をすべて「保存に失敗しました。管理者に通知済みです。」と表示する。400 は Slack に通知されないので、表示が事実と違う（#17 の 400 で確認） | — | 実機 | 未対応（Step 3 で対応） |
+| 19 | C/O 日を1文字ずつ打つと、入力途中の短い泊数で泊別配列が切り詰められ、泊数が戻っても消えた分は戻らない。例: 2泊（11/02）を 11/15 にしようと日を `15` と打つと、途中の `11/01`（1泊）で2泊目の夕食・メモが消える。Step 2 の修正前からある（2026-10-31 再現） | R4, R6 | 実機 | 対応済み（モーダルを開いている間は縮めた分を覚えておき、伸ばし直したら戻す。大人の人数と `age_groups` も同じ） |
 
 ---
 

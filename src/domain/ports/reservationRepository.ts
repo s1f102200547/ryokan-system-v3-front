@@ -1,5 +1,9 @@
 import type { Reservation } from '@/types/reservation'
-import type { ATaxPatch, MailMemoEntry, NewReservationInput, ReservationPatch } from '@/types/guestInfo'
+import type { Result } from '@/types/result'
+import type {
+  ATaxPatch, MailMemoEntry, NewReservationInput, ReservationPatch, ReservationPatchViolation, StayFacts,
+  UpdateReservationFailure,
+} from '@/types/guestInfo'
 
 export interface ReservationRepository {
   // from, to: YYYY-MM-DD
@@ -9,7 +13,12 @@ export interface ReservationRepository {
   restoreReservation(id: string, mailMemoEntry: MailMemoEntry): Promise<void>
   // returns reservation_number（UUID v7）
   addReservation(input: NewReservationInput, initialMailMemo: MailMemoEntry): Promise<string>
-  updateReservation(id: string, patch: ReservationPatch): Promise<void>
+  // DB の今の値を validate に渡し、通ったときだけ書き込む（読み取りから書き込みまでを1つのトランザクションで行う）
+  updateReservation(
+    id: string,
+    patch: ReservationPatch,
+    validate: (current: StayFacts) => Result<void, ReservationPatchViolation[]>,
+  ): Promise<Result<void, UpdateReservationFailure>>
   // a_tax_table の 3フィールド独立更新
   updateATax(id: string, patch: ATaxPatch): Promise<void>
 }

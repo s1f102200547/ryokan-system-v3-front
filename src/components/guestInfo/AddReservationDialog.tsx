@@ -79,7 +79,8 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
     }
   }
 
-  const checkOutStr = checkOutDate?.format('YYYY-MM-DD') ?? ''
+  // 直接入力の途中の値は 'Invalid Date' になり、文字列比較では C/I より後と判定されてしまうため isValid も見る
+  const checkOutStr = checkOutDate?.isValid() ? checkOutDate.format('YYYY-MM-DD') : ''
   const canSubmit =
     room !== '' &&
     guestName.trim().length > 0 &&

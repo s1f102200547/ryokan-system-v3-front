@@ -16,7 +16,8 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import { debounce } from '@/lib/debounce'
 import { dateDiff } from '@/lib/dateUtils'
-import { resizeNightFields, resizeNightArray } from '@/domain/reservation/nightArrays'
+import { rememberArrayFields, resizeNightFields, resizeNightArray } from '@/domain/reservation/nightArrays'
+import type { ArrayFieldMemory } from '@/domain/reservation/nightArrays'
 import { useUpdateReservation } from '@/hooks/guestInfo/useUpdateReservation'
 import { ReservationCardSet1 } from './cardset1/ReservationCardSet1'
 import { ReservationCardSet2 } from './cardset2/ReservationCardSet2'
@@ -47,6 +48,15 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
   useEffect(() => { localDataRef.current = localData })
 
   const pendingPayloadRef = useRef<ReservationPatch>({})
+  // 泊数・大人の人数を縮めても、伸ばし直したときに入力を戻すための記憶（BugHunting.md #19）
+  const arrayMemoryRef = useRef<ArrayFieldMemory>({
+    dinner_time: reservation.dinner_time,
+    dinner_info: reservation.dinner_info,
+    breakfast_time: reservation.breakfast_time,
+    open_air_bath_time: reservation.open_air_bath_time,
+    timetable_info: reservation.timetable_info,
+    age_groups: reservation.age_groups,
+  })
   const { execute, saveStatus, error, clearError } = useUpdateReservation()
   const debouncedUpdateRef = useRef<DebouncedFn | null>(null)
 
@@ -90,28 +100,22 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
   const handleFieldChange = useCallback(
     (field: keyof ReservationPatch, value: unknown) => {
       const current = localDataRef.current
+      const memory = arrayMemoryRef.current
       let patch: ReservationPatch = { [field]: value }
 
+      // 今の配列ではなく記憶から伸び縮みさせる。途中で縮めた分も、伸ばし直せば戻る
       if (field === 'check_out_date' && typeof value === 'string') {
         const newNights = dateDiff(current.check_in_date, value)
         if (newNights > 0) {
-          const resized = resizeNightFields(
-            {
-              dinner_time: current.dinner_time,
-              dinner_info: current.dinner_info,
-              breakfast_time: current.breakfast_time,
-              open_air_bath_time: current.open_air_bath_time,
-              timetable_info: current.timetable_info,
-            },
-            newNights,
-          )
-          patch = { ...patch, ...resized }
+          patch = { ...patch, ...resizeNightFields(memory, newNights) }
         }
       }
 
       if (field === 'adult_count' && typeof value === 'number') {
-        patch = { ...patch, age_groups: resizeNightArray<string | null>(current.age_groups, value, null) }
+        patch = { ...patch, age_groups: resizeNightArray<string | null>(memory.age_groups, value, null) }
       }
+
+      arrayMemoryRef.current = rememberArrayFields(memory, patch)
 
       pendingPayloadRef.current = { ...pendingPayloadRef.current, ...patch }
       setLocalData((prev) => ({ ...prev, ...patch }))

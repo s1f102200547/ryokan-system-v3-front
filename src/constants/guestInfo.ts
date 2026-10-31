@@ -8,6 +8,30 @@ export const DINNER_CANCEL = 'CANCEL'
 export const DINNER_PENDING = 'PENDING'
 export const DINNER_CLOCK_TIMES = ['17:30', '18:00', '18:30', '19:00', '19:30', '20:00'] as const
 
+// --- 予約フィールドの許容値 ---
+// Route の入口検証と Infra の読み取り検証が共通で参照する（BugHunting.md R1）。
+// 読み取りで fallback に置き換えられる値を、書き込みで受け付けないようにするため
+
+// 6:00は許容しない。0 padding想定。
+export const ARRIVAL_TIME_VALUES = [
+  '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00',
+  '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00',
+] as const
+
+export const DINNER_TIME_VALUES = [DINNER_NONE, DINNER_CANCEL, DINNER_PENDING, ...DINNER_CLOCK_TIMES] as const
+
+export const BREAKFAST_TIME_VALUES = [
+  '7:30a', '8:00a', '9:00a', '8:30a', '9:30a',
+  '7:30b', '8:00b', '9:00b', '8:30b', '9:30b',
+] as const
+
+export const OPEN_AIR_BATH_TIME_VALUES = [
+  // 夕方
+  '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00',
+  // 朝
+  '7:30', '8:00', '8:30', '9:00', '9:30',
+] as const
+
 // --- Select options ---
 
 export const arrivalOptions = [

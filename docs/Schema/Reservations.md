@@ -37,7 +37,7 @@ check_in_date == "YYYY/MM/DD"
 
 ### バリデーションルール
 
-- `check_out_date > check_in_date`
+- `check_out_date > check_in_date`。読み取りで泊数が 0 以下のドキュメントは `FIRESTORE_DATA_CORRUPTION` として読み飛ばす（1件のせいで範囲取得全体を失敗させない）。
 - `guestInfoV2` の Firestore 日付は `YYYY/MM/DD`。Infra 層で `YYYY-MM-DD` に変換して Application/Domain/UI へ渡す。
 - `fetchByDateRange` と `fetchByMonth` は `cancel == 1` のレコードも読み取る。キャンセル除外は各 UseCase/UI の用途に応じて行う。
 - 基本フィールドの破損は `FIRESTORE_DATA_CORRUPTION`。ただし一部の任意フィールドは fallback 値へ正規化する。
@@ -57,6 +57,18 @@ check_in_date == "YYYY/MM/DD"
 | `dinner_info` | string[] | 各夜の夕食備考 | 要素 `''` |
 
 配列長は `dateDiff(check_in_date, check_out_date)` と一致すること。不一致、配列でない値、要素不正は fallback 値で全補完または要素補完する。
+
+### 書き込み時の検査（`PATCH /api/reservations/[id]`）
+
+読み取りで fallback に置き換えられる値は、書き込みの入口で拒否する（保存は成功したのに読み戻すと消える、を防ぐ）。
+
+- 許容値（上の表）は `src/constants/guestInfo.ts` の `*_VALUES` に1か所でまとめ、Route の Zod と Infra の読み取り検証が共通で参照する。許容値外は 400。
+- 日付（`check_out_date`、POST の `check_in_date` / `check_out_date`、cancel / restore の `target_date`）は、実在する日付かつ今日（JST）から `DATE_RANGE_PAST_DAYS` 日前〜`DATE_RANGE_FUTURE_DAYS` 日後。範囲外は 400。
+- 既存の予約と合わせた検査は、読み取り・検査・書き込みを1つのトランザクションで行う（`src/domain/reservation/validateReservationPatch.ts`）。違反は 400（`violations` に理由のコード）、予約が存在しなければ 404。
+  - 更新後の C/O は C/I より後（泊数 1 以上）。
+  - 泊数が変わるなら、泊別配列5つをすべて送る。送った配列の長さは更新後の泊数。
+  - 大人の人数が変わるなら `age_groups` も送る。長さは更新後の大人の人数。
+  - DB の C/O が壊れている（C/I 以前の）予約も、正しい C/O と泊別配列を送る更新なら通す（修正手段）。
 
 ---
 

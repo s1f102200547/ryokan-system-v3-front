@@ -6,33 +6,16 @@ import { InfraError } from '@/types/errors'
 import { ROOM_NUMBERS } from '@/types/room'
 import type { ReservationRepository } from '@/domain/ports/reservationRepository'
 import type { Reservation } from '@/types/reservation'
-import type { ATaxPatch, BookingSite, MailMemoEntry, NewReservationInput, ReservationPatch } from '@/types/guestInfo'
+import type {
+  ATaxPatch, BookingSite, MailMemoEntry, NewReservationInput, ReservationPatch, StayFacts,
+} from '@/types/guestInfo'
+import {
+  ARRIVAL_TIME_VALUES, BREAKFAST_TIME_VALUES, DINNER_TIME_VALUES, OPEN_AIR_BATH_TIME_VALUES,
+} from '@/constants/guestInfo'
 import { dateDiff } from '@/lib/dateUtils'
 
 // --- バリデーション用定数（Firestore 値の許容範囲） ---
-
-// 6:00は許容しない。0 padding想定。
-const ARRIVAL_TIME_VALUES = [
-  '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00',
-  '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00',
-] as const
-
-const DINNER_TIME_VALUES = [
-  'NONE', 'CANCEL', 'PENDING',
-  '17:30', '18:00', '18:30', '19:00', '19:30', '20:00',
-] as const
-
-const BREAKFAST_TIME_VALUES = [
-  '7:30a', '8:00a', '9:00a', '8:30a', '9:30a',
-  '7:30b', '8:00b', '9:00b', '8:30b', '9:30b',
-] as const
-
-const OPEN_AIR_BATH_TIME_VALUES = [
-  // 夕方
-  '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00',
-  // 朝
-  '7:30', '8:00', '8:30', '9:00', '9:30',
-] as const
+// 時刻の許容値は Route の入口検証と共通（src/constants/guestInfo.ts）
 
 const KNOWN_BOOKING_SITES = ['chillnn', 'booking.com', 'expedia'] as const
 
@@ -157,14 +140,28 @@ export const firestoreReservationRepository: ReservationRepository = {
     })
   },
 
-  async updateReservation(id, patch: ReservationPatch) {
-    if (Object.keys(patch).length === 0) return
+  // 読み取り・検査・書き込みを1つのトランザクションで行う。
+  // 検査と書き込みの間に別の更新で泊数が変わっても、古い泊数で検査した配列を書き込まない（BugHunting.md Step 2）
+  async updateReservation(id, patch: ReservationPatch, validate) {
     return withFirestoreError(async () => {
-      const firestorePatch: Record<string, unknown> = { ...patch }
-      if (patch.check_out_date !== undefined) {
-        firestorePatch.check_out_date = toFirestoreDate(patch.check_out_date)
-      }
-      await adminDb.collection('guestInfoV2').doc(id).update(firestorePatch as FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData>)
+      const ref = adminDb.collection('guestInfoV2').doc(id)
+      return adminDb.runTransaction(async (tx) => {
+        const snapshot = await tx.get(ref)
+        const data = snapshot.data()
+        if (data === undefined) return { success: false, error: { kind: 'NOT_FOUND' } } as const
+
+        const checked = validate(toStayFacts(id, data))
+        if (!checked.success) {
+          return { success: false, error: { kind: 'INVALID', violations: checked.error } } as const
+        }
+
+        const firestorePatch: Record<string, unknown> = { ...patch }
+        if (patch.check_out_date !== undefined) {
+          firestorePatch.check_out_date = toFirestoreDate(patch.check_out_date)
+        }
+        tx.update(ref, firestorePatch as FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData>)
+        return { success: true, value: undefined } as const
+      })
     })
   },
 
@@ -247,12 +244,38 @@ const isOpenAirBathTime = (v: unknown): v is OpenAirBathTimeValue =>
 const isString = (v: unknown): v is string => typeof v === 'string'
 const isStringOrNull = (v: unknown): v is string | null => v === null || typeof v === 'string'
 
-function toReservation(id: string, data: FirebaseFirestore.DocumentData): Reservation {
+// 更新の検査に使う項目だけを読む。check_out_date が C/I 以前でも読める（壊れた予約の C/O を直す更新を通すため）
+const StayFactsSchema = FirestoreReservationSchema.pick({
+  check_in_date: true,
+  check_out_date: true,
+  adult_count: true,
+})
+
+function toStayFacts(id: string, data: FirebaseFirestore.DocumentData): StayFacts {
+  const parsed = StayFactsSchema.safeParse(data)
+  if (!parsed.success) {
+    throw new InfraError('FIRESTORE_DATA_CORRUPTION', `Stay facts unreadable for doc ${id}`, parsed.error)
+  }
+  return {
+    check_in_date: toIsoDate(parsed.data.check_in_date),
+    check_out_date: toIsoDate(parsed.data.check_out_date),
+    adult_count: parsed.data.adult_count,
+  }
+}
+
+export function toReservation(id: string, data: FirebaseFirestore.DocumentData): Reservation {
   try {
     const parsed = FirestoreReservationSchema.parse(data)
     const checkIn = toIsoDate(parsed.check_in_date)
     const checkOut = toIsoDate(parsed.check_out_date)
     const nights = dateDiff(checkIn, checkOut)
+    // 泊数 0 以下は泊別配列を作れない（負だと Array(nights) が RangeError）。破損として読み飛ばさせる（BugHunting.md #4）
+    if (nights < 1) {
+      throw new InfraError(
+        'FIRESTORE_DATA_CORRUPTION',
+        `Schema validation failed for doc ${id} [check_out_date: not after check_in_date (nights: ${nights})]`,
+      )
+    }
 
     return {
       id,

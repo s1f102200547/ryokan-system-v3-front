@@ -60,3 +60,25 @@ export type ReservationPatch = Partial<{
   profession: string
   other_note: string
 }>
+
+// 予約の更新を検査するために、DB の今の値から読む項目（日付は YYYY-MM-DD）
+// check_out_date は壊れている（C/I 以前）ことがある
+export type StayFacts = {
+  check_in_date: string
+  check_out_date: string
+  adult_count: number
+}
+
+export type ReservationPatchViolation = {
+  code:
+    | 'CHECK_OUT_NOT_AFTER_CHECK_IN'   // 更新後の C/O が C/I 以前
+    | 'NIGHT_FIELDS_REQUIRED'          // 泊数が変わるのに泊別配列が揃っていない
+    | 'NIGHT_FIELD_LENGTH_MISMATCH'    // 泊別配列の長さが更新後の泊数と違う
+    | 'AGE_GROUPS_REQUIRED'            // 大人の人数が変わるのに age_groups がない
+    | 'AGE_GROUPS_LENGTH_MISMATCH'     // age_groups の長さが更新後の大人の人数と違う
+  field?: keyof ReservationPatch
+}
+
+export type UpdateReservationFailure =
+  | { kind: 'NOT_FOUND' }
+  | { kind: 'INVALID'; violations: ReservationPatchViolation[] }

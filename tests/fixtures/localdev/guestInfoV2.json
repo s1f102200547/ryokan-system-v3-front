@@ -386,6 +386,72 @@
           "v": "0"
         }
       }
+    },
+    {
+      "id": "fixture-corrupted-zero-nights",
+      "data": {
+        "reservation_number": "FX-0011",
+        "guest_name": "同日 七郎",
+        "check_in_date": "2026/11/10",
+        "check_out_date": "2026/11/10",
+        "adult_count": {
+          "$t": "int",
+          "v": "2"
+        },
+        "child_count": {
+          "$t": "int",
+          "v": "0"
+        },
+        "room": "22",
+        "cancel": {
+          "$t": "int",
+          "v": "0"
+        },
+        "late_out": {
+          "$t": "int",
+          "v": "0"
+        },
+        "booking_site": "booking.com",
+        "dinner_time": [
+          "18:00"
+        ],
+        "breakfast_time": [
+          "8:00a"
+        ]
+      }
+    },
+    {
+      "id": "fixture-corrupted-reversed-dates",
+      "data": {
+        "reservation_number": "FX-0012",
+        "guest_name": "逆転 八郎",
+        "check_in_date": "2026/11/12",
+        "check_out_date": "2026/11/11",
+        "adult_count": {
+          "$t": "int",
+          "v": "2"
+        },
+        "child_count": {
+          "$t": "int",
+          "v": "0"
+        },
+        "room": "31",
+        "cancel": {
+          "$t": "int",
+          "v": "0"
+        },
+        "late_out": {
+          "$t": "int",
+          "v": "0"
+        },
+        "booking_site": "booking.com",
+        "dinner_time": [
+          "18:00"
+        ],
+        "breakfast_time": [
+          "8:00a"
+        ]
+      }
     }
   ]
 }

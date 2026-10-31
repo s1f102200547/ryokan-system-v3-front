@@ -199,7 +199,11 @@ export const ReservationEditorList = memo(function ReservationEditorList({ local
             <DatePicker
               value={dayjs(localData.check_out_date)}
               minDate={minCheckout}
-              onChange={(v) => v && onFieldChange('check_out_date', v.format('YYYY-MM-DD'))}
+              onChange={(v) => {
+                // 直接入力の途中の値（実在しない日付）や C/I 以前の日付は保存しない。入力欄は MUI の検証で赤枠になる
+                if (v === null || !v.isValid() || v.isBefore(minCheckout, 'day')) return
+                onFieldChange('check_out_date', v.format('YYYY-MM-DD'))
+              }}
               slotProps={{ textField: { size: 'small', fullWidth: true, sx: compactInputSx } }}
             />
           </Box>

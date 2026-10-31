@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { restoreReservationCommand } from '@/application/guestInfo/restoreReservationCommand'
 import { getSession, handleRouteError } from '@/lib/api/routeHelpers'
+import { DateSchema } from '@/lib/api/dateSchema'
 
 const BodySchema = z.object({
   staff_name: z.string().min(1).max(100),
-  target_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  target_date: DateSchema,
   reason: z.string().min(1).max(500),
 })
 

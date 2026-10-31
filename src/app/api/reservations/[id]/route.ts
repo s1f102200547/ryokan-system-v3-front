@@ -3,6 +3,10 @@ import { z } from 'zod'
 import { updateReservationCommand } from '@/application/guestInfo/updateReservationCommand'
 import { getSession, handleRouteError } from '@/lib/api/routeHelpers'
 import { ROOM_NUMBERS } from '@/constants/room'
+import {
+  ARRIVAL_TIME_VALUES, BREAKFAST_TIME_VALUES, DINNER_TIME_VALUES, OPEN_AIR_BATH_TIME_VALUES,
+} from '@/constants/guestInfo'
+import { DateSchema } from '@/lib/api/dateSchema'
 
 const MailMemoEntrySchema = z.object({
   month:   z.string(),
@@ -14,18 +18,19 @@ const MailMemoEntrySchema = z.object({
 })
 
 // ReservationPatch の部分更新を受け付ける（全フィールドoptional）
+// 値の許容範囲は Infra の読み取り検証と揃える。泊数・配列の長さは既存の予約と合わせて Command で検査する
 const PatchBodySchema = z.object({
   guest_name:                    z.string().max(100).optional(),
   room:                          z.enum(ROOM_NUMBERS).nullable().optional(),
   adult_count:                   z.number().int().min(0).max(9).optional(),
   child_count:                   z.number().int().min(0).max(9).optional(),
-  check_out_date:                z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  arrival_time:                  z.string().nullable().optional(),
+  check_out_date:                DateSchema.optional(),
+  arrival_time:                  z.enum(ARRIVAL_TIME_VALUES).nullable().optional(),
   late_out:                      z.number().int().min(0).max(1).optional(),
-  dinner_time:                   z.array(z.string()).optional(),
+  dinner_time:                   z.array(z.enum(DINNER_TIME_VALUES)).optional(),
   dinner_info:                   z.array(z.string()).optional(),
-  breakfast_time:                z.array(z.string().nullable()).optional(),
-  open_air_bath_time:            z.array(z.string().nullable()).optional(),
+  breakfast_time:                z.array(z.enum(BREAKFAST_TIME_VALUES).nullable()).optional(),
+  open_air_bath_time:            z.array(z.enum(OPEN_AIR_BATH_TIME_VALUES).nullable()).optional(),
   timetable_info:                z.array(z.string()).optional(),
   mail_memo:                     z.array(MailMemoEntrySchema).optional(),
   a_tax_received:                z.boolean().optional(),
@@ -56,7 +61,13 @@ export async function PATCH(
   }
 
   try {
-    await updateReservationCommand(id, parsed.data)
+    const result = await updateReservationCommand(id, parsed.data)
+    if (!result.success) {
+      if (result.error.kind === 'NOT_FOUND') {
+        return NextResponse.json({ error: 'not found' }, { status: 404 })
+      }
+      return NextResponse.json({ error: 'invalid patch', violations: result.error.violations }, { status: 400 })
+    }
     return NextResponse.json({ ok: true })
   } catch (e) {
     return handleRouteError(e, '予約更新')

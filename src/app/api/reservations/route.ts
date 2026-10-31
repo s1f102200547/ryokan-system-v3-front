@@ -3,12 +3,13 @@ import { z } from 'zod'
 import { addReservationCommand } from '@/application/guestInfo/addReservationCommand'
 import { getSession, handleRouteError } from '@/lib/api/routeHelpers'
 import { ROOM_NUMBERS } from '@/constants/room'
+import { DateSchema } from '@/lib/api/dateSchema'
 
 const BOOKING_SITES = ['chillnn', 'booking.com', 'expedia', 'other'] as const
 
 const BodySchema = z.object({
-  check_in_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  check_out_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  check_in_date: DateSchema,
+  check_out_date: DateSchema,
   room: z.enum(ROOM_NUMBERS),
   adult_count: z.number().int().min(0).max(9),
   child_count: z.number().int().min(0).max(9),

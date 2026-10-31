@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { PATCH } from '@/app/api/reservations/[id]/cancel/route'
 import { InfraError } from '@/types/errors'
+import { setupFakeToday } from '@tests/utils/routeTestHelper'
 
 vi.mock('@/application/guestInfo/cancelReservationCommand')
 import { cancelReservationCommand } from '@/application/guestInfo/cancelReservationCommand'
@@ -33,6 +34,9 @@ function makeRequest(body: unknown = validBody, withSession = true) {
 
 const params = Promise.resolve({ id: 'doc1' })
 
+// FIXED_TODAY = 2026-05-20
+setupFakeToday()
+
 describe('PATCH /api/reservations/[id]/cancel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -48,6 +52,16 @@ describe('PATCH /api/reservations/[id]/cancel', () => {
   it('reasonが空で400', async () => {
     const res = await PATCH(makeRequest({ ...validBody, reason: '' }), { params })
     expect(res.status).toBe(400)
+  })
+
+  // BugHunting.md #7: target_date も実在日と範囲を見る
+  it.each([
+    ['実在しない日', '2026-02-30'],
+    ['範囲外の過去', '2025-01-01'],
+  ])('target_date が%sで400', async (_label, date) => {
+    const res = await PATCH(makeRequest({ ...validBody, target_date: date }), { params })
+    expect(res.status).toBe(400)
+    expect(mockCommand).not.toHaveBeenCalled()
   })
 
   it('正常リクエストで200', async () => {
