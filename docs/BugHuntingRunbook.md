@@ -20,7 +20,7 @@
 | 1 | #4 を Emulator で再現 | 3, 4 | 完了（再現した） |
 | 2 | 予約の入口検証を Infra に揃える | 3, 4, 6, 7, 17, 19 | 完了 |
 | 3 | 入力起因のエラーを 4xx にする | 1, 2, 5, 16, 18, 20 | 完了 |
-| 4 | 往復検査と制約の突き合わせ | — | 未着手 |
+| 4 | 往復検査と制約の突き合わせ | — | 完了（新しいバグは見つからず） |
 | 5 | 全 Route Handler のファジング | — | 未着手 |
 | 6 | TZ・時刻の固定テスト | 8, 9 | 未着手 |
 | 7 | 仕様判断 | 10〜14 | 未着手 |
@@ -209,6 +209,23 @@
 4. CI に Emulator ジョブを追加するか決める。追加するなら `.github/workflows/ci.yml` と `docs/CICD.md` を同時に更新する（AGENTS.md）。`docs/Test.md` に層の説明を追加する。
 
 **完了条件**: 往復検査と突き合わせのテストがローカルで通る（または見つかったバグが §5 に載っている）/ 実行方法が `docs/Test.md` にある。
+
+### 実行記録（2026-10-31）
+
+決定（質問への回答）: Emulator の往復検査は CI に `emulator-test` ジョブとして追加し、`make check` にも含める。
+
+| 作ったもの | 内容 |
+|---|---|
+| `vitest.emulator.config.ts` / `npm run test:emulator` | `firebase emulators:exec` で専用の Firestore Emulator を起動して `tests/emulator/` を実行。通常の Vitest からは除外 |
+| `tests/emulator/reservationRoundTrip.test.ts`（117 件） | PATCH: 許容値の全値・自由入力の境界・泊数の変更を書いて、画面と同じ読み取り経路で読み戻す。POST: 予約サイト4種。壊れたドキュメント 11 種を同じ日に入れても正常な予約が取れる |
+| `tests/unit/constraints/reservationConstraints.test.ts`（360 件） | UI の選択肢（UI が送る形）→ Route の Zod → Infra の読み取り、の3か所で値が消えないこと |
+| `src/lib/api/reservationSchemas.ts` | 予約 API の Zod を Route ファイルから移した（Route ファイルは HTTP メソッド以外を export できないため） |
+| `src/constants/guestInfo.ts` | 新規追加ダイアログの予約サイト・人数の選択肢をコンポーネントから移した（AGENTS.md「定数は constants/」） |
+
+- 結果: どちらも全件通過。Step 2 の修正後は、受け付けたのに読み戻すと変わる値は見つからなかった。
+- 検査の効き目の確認: 到着時刻の許容値から `22:00` を消すと突き合わせが、読み取り側のゲスト名の上限を 50 文字にすると往復検査が、その1件だけ落ちることを確かめた（確認後に元へ戻した）。
+- 仕様として扱ったもの: `country`・`group_type`・`purpose`・`tourism_type`・`age_groups` の `''` は読み取りで `null` に正規化される（`docs/Schema/Reservations.md` の仕様）。UI は `''` を `null` にして送るので、検査は UI が送る形で行った。
+- 既存の食い違い（未対応）: `docs/CICD.md` と AGENTS.md は「CI は `main` への PR / push で実行」とあるが、`ci.yml` は `development` でも実行する。
 
 ---
 

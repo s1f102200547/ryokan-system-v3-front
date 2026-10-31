@@ -16,6 +16,7 @@
 
 ```bash
 npm run test
+npm run test:emulator
 npm run e2e
 ```
 
@@ -68,6 +69,22 @@ Route Handler の `*.test.ts` は、外部依存を mock して HTTP として�
 - 空 body や空 patch を拒否する。
 - 必須理由・staff name など監査に必要な項目を検証する。
 - 日付逆転や範囲外値を拒否する。
+
+## Emulator Test（往復検査）
+
+`tests/emulator/` は Firestore Emulator に実際に書いて読む。Integration test は Application 層を、E2E は API を丸ごと mock するため、「Route が受け付けた値を Firestore に書き、読み戻して画面に出す」経路はここでしか通らない（`docs/BugHunting.md` §1.2）。
+
+```bash
+npm run test:emulator   # firebase emulators:exec で専用の Emulator を起動して実行（Firebase CLI と Java が必要）
+```
+
+- 設定は `vitest.emulator.config.ts`（`127.0.0.1` の Emulator と demo project のみ。起動ガードも通る）。通常の `npm run test` からは除外している。
+- `make` で開発用の Emulator を起動したままだとポートが衝突する。止めてから実行する。
+- モックは認証（`verifySession`）と Slack だけ。Route Handler → Command → Infra → Emulator を実際に通す。
+- 判定は仕様の中身に依存させない: 受け付けた値は読み戻しても同じ／壊れたドキュメントが他の予約の取得を巻き込まない。
+- 書いたドキュメントは `emutest-` で始まる ID にし、終わったら消す。
+
+制約の突き合わせ（UI の選択肢・Route の Zod・Infra の読み取り検証）は `tests/unit/constraints/` に置く。UI が送る値がすべて Route を通り、Infra の読み取りで fallback に置き換えられないことを検査する。Route の Zod は `src/lib/api/reservationSchemas.ts`、UI の選択肢と許容値は `src/constants/guestInfo.ts` にあり、テストはそれを直接参照する（新しい選択肢を足すと自動で検査対象になる）。
 
 ## E2E Test
 

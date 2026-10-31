@@ -1,4 +1,5 @@
 import countries from 'world-countries'
+import type { BookingSite } from '@/types/guestInfo'
 
 export const A_TAX_RATE_PER_PERSON_PER_NIGHT = 200 // ¥/人/泊（実装前に確認すること）
 
@@ -87,6 +88,16 @@ export const dinnerTimeOptions = [
   { value: DINNER_PENDING, label: '時間未定' },
   ...DINNER_CLOCK_TIMES.map((t) => ({ value: t, label: t })),
   { value: DINNER_CANCEL,  label: 'キャンセル' },
+]
+
+// 大人・子供の人数（0〜9）
+export const countOptions = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({ value: n, label: String(n) }))
+
+export const bookingSiteOptions: { value: BookingSite; label: string }[] = [
+  { value: 'chillnn',     label: 'Chillnn（A税不要）' },
+  { value: 'booking.com', label: 'Booking.com' },
+  { value: 'expedia',     label: 'Expedia' },
+  { value: 'other',       label: 'その他' },
 ]
 
 export const lateCOOptions = [

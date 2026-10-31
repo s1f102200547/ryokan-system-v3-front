@@ -25,6 +25,7 @@ import {
   breakfastOptions,
   dinnerTimeOptions,
   lateCOOptions,
+  countOptions,
   DINNER_NONE,
 } from '@/constants/guestInfo'
 import { ROOM_NUMBERS } from '@/constants/room'
@@ -66,7 +67,6 @@ const LABELS: Record<SectionKey, string> = {
 }
 
 const roomOptions = ROOM_NUMBERS.map((r) => ({ value: r, label: r }))
-const countOptions = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({ value: n, label: String(n) }))
 
 const menuProps = {
   PaperProps: { sx: { '& .MuiMenuItem-root': { minHeight: 23, py: 0, fontSize: '0.67rem' } } },
