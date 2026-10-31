@@ -85,3 +85,13 @@
 - 予約の部屋は `"21" | "22" | "31" | "32" | "42" | "43" | "61" | null`。空文字は null に正規化する。
 - 予約の泊別配列は泊数と同じ長さに正規化し、不正値は fallback で補完する。
 - DB 読み取り時の破損は Infra 層で Zod 検証し、必要に応じて `FIRESTORE_DATA_CORRUPTION` とする。
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

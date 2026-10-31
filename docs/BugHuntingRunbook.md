@@ -1,0 +1,264 @@
+# Bug Hunting Runbook
+
+`docs/BugHunting.md` の方針を、1ステップずつ実行するための手順書。方針・リスクマップ（R1〜R8）・課題一覧（§5 の #1〜#15）は `BugHunting.md` を正とし、ここには「何をどの順で、どこまでやったら終わりか」だけを書く。
+
+## 使い方
+
+- 1セッション（または1 PR）で1ステップを進める。ステップ内の「完了条件」をすべて満たしてから次へ進む。
+- ブランチは `development` から切る（`main` からは切らない）。PR の向き先も `development`。
+- **コミットは人間が行う。** AI はコミットしない。コミット1単位分の変更がまとまったら、そこで止めて「変更ファイル・変更内容・コミットメッセージ案」を示し、人間の確認を待つ。
+- **分からないこと・判断が必要なことは、推測で進めずに必ず質問する**（仕様、設計の選択肢、テストの期待値、実機で確認できなかった点など）。
+- 各ステップの「指示例」は Claude Code にそのまま渡せる。渡す前に `AGENTS.md` と本書の該当ステップを読ませる。
+- バグを見つけたら、直す前に `BugHunting.md` §5 の表に行を追加する（確認列は 実機 / コード / 仕様）。直したら「状態」を更新する。
+- 1つ直すごとに「共通の締め」（末尾）を行う。
+
+### 進捗
+
+| Step | 内容 | 対象 # | 状態 |
+|---|---|---|---|
+| 0 | 準備とベースライン | — | 未着手 |
+| 1 | #4 を Emulator で再現 | 3, 4 | 未着手 |
+| 2 | 予約の入口検証を Infra に揃える | 3, 4, 6, 7 | 未着手 |
+| 3 | 入力起因のエラーを 4xx にする | 1, 2, 5 | 未着手 |
+| 4 | 往復検査と制約の突き合わせ | — | 未着手 |
+| 5 | 全 Route Handler のファジング | — | 未着手 |
+| 6 | TZ・時刻の固定テスト | 8, 9 | 未着手 |
+| 7 | 仕様判断 | 10〜14 | 未着手 |
+| 8 | PBT | — | 未着手 |
+| 9 | 探索的テスト | — | 未着手 |
+| 10 | 状態遷移と競合 | 13 | 未着手 |
+
+---
+
+## Step 0. 準備とベースライン
+
+**目的**: 「今どのテストが通っているか」と「Emulator で動くか」を確かめ、以降の変化を比べられるようにする。
+
+**手順**
+
+1. `development` から作業ブランチを切る（例: `fix/bug-hunting-step1`）。ステップごとに別ブランチ・別 PR にする。
+2. `make check` を実行し、lint・型・unit/integration・E2E の結果を記録する。落ちているものがあれば、先にそれを §5 に載せる。
+3. `make` で Emulator + 人工データ + 開発サーバーを起動し、`dev@example.com` / `dev-password` でログインする。デイリーダッシュボード・ゲスト情報・宿泊税テーブルが開けることを確認する。
+4. 下の「コードを読んで見つかった追加の候補」を §5 に載せるか判断する（確認は各ステップで行う）。
+
+**完了条件**: `make check` の結果と、Emulator で3画面が開けたことを PR か作業メモに残した。
+
+### コードを読んで見つかった追加の候補（未確認）
+
+| 候補 | 根拠 | 関係 |
+|---|---|---|
+| A | `PATCH /api/reservations/[id]` は `check_in_date` を受け取らないため、Route の Zod だけでは `check_out_date > check_in_date` を検査できない。#3 の修正には既存ドキュメントの読み取りが必要 | #3（Step 2 の設計に影響） |
+| B | `ReservationModal.tsx` の `handleFieldChange` は泊数が 0 以下のとき配列をリサイズしないが、`check_out_date` 自体は送る。UI 経由でも #3 が起きる | #3, #4 |
+| C | `useUpdateReservation` は 503 以外のすべての失敗に「管理者に通知済みです」と表示する。400 / 404 は通知されないため、Step 3 で 4xx を増やすと文言が事実と食い違う | Step 3 |
+| D | `cancel` / `restore` の Command は「doc ID = reservation_number」とコメントしているが、`addReservation` は `.add()` で自動 ID を振るため、手動追加の予約は doc ID と `reservation_number` が一致しない。どこかで `reservation_number` を ID として使っていないか確認する | R1 |
+| E | `PATCH` の `mail_memo` は配列ごと上書きできる。操作履歴（キャンセル・復活の記録）を画面から消せる。意図した仕様か確認する | 仕様 |
+| F | 人工データ（`tests/fixtures/localdev/guestInfoV2.json`）に `check_out_date <= check_in_date` のドキュメントがない。#4 の経路を `make` だけでは通らない | #4 |
+
+---
+
+## Step 1. #4 を Emulator で再現する
+
+**目的**: 最優先の課題（泊数 0 以下の予約 1 件で前後 30 日の画面がすべて 500 + ALERT）を、コードの推測ではなく実機で確かめる。
+
+**手順**
+
+1. 再現経路を2つ試す。
+   - **UI 経路**: 予約モーダルの C/O 日を DatePicker にキーボードで直接入力し、C/I 日と同日・前日にする。保存が 200 で返るか、ネットワークタブで確認する。
+   - **データ経路**: fixture に `check_in_date: "2026/11/10"`, `check_out_date: "2026/11/10"`（同日）と、逆転（`"2026/11/12"` → `"2026/11/11"`）の2件を追加し、`make seed` で入れ直す（候補 F）。
+2. その日付の前後 30 日にあたるデイリーダッシュボード（ゲスト情報・タイムテーブル・清掃ボード）を開き、HTTP status とサーバーログを記録する。期待される再現結果: `RangeError: Invalid array length` で 500。
+3. 宿泊税テーブル（その月）も開く。`fetchByMonth` も同じ `toReservation` を通るため、同じく落ちるはず。
+4. 結果を §5 の #3・#4 の「確認」列に反映する（コード → 実機）。
+
+**完了条件**: 再現の有無と、再現した画面・status・ログを記録した。fixture の追加はそのままコミットしてよい（Step 2 以降の回帰確認に使う）。
+
+**指示例**
+> docs/BugHuntingRunbook.md の Step 1 を実行して。make で起動した Emulator 上で #4 を UI 経路とデータ経路の両方で再現し、status とログを記録して BugHunting.md §5 を更新して。本番の Firestore には触らないこと。
+
+---
+
+## Step 2. 予約の入口検証を Infra に揃える（#3・#4・#6・#7）
+
+**目的**: 「受け付けたのに読み戻すと消える／壊れる」を入口で止める。読み取り側では、壊れた1件が全体を巻き込まないようにする。
+
+**設計（実装前に決める）**
+
+1. **許容値を1か所に集める。** `firestoreReservationRepository.ts` の `ARRIVAL_TIME_VALUES` などを `src/constants/` に移し、Route の Zod・Infra の Zod・UI の選択肢（`src/constants/guestInfo.ts`）がそれを参照する（AGENTS.md「定数は constants/」）。UI の選択肢がこの許容値の部分集合になっているかも確認する。
+2. **値の検査は Route で行う。** `PatchBodySchema` の `arrival_time`・泊別配列の要素・`age_groups` の要素を、1 の許容値の enum にする。
+3. **泊数・長さの検査は既存ドキュメントが必要**（候補 A）。案:
+   - Port に `fetchById(id)` を追加し、`updateReservationCommand` が読み取り → Domain の純粋関数で検査 → 書き込みを行う。
+   - 検査は Domain の関数（例: `validateReservationPatch(current, patch): Result<...>`）に置き、例外ではなく Result で返す。Route は失敗を 400 にする。
+   - 検査する内容: 更新後の `check_out_date > check_in_date`、泊別配列の長さ = 更新後の泊数、`age_groups` の長さ = 更新後の `adult_count`。
+   - 読み取りと書き込みの間の競合は `runTransaction` で囲むかを決める（`KnownIssues.md` の「楽観的ロック」と合わせて判断。囲まない場合は理由を残す）。
+4. **日付は実在日と範囲を見る。** POST / PATCH / cancel / restore の日付を `dateSchema.ts` の検査（実在日・範囲）に揃える。範囲チェックを書き込みにも適用するか（過去 100 日より前の予約を直せなくなる）は決めてから入れる。
+5. **読み取りの防御。** `toReservation` で泊数が 0 以下なら `FIRESTORE_DATA_CORRUPTION` を投げる（スキップの対象にする）。
+
+**手順**（AGENTS.md の縦断順）
+
+1. 回帰テストを先に書き、落ちることを確認する。
+   - `tests/unit/`: Domain の検査関数（同日・逆転・1泊・長さ違い・`adult_count` 0）。
+   - `tests/unit/`: `toReservation` を export し、泊数 0 / 負 で `FIRESTORE_DATA_CORRUPTION` になること。
+   - `tests/integration/api/reservations/[id]/route.test.ts`: 許容値外の `dinner_time`、`arrival_time: "6:00"`、`check_out_date: "2026-02-30"` が 400。
+   - `tests/integration/api/reservations/route.test.ts`: 実在しない日付が 400。
+2. Domain → Infra → Application → Route の順に実装する。
+3. UI 側: C/O 日が C/I 日以前のときに送信しない（DatePicker の入力も含む）。400 時の文言を Step 3 と合わせて決める。
+4. Step 1 の fixture で、画面が 500 にならず、壊れた予約だけがスキップされることを実機で確かめる。
+
+**完了条件**: 回帰テストが通る / Step 1 の再現手順で 500 が出ない / §5 の #3・#4・#6・#7 を「対応済み」にした / 共通の締めを行った。
+
+**指示例**
+> docs/BugHuntingRunbook.md の Step 2 を実行して。まず「設計」の 3 と 4 について選択肢を出して私に確認してから実装に進んで。テストを先に書いて落ちることを見せること。
+
+---
+
+## Step 3. 入力起因のエラーを 4xx にする（#1・#2・#5）
+
+**目的**: 不正な入力で 5xx と Slack [ALERT] が出ないようにし、ALERT を「人が対応しないと直らない障害」に絞る。
+
+**手順**
+
+1. **#1**: `POST /api/auth/login` の `request.json()` を他の Route と同じく `.catch(() => null)` にする。回帰テスト: 不正な JSON・空 body で 400。
+2. **#2**: `verifyIdToken` の `auth/argument-error` を認証失敗（401、ALERT なし、WARN ログ）に分類する。Context7 で firebase-admin v13 のエラーコード一覧を確認し、入力が原因のコードを漏れなく入れる。回帰テスト: 形式が不正な idToken で 401、Slack を呼ばない。
+3. **#5**:
+   - `[id]` を Zod で検証する共通スキーマを作る（空でない、`/` を含まない、`.` と `..` でない、`__.*__` でない、1500 バイト以下）。cancel / restore / a-tax / PATCH の4 Route で使う。
+   - `withFirestoreError` で gRPC code 5（NOT_FOUND）を新しい `InfraErrorCode`（例: `FIRESTORE_NOT_FOUND`）に分類し、404・ALERT なしにする。`infraErrorToHttpStatus.ts` と `docs/ErrorHandling.md` の表を更新する（AGENTS.md の規則）。`handleRouteError` に「通知しないコード」の分岐を入れる。
+   - 回帰テスト: 不正な `[id]` で 400、NOT_FOUND で 404 かつ Slack を呼ばない。
+4. **Hooks の文言**（候補 C）: 400 / 404 / 503 / その他を出し分ける。400・404 で「管理者に通知済み」と言わない。
+5. 境界に触れる変更なので、Emulator で実際に存在しない ID へ PATCH し、404 になることを確かめる（BugHunting.md §3.6）。
+
+**完了条件**: 回帰テストが通る / 実機で 404 を確認 / ErrorHandling.md 更新 / §5 更新 / 共通の締め。
+
+**指示例**
+> docs/BugHuntingRunbook.md の Step 3 を実行して。firebase-admin のエラーコードは Context7 で確認すること。InfraErrorCode を追加するなら AGENTS.md の規則どおり関連ファイルと doc も更新して。
+
+---
+
+## Step 4. 往復検査と制約の突き合わせ（BugHunting.md §3.1・§3.2）
+
+**目的**: 今のテストが通していない「Route が受け付けた値を書いて、読み戻す」経路をテストにする。
+
+**手順**
+
+1. **Emulator 用の Vitest 設定を分ける。** 既存の `vitest.config.ts` は到達不能な Emulator（`127.0.0.1:1`）を向いているので変えない。別の設定（例: `vitest.emulator.config.ts`、対象は `tests/emulator/`）で `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080`・`demo-` project を指定し、`firebase emulators:exec` の中だけで実行する npm script を作る。起動ガード（`runtimeEnvGuard`）を通ること、本番や ADC に届く経路がないことを確認する。
+2. **往復検査**（`tests/emulator/`）:
+   - Route の Zod が受け付ける patch を生成し、書いて `fetchByDateRange` で読み戻すと、patch の値がそのまま返る（fallback に化けない）。
+   - どんな patch を書いても `fetchByDateRange` が throw しない。
+   - 壊れたドキュメントを1件混ぜても、他の予約が取得できる。
+3. **制約の突き合わせ**（`tests/unit/`）: フィールドごとに「UI の選択肢 ⊆ Route の Zod が通す値 ⊆ Infra が fallback に変えない値」を検査する。Step 2 で許容値を `constants/` に集めていれば、ほぼ自動で通る。通らないフィールドは §5 に載せる。
+4. CI に Emulator ジョブを追加するか決める。追加するなら `.github/workflows/ci.yml` と `docs/CICD.md` を同時に更新する（AGENTS.md）。`docs/Test.md` に層の説明を追加する。
+
+**完了条件**: 往復検査と突き合わせのテストがローカルで通る（または見つかったバグが §5 に載っている）/ 実行方法が `docs/Test.md` にある。
+
+---
+
+## Step 5. 全 Route Handler のファジング（BugHunting.md §3.3）
+
+**目的**: 「入力が原因で 5xx を返さない、ALERT を鳴らさない」を全 Route で機械的に確かめる。
+
+**手順**
+
+1. `tests/utils/` に、Route Handler と入力の組を受け取り「status < 500 かつ `notifySlackFireAndForget` が呼ばれない」を検査する共通ヘルパーを作る。Application / Infra は mock し、`verifySession` は認証済みにする。
+2. 入力の一覧（BugHunting.md §3.3）を fixture として1か所に置く: 不正 JSON・空・`null`・配列・型違い・巨大な文字列と配列・負数・小数・日付の異常値・`[id]` の異常値。
+3. `src/app/api/` の全 Route（12 ファイル、GET / POST / PATCH）に適用する。Route の一覧はテスト内で列挙し、Route を追加したときに漏れないよう `src/app/api/**/route.ts` の数と一致することも検査する。
+4. Emulator 版（Step 4 の設定）では、存在しない ID・不正な ID が 404 / 400 になることを確かめる（R5）。
+
+**完了条件**: 全 Route でファジングが通る、または失敗が §5 に載って直っている。
+
+---
+
+## Step 6. TZ・時刻の固定テスト（BugHunting.md §3.4、#8・#9）
+
+**目的**: 実行環境の TZ や時刻で結果が変わるバグを、CI（UTC）でも開発 PC（JST）でも見つけられるようにする。
+
+**手順**
+
+1. `TZ` はプロセス起動時に決まるので、`TZ=UTC` / `TZ=Asia/Tokyo` / `TZ=America/Los_Angeles` の3回に分けて Vitest を実行する npm script を作る（CI では matrix）。
+2. 対象: `dateUtils`（`addDays`・`dateDiff`）、`dateSchema`（`isRealDate`・`isInRange`）、各 UseCase、`computeProcessedRows`、`addReservationCommand` の `mail_memo` の月日、`msUntilToday23JST`、`proxy.ts` の時間帯判定。
+3. `vi.useFakeTimers()` で JST 5:59 / 6:00 / 8:59 / 9:00 / 22:54 / 22:56 / 23:00 / 0:00 を通す。日付は月末・年末年始・閏年 2/29・`DATE_RANGE_*` の端と1日外。
+4. 判定は「TZ によって結果が変わらない」。落ちたものを §5 に載せる（#8・#9 の確認列を更新）。
+5. 直し方の方針: 日付文字列の計算は `Date.UTC` と `getUTC*` に統一し、「今日」は `getTodayJST()` だけから得る。`new Date('YYYY-MM-DD')` とローカル時刻の比較をやめ、文字列（`YYYY-MM-DD`）で比較する。
+
+**完了条件**: 3つの TZ で同じ結果になる / #8・#9 が直っている / CI の matrix を入れた場合は `docs/CICD.md` も更新した。
+
+---
+
+## Step 7. 仕様判断（#10〜#14）
+
+**目的**: コードだけでは正誤を決められない課題を、人間が決める。AI は判断材料をまとめるだけにする。
+
+**手順**
+
+1. 各課題について「選択肢・それぞれの影響・実装の大きさ」を1行ずつ並べた判断表を作り、人間に確認する。
+
+| # | 決めること | 選択肢の例 |
+|---|---|---|
+| 10 | 破損ドキュメントのスキップを通知するか | WARN ログのみ / 件数を集計して日次で Slack / 画面に「表示できない予約があります」 |
+| 11 | ダブルブッキングをどう扱うか | 書き込み時に拒否 / 許して清掃ボードに警告 / 現状維持 |
+| 12 | 31 泊以上の滞在はあり得るか | 窓を広げる / 上限を設けて入口で拒否 / 現状維持 |
+| 13 | 同時編集の対策 | 楽観ロック（`updated_at` 比較）/ フィールド単位の更新 / 現状維持（KnownIssues に残す） |
+| 14 | 時間帯制限を API にも適用するか | `/api/auth/login` だけ制限 / 全 API / 現状維持 |
+| 候補 E | `mail_memo` を画面から上書きできてよいか | 追記のみにする / 現状維持 |
+
+2. 決まったものは Step 2 と同じ縦断順で実装し、決定は `BugHunting.md` §5 と関連 doc（`KnownIssues.md`・`Security.md` など）に残す。
+
+**完了条件**: 全項目に決定（「現状維持」を含む）と理由が記録されている。
+
+---
+
+## Step 8. PBT（BugHunting.md §3.5）
+
+**目的**: 想定外の入力で単純な性質が崩れないかを大量に試す。
+
+**手順**
+
+1. `fast-check` を devDependency に追加する（`npm run audit:ci` が通ることを確認）。
+2. 性質は `BugHunting.md` §3.5 の候補から取る。**コードを読んで性質を作らない**（バグに合わせた性質になるため）。
+3. Infra の `toReservation` の性質は、任意の `DocumentData` を生成して「throw するのは `FIRESTORE_DATA_CORRUPTION` だけ」「配列の長さが泊数・`adult_count` と一致」を見る。
+4. 失敗したら、md に根拠があれば実装のバグ、なければ仕様の穴として Step 7 の表に追加する。最終判断は人間が行う。
+
+**完了条件**: 候補の性質がテストになっている / 失敗は分類して記録した。
+
+---
+
+## Step 9. 探索的テスト（BugHunting.md §3.6）
+
+**目的**: テストが想定していない使い方で壊れる箇所を、実際に操作して見つける。
+
+**手順**
+
+1. `make` で Emulator を起動する。**本番の Firestore には繋がない。** 実データは使わない。
+2. チャーター（BugHunting.md §3.6 の一覧）を1回に1つ選び、Playwright MCP または手で操作する。1チャーター 30 分程度を目安にする。
+3. 記録すること: 操作手順、期待（ユーザーならこう動くと思う）、実際、スクリーンショットか HTTP レスポンス。
+4. 見つけたものは再現を確認してから §5 に載せ、Step 2 と同じ流れで直して回帰テスト（画面操作なら `e2e/`）にする。
+5. 終わったチャーターに日付を付けて、次回は別のチャーターから始める。
+
+**完了条件**: すべてのチャーターを1周した。以後は機能追加のたびに関連するチャーターを再実行する。
+
+---
+
+## Step 10. 状態遷移と競合（BugHunting.md §3.7）
+
+**目的**: 1回ずつの操作では出ない、順序と競合のバグを見つける。
+
+**手順**
+
+1. 予約の状態（通常 / キャンセル済み）× 操作（編集・キャンセル・復活・宿泊税チェック）の表を作り、「同じ操作を2回」「キャンセル済みに編集」「存在しない ID に操作」を Emulator 版テストで一通り試す。
+2. `ReservationModal` / `useUpdateReservation` の hooks テストで、debounce 中の close、保存失敗後の再編集、レスポンスの到着順の逆転を再現する。
+3. 同時編集は Step 7 の #13 の決定に従う。
+
+**完了条件**: 表のすべての組み合わせを試した / 見つかったものが §5 に載っている。
+
+---
+
+## 共通の締め（バグを1つ直すたびに）
+
+1. **最小の再現ケースを回帰テストにした**（置き場所は `BugHunting.md` §4 の表）。修正前に落ち、修正後に通ることを確認した。
+2. **横展開した。** 原因のパターンを1文で書き、全 Route・全 Infra・全 UseCase を grep した。既知のパターン:
+   - 入口の Zod に refine がない（日付の前後、実在日、範囲、許容値、長さ）
+   - `request.json()` を catch していない
+   - 実行環境のローカル時刻に依存している（`new Date(y, m, d)`、`getMonth()`、`toISOString()`、`new Date('YYYY-MM-DD')`）
+   - 外部エラーを「その他はすべて障害」に分類している
+   - 新しいパターンを見つけたら `BugHunting.md` §3.2 に追記する。
+3. **境界（env・認証・DB・SSR・CSP）に触れたら実機で確かめた**（`run` スキル、Emulator）。
+4. `make check` が通る。
+5. `BugHunting.md` §5 と本書の「進捗」を更新した。関連 doc（`ErrorHandling.md`・`Test.md`・`CICD.md`・`Schema/*`）も実装と一致している。
+6. コミット1単位として変更内容とコミットメッセージ案を人間に示し、確認を待つ（AI はコミットしない）。
