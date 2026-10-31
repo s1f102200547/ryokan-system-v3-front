@@ -1,0 +1,48 @@
+{
+  "docs": [
+    {
+      "id": "2026-10-31",
+      "data": {
+        "date": "2026-10-31",
+        "todos": [
+          {
+            "id": "todo-fx-1",
+            "text": "玄関の掃除"
+          },
+          {
+            "id": "todo-fx-2",
+            "text": "テスト用のTodo"
+          }
+        ],
+        "safeBalanceChecker": "スタッフA",
+        "updated_at": "2026-10-31T09:00:00+09:00"
+      }
+    },
+    {
+      "id": "2026-11-01",
+      "data": {
+        "date": "2026-11-01",
+        "todos": [],
+        "CleaningBoardUserNotes": "テスト用メモ",
+        "source": {
+          "collection": "legacyDaily",
+          "path": "legacyDaily/2026-11-01",
+          "field": "safeBalanceChecker"
+        },
+        "migrated_at": "2026-10-01T00:00:00+09:00"
+      }
+    },
+    {
+      "id": "2026-13-99",
+      "data": {
+        "date": "2026-13-99",
+        "todos": [
+          {
+            "id": "todo-fx-3",
+            "text": "破損日付のドキュメント"
+          }
+        ]
+      }
+    }
+  ]
+}

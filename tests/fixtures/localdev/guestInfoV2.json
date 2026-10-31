@@ -1,0 +1,391 @@
+{
+  "docs": [
+    {
+      "id": "fixture-normal-1night",
+      "data": {
+        "reservation_number": "FX-0001",
+        "guest_name": "テスト 太郎",
+        "check_in_date": "2026/10/31",
+        "check_out_date": "2026/11/01",
+        "adult_count": {
+          "$t": "int",
+          "v": "2"
+        },
+        "child_count": {
+          "$t": "int",
+          "v": "0"
+        },
+        "room": "21",
+        "room_count": {
+          "$t": "int",
+          "v": "1"
+        },
+        "cancel": {
+          "$t": "int",
+          "v": "0"
+        },
+        "late_out": {
+          "$t": "int",
+          "v": "0"
+        },
+        "booking_site": "chillnn",
+        "room_type": "和室",
+        "stay_plan": "夕朝食付き",
+        "total_price": {
+          "$t": "int",
+          "v": "32000"
+        },
+        "source": "gmail",
+        "mail_id": "mail-fx-0001",
+        "arrival_time": "15:00",
+        "dinner_time": [
+          "18:00"
+        ],
+        "breakfast_time": [
+          "8:00a"
+        ],
+        "open_air_bath_time": [
+          "20:00"
+        ],
+        "dinner_info": [
+          "アレルギー: なし"
+        ],
+        "timetable_info": [
+          "到着連絡あり"
+        ],
+        "a_tax_received": false,
+        "country": "Japan",
+        "city": "東京都",
+        "age_groups": [
+          "30s",
+          "30s"
+        ],
+        "group_type": "couple",
+        "purpose": "sightseeing",
+        "tourism_type": "onsen",
+        "remarks": "テスト用の備考です。",
+        "payment": "現地払い",
+        "mail_memo": [
+          {
+            "month": "10",
+            "day": "20",
+            "name": "テスト 太郎",
+            "summary": "予約",
+            "text": "テスト用の本文",
+            "source": "booking"
+          }
+        ]
+      }
+    },
+    {
+      "id": "fixture-2nights-staying",
+      "data": {
+        "reservation_number": "FX-0002",
+        "guest_name": "Test Hanako",
+        "check_in_date": "2026/10/30",
+        "check_out_date": "2026/11/01",
+        "adult_count": {
+          "$t": "int",
+          "v": "3"
+        },
+        "child_count": {
+          "$t": "int",
+          "v": "1"
+        },
+        "room": "22",
+        "room_count": {
+          "$t": "int",
+          "v": "1"
+        },
+        "cancel": {
+          "$t": "int",
+          "v": "0"
+        },
+        "late_out": {
+          "$t": "int",
+          "v": "1"
+        },
+        "booking_site": "Booking.com",
+        "total_price": {
+          "$t": "int",
+          "v": "88000"
+        },
+        "source": "gmail",
+        "mail_id": "mail-fx-0002",
+        "arrival_time": "17:00",
+        "dinner_time": [
+          "19:00",
+          "PENDING"
+        ],
+        "breakfast_time": [
+          "8:30b",
+          null
+        ],
+        "open_air_bath_time": [
+          null,
+          "7:30"
+        ],
+        "dinner_info": [
+          "",
+          ""
+        ],
+        "timetable_info": [
+          "",
+          "チェックアウト延長"
+        ],
+        "a_tax_received": true,
+        "a_tax_received_by_staff_name": "スタッフA",
+        "check_in_staff_name": "スタッフB",
+        "country": "France",
+        "city": "Paris",
+        "age_groups": [
+          "40s",
+          null,
+          "60s"
+        ],
+        "group_type": "family",
+        "purpose": null,
+        "tourism_type": "",
+        "mail_memo": [
+          {
+            "month": "10",
+            "day": "25",
+            "name": "Test Hanako",
+            "summary": "キャンセル",
+            "text": "テスト",
+            "source": "expedia"
+          },
+          {
+            "month": "10",
+            "day": "26",
+            "name": "Test Hanako",
+            "summary": "キャンセル復活",
+            "text": "テスト",
+            "source": "システム"
+          }
+        ]
+      }
+    },
+    {
+      "id": "fixture-room-empty-string",
+      "data": {
+        "reservation_number": "FX-0003",
+        "guest_name": "",
+        "check_in_date": "2026/11/01",
+        "check_out_date": "2026/11/02",
+        "adult_count": {
+          "$t": "int",
+          "v": "1"
+        },
+        "child_count": {
+          "$t": "int",
+          "v": "0"
+        },
+        "room": "",
+        "cancel": {
+          "$t": "int",
+          "v": "0"
+        },
+        "booking_site": "expedia",
+        "source": "gmail",
+        "country": "",
+        "group_type": "",
+        "purpose": "",
+        "a_tax_received": {
+          "$t": "int",
+          "v": "1"
+        }
+      }
+    },
+    {
+      "id": "fixture-room-null-minimal",
+      "data": {
+        "check_in_date": "2026/11/02",
+        "check_out_date": "2026/11/04",
+        "adult_count": {
+          "$t": "int",
+          "v": "0"
+        },
+        "child_count": {
+          "$t": "int",
+          "v": "2"
+        },
+        "room": null,
+        "booking_site": "other-site",
+        "country": null
+      }
+    },
+    {
+      "id": "fixture-cancelled",
+      "data": {
+        "reservation_number": "FX-0005",
+        "guest_name": "キャンセル 次郎",
+        "check_in_date": "2026/11/01",
+        "check_out_date": "2026/11/02",
+        "adult_count": {
+          "$t": "int",
+          "v": "2"
+        },
+        "child_count": {
+          "$t": "int",
+          "v": "0"
+        },
+        "room": "31",
+        "cancel": {
+          "$t": "int",
+          "v": "1"
+        },
+        "booking_site": "chillnn",
+        "source": "manual",
+        "mail_memo": [
+          {
+            "month": "10",
+            "day": "28",
+            "name": "スタッフC",
+            "summary": "手動で新規追加",
+            "text": "",
+            "source": "システム"
+          },
+          {
+            "month": "10",
+            "day": "29",
+            "name": "キャンセル 次郎",
+            "summary": "キャンセル",
+            "text": "都合により",
+            "source": "システム"
+          }
+        ]
+      }
+    },
+    {
+      "id": "fixture-array-length-mismatch",
+      "data": {
+        "reservation_number": "FX-0006",
+        "guest_name": "ﾃｽﾄ ｻﾌﾞﾛｳ",
+        "check_in_date": "2026/11/03",
+        "check_out_date": "2026/11/05",
+        "adult_count": {
+          "$t": "int",
+          "v": "2"
+        },
+        "child_count": {
+          "$t": "int",
+          "v": "0"
+        },
+        "room": "42",
+        "cancel": {
+          "$t": "int",
+          "v": "0"
+        },
+        "booking_site": "chillnn",
+        "dinner_time": [
+          "17:30"
+        ],
+        "breakfast_time": "8:00a",
+        "open_air_bath_time": [
+          "25:00",
+          "7:30"
+        ],
+        "arrival_time": "6:00",
+        "total_price": {
+          "$t": "number",
+          "v": "NaN"
+        },
+        "created_at": {
+          "$t": "timestamp",
+          "s": 1761696000,
+          "n": 0
+        },
+        "unknown_field": {
+          "nested": "未知のフィールド"
+        }
+      }
+    },
+    {
+      "id": "fixture-corrupted-date-format",
+      "data": {
+        "reservation_number": "FX-0007",
+        "guest_name": "破損 日付",
+        "check_in_date": "2026-11-01",
+        "check_out_date": "2026-11-02",
+        "adult_count": {
+          "$t": "int",
+          "v": "1"
+        },
+        "child_count": {
+          "$t": "int",
+          "v": "0"
+        },
+        "room": "43",
+        "cancel": {
+          "$t": "int",
+          "v": "0"
+        }
+      }
+    },
+    {
+      "id": "fixture-corrupted-adult-count-string",
+      "data": {
+        "reservation_number": "FX-0008",
+        "guest_name": "型違い 四郎",
+        "check_in_date": "2026/11/01",
+        "check_out_date": "2026/11/03",
+        "adult_count": "2",
+        "child_count": {
+          "$t": "int",
+          "v": "0"
+        },
+        "room": "61",
+        "cancel": {
+          "$t": "int",
+          "v": "0"
+        }
+      }
+    },
+    {
+      "id": "fixture-double-value",
+      "data": {
+        "reservation_number": "FX-0009",
+        "guest_name": "小数 五郎",
+        "check_in_date": "2026/11/04",
+        "check_out_date": "2026/11/05",
+        "adult_count": {
+          "$t": "int",
+          "v": "2"
+        },
+        "child_count": {
+          "$t": "int",
+          "v": "0"
+        },
+        "room": "32",
+        "cancel": {
+          "$t": "int",
+          "v": "0"
+        },
+        "total_price": 15000.5
+      }
+    },
+    {
+      "id": "fixture-out-of-range-past",
+      "data": {
+        "reservation_number": "FX-0010",
+        "guest_name": "過去 六郎",
+        "check_in_date": "2025/01/10",
+        "check_out_date": "2025/01/11",
+        "adult_count": {
+          "$t": "int",
+          "v": "2"
+        },
+        "child_count": {
+          "$t": "int",
+          "v": "0"
+        },
+        "room": "21",
+        "cancel": {
+          "$t": "int",
+          "v": "0"
+        }
+      }
+    }
+  ]
+}
