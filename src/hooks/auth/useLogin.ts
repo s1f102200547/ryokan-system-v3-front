@@ -44,6 +44,10 @@ export function useLogin() {
         router.push('/')
         return
       }
+      if (response.status === 403) {
+        setError('利用時間外です（6:00〜23:00）')
+        return
+      }
       // 503・500 ともに原因を明かさずあいまいに返す（監視インフラの存在を公開しない）
       setError('サービスが一時的に利用できません。しばらくお待ちください')
     } catch {

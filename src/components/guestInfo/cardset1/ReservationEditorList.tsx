@@ -27,6 +27,7 @@ import {
   lateCOOptions,
   countOptions,
   DINNER_NONE,
+  MAX_NIGHTS,
 } from '@/constants/guestInfo'
 import { ROOM_NUMBERS } from '@/constants/room'
 import type { Reservation } from '@/types/reservation'
@@ -160,6 +161,7 @@ export const ReservationEditorList = memo(function ReservationEditorList({ local
     setOpen((prev) => ({ ...prev, [key]: !prev[key] }))
 
   const minCheckout = dayjs(localData.check_in_date).add(1, 'day')
+  const maxCheckout = dayjs(localData.check_in_date).add(MAX_NIGHTS, 'day')
 
   return (
     <Card elevation={0} sx={{ background: '#ffffff', minHeight: '100%' }}>
@@ -199,9 +201,10 @@ export const ReservationEditorList = memo(function ReservationEditorList({ local
             <DatePicker
               value={dayjs(localData.check_out_date)}
               minDate={minCheckout}
+              maxDate={maxCheckout}
               onChange={(v) => {
-                // 直接入力の途中の値（実在しない日付）や C/I 以前の日付は保存しない。入力欄は MUI の検証で赤枠になる
-                if (v === null || !v.isValid() || v.isBefore(minCheckout, 'day')) return
+                // 直接入力の途中の値（実在しない日付）、C/I 以前、上限の泊数を超える日付は保存しない。入力欄は MUI の検証で赤枠になる
+                if (v === null || !v.isValid() || v.isBefore(minCheckout, 'day') || v.isAfter(maxCheckout, 'day')) return
                 onFieldChange('check_out_date', v.format('YYYY-MM-DD'))
               }}
               slotProps={{ textField: { size: 'small', fullWidth: true, sx: compactInputSx } }}

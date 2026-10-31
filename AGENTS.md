@@ -52,7 +52,7 @@
 ## Security
 - `proxy.ts` の Cookie 存在確認は UX ナビゲーションであり、セキュリティ境界ではない。保護対象 API は各 Route Handler で `verifySession()` を呼ぶ。
 - Session Cookie は Firebase Admin SDK で発行・検証し、`httpOnly`, production `secure`, `sameSite: 'strict'`, `path: '/'`。
-- セッション期限と本番時間帯制限は当日 23:00 JST に揃える。時間外は `/time-restricted`。
+- セッション期限と本番時間帯制限は当日 23:00 JST に揃える（`src/constants/date.ts` の `BUSINESS_HOURS_*`）。時間外の画面は `/time-restricted`、ログイン API は 403。
 - CSP は nonce ベース。MUI/Emotion 互換のため `style-src 'unsafe-inline'` は残し、MUI style tag には nonce を渡す。
 - 外部 API、画像 CDN、analytics、iframe を追加する場合は CSP、COEP、CORP、Security doc を更新する。
 - development / test は Firebase Emulator にだけ接続し、本番の鍵を置かない。起動ガード（`src/instrumentation.ts`, `src/lib/firebase/runtimeEnvGuard.ts`）を外さない。開発サーバーと Emulator は `127.0.0.1` に bind する（`docs/LocalDevelopment.md`）。

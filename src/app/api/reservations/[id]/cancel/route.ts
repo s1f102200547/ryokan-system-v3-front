@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { cancelReservationCommand } from '@/application/guestInfo/cancelReservationCommand'
-import { getSession, handleRouteError } from '@/lib/api/routeHelpers'
+import { handleRouteError, requireSession } from '@/lib/api/routeHelpers'
 import { DocumentIdSchema } from '@/lib/api/documentIdSchema'
 import { DateSchema } from '@/lib/api/dateSchema'
 
@@ -15,8 +15,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getSession(request)
-  if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const unauthorized = await requireSession(request, 'キャンセル')
+  if (unauthorized) return unauthorized
 
   const { id } = await params
   if (!DocumentIdSchema.safeParse(id).success) {

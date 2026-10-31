@@ -19,7 +19,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import { useAddReservation } from '@/hooks/guestInfo/useAddReservation'
 import { ROOM_NUMBERS } from '@/constants/room'
 import type { BookingSite } from '@/types/guestInfo'
-import { bookingSiteOptions, countOptions } from '@/constants/guestInfo'
+import { bookingSiteOptions, countOptions, MAX_NIGHTS } from '@/constants/guestInfo'
 
 type Props = {
   open: boolean
@@ -78,7 +78,8 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
     guestName.trim().length > 0 &&
     addReason.trim().length > 0 &&
     staffName.trim().length > 0 &&
-    checkOutStr > checkInDate
+    checkOutStr > checkInDate &&
+    checkOutStr <= dayjs(checkInDate).add(MAX_NIGHTS, 'day').format('YYYY-MM-DD')
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
@@ -93,6 +94,7 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
             value={checkOutDate}
             onChange={(v) => setCheckOutDate(v)}
             minDate={dayjs(checkInDate).add(1, 'day')}
+            maxDate={dayjs(checkInDate).add(MAX_NIGHTS, 'day')}
             slotProps={{ textField: { size: 'small', fullWidth: true } }}
           />
 

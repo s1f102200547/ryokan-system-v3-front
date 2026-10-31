@@ -4,7 +4,7 @@ import { toMonthDay } from '@/lib/dateUtils'
 import type { MailMemoEntry } from '@/types/guestInfo'
 
 type RestoreInput = {
-  id: string           // Firestore doc ID = reservation_number
+  id: string           // Firestore のドキュメント ID（reservation_number とは限らない。手動追加は自動 ID）
   staffName: string    // 操作したスタッフ名（mailMemo.name に使用）
   targetDate: string   // YYYY-MM-DD
   reason: string

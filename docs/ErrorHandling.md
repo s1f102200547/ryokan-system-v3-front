@@ -34,6 +34,8 @@ Firestore の例外から `InfraError` への変換は `src/infra/firestoreError
 - idToken/session cookie の期限切れ、revoke、無効 token は `401`。
 - `verifyIdToken` の `auth/argument-error` は、不正なトークンと Google の公開鍵の取得失敗（障害）の両方で返る。メッセージが `Decoding Firebase ID token failed` / `Firebase ID token ` で始まるものだけを 401 にし、それ以外は 503 + 通知にする（`src/lib/auth/idTokenError.ts`。firebase-admin の更新で文言が変わったら unit test が落ちる）。
 - Firebase Auth 自体の障害、ネットワーク障害、想定外 SDK エラーは `AUTH_UNAVAILABLE` / `503`。
+- Session Cookie の確認（`src/lib/auth/verifySession.ts`）も同じ考え方で、期限切れ・失効・無効化/削除されたユーザー・中身が不正な Cookie だけを未ログイン（401）にし、それ以外（`app/network-error`、`auth/internal-error` など）は `AUTH_UNAVAILABLE` にする。
+- Route Handler はセッションの確認を `requireSession(request, label)`（`src/lib/api/routeHelpers.ts`）で行う。Auth の障害も `handleRouteError` を通るので 503 + 通知になる。`getSession` を try の外で直接呼ぶと、障害が 500 になり、ログにも Slack にも残らない。
 - ログイン画面など公開ページでは 500/503 の詳細を出し分けず、監視インフラの存在を公開しない。
 
 ## バリデーション
@@ -47,6 +49,13 @@ Firestore の例外から `InfraError` への変換は `src/infra/firestoreError
 ## Slack 通知
 
 Slack 通知は「人が対応しないと直らない障害」を主対象にする。共通 `handleRouteError` は `FIRESTORE_NOT_FOUND` を除く `InfraError` と想定外エラーを `notifySlackFireAndForget` に渡すため、通知対象を増減する場合は共通 helper の条件分岐も同時に見直す。通知処理は API レスポンスを Slack の成否でブロックしない。
+
+## 壊れた予約の読み飛ばし
+
+予約の読み取りで `FIRESTORE_DATA_CORRUPTION` になったドキュメントは読み飛ばし、他の予約の取得は続ける。読み飛ばした予約は画面から消え、空室に見えるので、人が直す必要がある（`src/lib/skippedReservationReporter.ts`）。
+
+- 取得ごとに件数・ID・理由を WARN で出す。Cloud Logging で検索・集計する。
+- Slack には通知しない。データの異常は障害ではなく、画面を開くたびに通知すると本物の障害が埋もれるため（2026-10-31 決定）。
 
 ## ログレベル
 

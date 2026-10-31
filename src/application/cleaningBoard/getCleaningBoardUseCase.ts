@@ -59,12 +59,7 @@ export async function getCleaningBoardUseCase(
     }
   })
 
-  // 部屋未割り当て（room=null）かつ今後のCI予約を警告用に収集
-  const unassignedReservations = reservations
-    .filter((r) => r.cancel !== 1 && r.room === null && r.check_in_date >= targetDate)
-    .map((r) => ({ id: r.id, check_in_date: r.check_in_date }))
-
-  return { rows, unassignedReservations }
+  return { rows }
 }
 
 function computeAutoNotes(room: string, state: RoomCheckInState): string[] {

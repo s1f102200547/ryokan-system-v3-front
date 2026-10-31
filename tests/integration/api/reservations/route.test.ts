@@ -76,6 +76,13 @@ describe('POST /api/reservations', () => {
     expect(mockCommand).not.toHaveBeenCalled()
   })
 
+  // BugHunting.md #12: 30 泊まで
+  it('30 泊は201、31 泊は400', async () => {
+    mockCommand.mockResolvedValue('test-uuid')
+    expect((await POST(makeRequest({ ...validBody, check_out_date: '2026-05-01' }))).status).toBe(201)
+    expect((await POST(makeRequest({ ...validBody, check_out_date: '2026-05-02' }))).status).toBe(400)
+  })
+
   it('正常リクエストで201とreservation_numberを返す', async () => {
     mockCommand.mockResolvedValue('test-uuid')
     const res = await POST(makeRequest())

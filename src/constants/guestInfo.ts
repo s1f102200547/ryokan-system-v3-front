@@ -9,6 +9,9 @@ export const DINNER_CANCEL = 'CANCEL'
 export const DINNER_PENDING = 'PENDING'
 export const DINNER_CLOCK_TIMES = ['17:30', '18:00', '18:30', '19:00', '19:30', '20:00'] as const
 
+// 1件の予約の泊数の上限。画面の取得窓（対象日の前後 30 日の C/I）を超える滞在は表示されないため（BugHunting.md #12）
+export const MAX_NIGHTS = 30
+
 // --- 予約フィールドの許容値 ---
 // Route の入口検証と Infra の読み取り検証が共通で参照する（BugHunting.md R1）。
 // 読み取りで fallback に置き換えられる値を、書き込みで受け付けないようにするため

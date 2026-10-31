@@ -1,9 +1,10 @@
 import { z } from 'zod'
 import { ROOM_NUMBERS } from '@/constants/room'
 import {
-  ARRIVAL_TIME_VALUES, BREAKFAST_TIME_VALUES, DINNER_TIME_VALUES, OPEN_AIR_BATH_TIME_VALUES,
+  MAX_NIGHTS, ARRIVAL_TIME_VALUES, BREAKFAST_TIME_VALUES, DINNER_TIME_VALUES, OPEN_AIR_BATH_TIME_VALUES,
 } from '@/constants/guestInfo'
 import { DateSchema } from '@/lib/api/dateSchema'
+import { dateDiff } from '@/lib/dateUtils'
 
 // 予約 API の入口検証。Route Handler のファイルは HTTP メソッド以外を export できないため、ここに置く。
 // 制約の突き合わせテスト（tests/unit/constraints/）と往復検査（tests/emulator/）からも参照する
@@ -64,4 +65,6 @@ export const NewReservationBodySchema = z.object({
   staff_name: z.string().min(1).max(100),
 }).refine((d) => d.check_out_date > d.check_in_date, {
   message: 'check_out_date must be after check_in_date',
+}).refine((d) => dateDiff(d.check_in_date, d.check_out_date) <= MAX_NIGHTS, {
+  message: `stay must be at most ${MAX_NIGHTS} nights`,
 })

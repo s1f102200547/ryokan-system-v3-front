@@ -44,6 +44,21 @@ describe('validateReservationPatch', () => {
       expect(violationCodes(current, { check_out_date: '2026-11-01', ...nightFields(1) })).toEqual([])
     })
 
+    // BugHunting.md #12: 長期滞在の上限は 30 泊（取得窓が前後 30 日のため、31 泊以上は画面に出ない）
+    it('30 泊は通る', () => {
+      expect(violationCodes(current, { check_out_date: '2026-11-30', ...nightFields(30) })).toEqual([])
+    })
+
+    it('31 泊は拒否する', () => {
+      expect(violationCodes(current, { check_out_date: '2026-12-01', ...nightFields(31) })).toEqual(['TOO_MANY_NIGHTS'])
+    })
+
+    it('今の予約が 31 泊以上でも、30 泊以内に直す更新は通る（修正手段）', () => {
+      const long = { ...current, check_out_date: '2027-12-31' }
+      expect(violationCodes(long, { check_out_date: '2026-11-03', ...nightFields(3) })).toEqual([])
+      expect(violationCodes(long, { guest_name: 'x' })).toEqual(['TOO_MANY_NIGHTS'])
+    })
+
     it('泊数が変わるのに泊別配列がないものは拒否する', () => {
       expect(violationCodes(current, { check_out_date: '2026-11-03' })).toEqual(['NIGHT_FIELDS_REQUIRED'])
     })

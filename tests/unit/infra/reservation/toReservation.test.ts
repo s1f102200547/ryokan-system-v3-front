@@ -37,6 +37,15 @@ describe('toReservation（泊数）', () => {
     expect(corruptionCode({ ...base, check_out_date: '2026/11/10' })).toBe('FIRESTORE_DATA_CORRUPTION')
   })
 
+  // BugHunting.md #12: 31 泊以上は破損として読み飛ばす（入口でも拒否している）
+  it('30 泊は正常に読める', () => {
+    expect(corruptionCode({ ...base, check_out_date: '2026/12/10' })).toBeUndefined()
+  })
+
+  it('31 泊は FIRESTORE_DATA_CORRUPTION', () => {
+    expect(corruptionCode({ ...base, check_out_date: '2026/12/11' })).toBe('FIRESTORE_DATA_CORRUPTION')
+  })
+
   it('1泊は正常に読める', () => {
     expect(corruptionCode({ ...base, check_out_date: '2026/11/11' })).toBeUndefined()
   })

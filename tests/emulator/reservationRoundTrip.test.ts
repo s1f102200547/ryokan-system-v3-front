@@ -192,6 +192,7 @@ describe('壊れたドキュメントの隔離', () => {
   const corrupted: Record<string, Record<string, unknown>> = {
     'C/O が C/I より前': { check_out_date: toFirestoreDate(addDays(CHECK_IN, -1)) },
     'C/O が C/I と同日': { check_out_date: toFirestoreDate(CHECK_IN) },
+    '31 泊（上限超え）': { check_out_date: toFirestoreDate(addDays(CHECK_IN, 31)) },
     'adult_count が文字列': { adult_count: '2' },
     'adult_count が範囲外': { adult_count: 12 },
     'adult_count が NaN': { adult_count: Number.NaN },
@@ -211,8 +212,12 @@ describe('壊れたドキュメントの隔離', () => {
       await createDoc(data)
     }
 
+    vi.mocked(notifySlackFireAndForget).mockClear()
     const list = await firestoreReservationRepository.fetchByDateRange(CHECK_IN, CHECK_IN)
     expect(list.find((r) => r.id === validId)).toBeDefined()
+
+    // BugHunting.md #10: 読み飛ばしはログ（WARN）だけで、Slack には通知しない
+    expect(notifySlackFireAndForget).not.toHaveBeenCalled()
 
     const [year, month] = CHECK_IN.split('-').map(Number)
     const monthly = await firestoreReservationRepository.fetchByMonth(year, month)

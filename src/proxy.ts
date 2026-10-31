@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { buildCsp } from '@/lib/csp'
+import { isOutsideBusinessHours } from '@/lib/businessHours'
 
 export function proxy(request: NextRequest) {
   // nonce 生成
@@ -20,9 +21,7 @@ export function proxy(request: NextRequest) {
   // 時間帯制限（本番のみ、6:00–23:00 JST）
   const isProd = process.env.NODE_ENV === 'production'
   if (isProd) {
-    const nowJST = new Date(Date.now() + 9 * 60 * 60 * 1000)
-    const minuteOfDay = nowJST.getUTCHours() * 60 + nowJST.getUTCMinutes()
-    const isOutsideHours = minuteOfDay < 6 * 60 || minuteOfDay >= 23 * 60
+    const isOutsideHours = isOutsideBusinessHours()
 
     if (isOutsideHours && !isTimeRestrictedPage) {
       const redirectResponse = NextResponse.redirect(new URL('/time-restricted', request.url))

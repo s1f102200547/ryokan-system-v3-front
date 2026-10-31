@@ -72,6 +72,7 @@ export type StayFacts = {
 export type ReservationPatchViolation = {
   code:
     | 'CHECK_OUT_NOT_AFTER_CHECK_IN'   // 更新後の C/O が C/I 以前
+    | 'TOO_MANY_NIGHTS'                // 更新後の泊数が MAX_NIGHTS を超える
     | 'NIGHT_FIELDS_REQUIRED'          // 泊数が変わるのに泊別配列が揃っていない
     | 'NIGHT_FIELD_LENGTH_MISMATCH'    // 泊別配列の長さが更新後の泊数と違う
     | 'AGE_GROUPS_REQUIRED'            // 大人の人数が変わるのに age_groups がない

@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { addReservationCommand } from '@/application/guestInfo/addReservationCommand'
-import { getSession, handleRouteError } from '@/lib/api/routeHelpers'
+import { handleRouteError, requireSession } from '@/lib/api/routeHelpers'
 import { NewReservationBodySchema } from '@/lib/api/reservationSchemas'
 
 export async function POST(request: Request) {
-  const session = await getSession(request)
-  if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const unauthorized = await requireSession(request, '予約追加')
+  if (unauthorized) return unauthorized
 
   const body = await request.json().catch(() => null)
   const parsed = NewReservationBodySchema.safeParse(body)

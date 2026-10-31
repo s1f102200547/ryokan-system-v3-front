@@ -31,6 +31,7 @@ vi.mock('@/infra/daily/firestoreDailyRepository', () => ({
 }))
 
 import { verifySession } from '@/lib/auth/verifySession'
+import { InfraError } from '@/types/errors'
 import { notifySlackFireAndForget } from '@/lib/slack'
 import { adminAuth } from '@/lib/firebase/admin'
 import { getATaxTableUseCase } from '@/application/aTaxTable/getATaxTableUseCase'
@@ -180,8 +181,8 @@ beforeEach(() => {
   })
   vi.mocked(adminAuth.createSessionCookie).mockResolvedValue('session-cookie')
   vi.mocked(getATaxTableUseCase).mockResolvedValue({ rows: [], safeBalanceCheckers: {} })
-  vi.mocked(getCleaningBoardUseCase).mockResolvedValue({ rows: [], unassignedReservations: [] })
-  vi.mocked(getGuestInfoUseCase).mockResolvedValue({ normal: [], staying: [], cancelled: [] })
+  vi.mocked(getCleaningBoardUseCase).mockResolvedValue({ rows: [] })
+  vi.mocked(getGuestInfoUseCase).mockResolvedValue({ normal: [], staying: [], cancelled: [], roomConflicts: [] })
   vi.mocked(getTimetableUseCase).mockResolvedValue({} as Awaited<ReturnType<typeof getTimetableUseCase>>)
   vi.mocked(addReservationCommand).mockResolvedValue('uuid')
   vi.mocked(cancelReservationCommand).mockResolvedValue(undefined)
@@ -224,3 +225,24 @@ describe.each(ROUTES.map((r) => [`${r.method} /api/${r.route}`, r] as const))('%
     expect(notifySlackFireAndForget).not.toHaveBeenCalled()
   })
 })
+
+// BugHunting.md #23: セッションの確認が try の外にあり、Firebase Auth の障害（AUTH_UNAVAILABLE）で
+// 全 API が 500 になり、ログにも Slack にも残らなかった
+describe.each(ROUTES.filter((r) => r.route !== 'auth/login').map((r) => [`${r.method} /api/${r.route}`, r] as const))(
+  '%s: 認証基盤の障害',
+  (_name, r) => {
+    it('503 を返し、Slack に通知する', async () => {
+      vi.mocked(verifySession).mockRejectedValue(new InfraError('AUTH_UNAVAILABLE', 'Session verification failed'))
+      const res = await send(r, validInput(r))
+      expect(res.status).toBe(503)
+      expect(notifySlackFireAndForget).toHaveBeenCalledTimes(1)
+    })
+
+    it('未ログインは 401（通知しない）', async () => {
+      vi.mocked(verifySession).mockResolvedValue(null)
+      const res = await send(r, validInput(r))
+      expect(res.status).toBe(401)
+      expect(notifySlackFireAndForget).not.toHaveBeenCalled()
+    })
+  },
+)

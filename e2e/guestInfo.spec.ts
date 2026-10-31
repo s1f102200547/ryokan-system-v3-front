@@ -167,6 +167,36 @@ test.describe('GuestInfo - 予約一覧表示', () => {
   })
 })
 
+// BugHunting.md #11: 同じ部屋・同じ夜に有効な予約が2件あると、清掃ボード・タイムテーブルには1件しか出ない
+test.describe('GuestInfo - 部屋の重複の警告', () => {
+  test.beforeEach(async ({ page }) => {
+    await suppressPrint(page)
+    await setupAuth(page)
+    await mockGuestInfoApi(page)
+  })
+
+  test('重複があれば部屋番号と件数を警告する', async ({ page }) => {
+    await page.route('/api/guest-info*', (route) => route.fulfill({
+      status: 200,
+      json: {
+        normal: [SAMPLE_RESERVATION, { ...SAMPLE_RESERVATION, id: 'test-id-dup', guest_name: '重複次郎' }],
+        staying: [],
+        cancelled: [],
+        roomConflicts: [{ room: '21', reservationIds: ['test-id-1', 'test-id-dup'] }],
+      },
+    }))
+    await page.goto('/daily-dashboard')
+    await expect(page.getByTestId('room-conflict-alert')).toContainText('21号室')
+    await expect(page.getByTestId('room-conflict-alert')).toContainText('2件')
+  })
+
+  test('重複がなければ警告しない', async ({ page }) => {
+    await page.goto('/daily-dashboard')
+    await expect(page.getByTestId('reservation-card').first()).toBeVisible()
+    await expect(page.getByTestId('room-conflict-alert')).toHaveCount(0)
+  })
+})
+
 test.describe('GuestInfo - モーダル（auto-save）', () => {
   test.beforeEach(async ({ page }) => {
     await suppressPrint(page)
@@ -239,6 +269,15 @@ test.describe('GuestInfo - モーダル（auto-save）', () => {
       expect(last?.check_out_date).toBe('2026-01-15')
       expect((last?.dinner_time as string[]).slice(0, 2)).toEqual(['NONE', '18:00'])
       expect((last?.timetable_info as string[]).slice(0, 2)).toEqual(['night1', 'night2'])
+    })
+
+    // BugHunting.md #12: 30 泊を超える日付は保存しない
+    test('31 泊以上になる日付を入力しても保存しない', async ({ page }) => {
+      const { patches, month } = await openCheckOutField(page)
+      await month.click()
+      await page.keyboard.type('03')    // 2026-03-02（C/I 2026-01-01 から 60 泊）
+      await page.waitForTimeout(1500)
+      expect(patches.filter((p) => 'check_out_date' in p)).toEqual([])
     })
 
     test('正しい日付は泊別配列と一緒に保存する', async ({ page }) => {

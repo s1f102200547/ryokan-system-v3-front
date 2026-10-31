@@ -4,6 +4,8 @@ import { adminAuth } from '@/lib/firebase/admin'
 import { logger } from '@/lib/logger'
 import { notifySlackFireAndForget } from '@/lib/slack'
 import { isInvalidIdTokenError } from '@/lib/auth/idTokenError'
+import { isOutsideBusinessHours } from '@/lib/businessHours'
+import { BUSINESS_HOURS_END_JST } from '@/constants/date'
 
 const BodySchema = z.object({
   idToken: z.string().min(1),
@@ -15,18 +17,25 @@ function msUntilToday23JST(): number {
   const nowMs = Date.now()
   const nowJST = new Date(nowMs + 9 * 60 * 60 * 1000) // UTC→JST
 
-  // 今日の 23:00 JST = 14:00 UTC
+  // 今日の 23:00 JST（時間帯制限の終了時刻）= 14:00 UTC
   const expire23UTC = Date.UTC(
     nowJST.getUTCFullYear(),
     nowJST.getUTCMonth(),
     nowJST.getUTCDate(),
-    14, 0, 0,
+    BUSINESS_HOURS_END_JST - 9, 0, 0,
   )
 
   return Math.max(expire23UTC - nowMs, 5 * 60 * 1000) // Firebase の最低値 5分 を保証（5分未満にするとfirebaseがエラーを返すから）
 }
 
 export async function POST(request: Request) {
+  // 本番は時間外のログインを断る。画面は proxy.ts で時間外に開けないが、API を直接呼ぶと
+  // 深夜でもその日の 23:00 まで有効な Session Cookie が発行されていた（BugHunting.md #14）
+  if (process.env.NODE_ENV === 'production' && isOutsideBusinessHours()) {
+    logger.warn('ログイン拒否: 時間外')
+    return NextResponse.json({ error: 'outside_business_hours' }, { status: 403 })
+  }
+
   // 不正な JSON や空の body は 400（BugHunting.md #1）
   const parsed = BodySchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {

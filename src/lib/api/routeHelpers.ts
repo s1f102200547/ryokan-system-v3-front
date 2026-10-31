@@ -17,6 +17,18 @@ export function parseCookieValue(cookieHeader: string | null, key: string): stri
     ?.slice(prefix.length)
 }
 
+// 未ログインなら 401、Firebase Auth の障害なら handleRouteError（503 + 通知）の Response を返す。ログイン済みなら null。
+// セッションの確認も handleRouteError を通す。try の外で呼ぶと、Auth の障害で全 API が 500 になり、
+// ログにも Slack にも残らなかった（BugHunting.md #23）
+export async function requireSession(request: Request, label: string): Promise<NextResponse | null> {
+  try {
+    const session = await getSession(request)
+    return session ? null : NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  } catch (e) {
+    return handleRouteError(e, label)
+  }
+}
+
 export async function getSession(request: Request) {
   const sessionCookie = parseCookieValue(request.headers.get('cookie'), 'session')
   return verifySession(sessionCookie)

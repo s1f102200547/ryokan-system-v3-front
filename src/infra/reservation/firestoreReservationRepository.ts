@@ -4,6 +4,8 @@ import { v7 as uuidv7 } from 'uuid'
 import { adminDb } from '@/lib/firebase/admin'
 import { InfraError } from '@/types/errors'
 import { withFirestoreError } from '@/infra/firestoreError'
+import { reportSkippedReservations } from '@/lib/skippedReservationReporter'
+import type { SkippedReservation } from '@/lib/skippedReservationReporter'
 import { ROOM_NUMBERS } from '@/types/room'
 import type { ReservationRepository } from '@/domain/ports/reservationRepository'
 import type { Reservation } from '@/types/reservation'
@@ -11,7 +13,7 @@ import type {
   ATaxPatch, BookingSite, MailMemoEntry, NewReservationInput, ReservationPatch, StayFacts,
 } from '@/types/guestInfo'
 import {
-  ARRIVAL_TIME_VALUES, BREAKFAST_TIME_VALUES, DINNER_TIME_VALUES, OPEN_AIR_BATH_TIME_VALUES,
+  MAX_NIGHTS, ARRIVAL_TIME_VALUES, BREAKFAST_TIME_VALUES, DINNER_TIME_VALUES, OPEN_AIR_BATH_TIME_VALUES,
 } from '@/constants/guestInfo'
 import { dateDiff } from '@/lib/dateUtils'
 
@@ -64,17 +66,7 @@ export const firestoreReservationRepository: ReservationRepository = {
         .where('check_in_date', '>=', toFirestoreDate(from))
         .where('check_in_date', '<=', toFirestoreDate(to))
         .get()
-      return snapshot.docs.flatMap((doc) => {
-        try {
-          return [toReservation(doc.id, doc.data())]
-        } catch (e) {
-          if (e instanceof InfraError && e.code === 'FIRESTORE_DATA_CORRUPTION') {
-            console.error(`Skipping corrupted doc ${doc.id}:`, e.message)
-            return []
-          }
-          throw e
-        }
-      })
+      return toReservations(snapshot.docs)
     })
   },
 
@@ -89,17 +81,7 @@ export const firestoreReservationRepository: ReservationRepository = {
         .where('check_in_date', '>=', from)
         .where('check_in_date', '<', nextMonth)
         .get()
-      return snapshot.docs.flatMap((doc) => {
-        try {
-          return [toReservation(doc.id, doc.data())]
-        } catch (e) {
-          if (e instanceof InfraError && e.code === 'FIRESTORE_DATA_CORRUPTION') {
-            console.error(`Skipping corrupted doc ${doc.id}:`, e.message)
-            return []
-          }
-          throw e
-        }
-      })
+      return toReservations(snapshot.docs)
     })
   },
 
@@ -233,6 +215,24 @@ const isOpenAirBathTime = (v: unknown): v is OpenAirBathTimeValue =>
 const isString = (v: unknown): v is string => typeof v === 'string'
 const isStringOrNull = (v: unknown): v is string | null => v === null || typeof v === 'string'
 
+// 取得したドキュメントを予約に変換する。破損したものは読み飛ばし、他の予約の取得を巻き込まない（BugHunting.md #4, #10）
+function toReservations(docs: FirebaseFirestore.QueryDocumentSnapshot[]): Reservation[] {
+  const skipped: SkippedReservation[] = []
+  const reservations = docs.flatMap((doc) => {
+    try {
+      return [toReservation(doc.id, doc.data())]
+    } catch (e) {
+      if (e instanceof InfraError && e.code === 'FIRESTORE_DATA_CORRUPTION') {
+        skipped.push({ id: doc.id, reason: e.message })
+        return []
+      }
+      throw e
+    }
+  })
+  reportSkippedReservations(skipped)
+  return reservations
+}
+
 // 更新の検査に使う項目だけを読む。check_out_date が C/I 以前でも読める（壊れた予約の C/O を直す更新を通すため）
 const StayFactsSchema = FirestoreReservationSchema.pick({
   check_in_date: true,
@@ -263,6 +263,13 @@ export function toReservation(id: string, data: FirebaseFirestore.DocumentData):
       throw new InfraError(
         'FIRESTORE_DATA_CORRUPTION',
         `Schema validation failed for doc ${id} [check_out_date: not after check_in_date (nights: ${nights})]`,
+      )
+    }
+    // 上限を超える滞在は画面の取得窓に収まらない。入口でも拒否している（BugHunting.md #12）
+    if (nights > MAX_NIGHTS) {
+      throw new InfraError(
+        'FIRESTORE_DATA_CORRUPTION',
+        `Schema validation failed for doc ${id} [check_out_date: more than ${MAX_NIGHTS} nights (nights: ${nights})]`,
       )
     }
 
