@@ -16,10 +16,10 @@
 
 | Step | 内容 | 対象 # | 状態 |
 |---|---|---|---|
-| 0 | 準備とベースライン | — | 確認済み（候補 A〜F の扱いは判断待ち） |
-| 1 | #4 を Emulator で再現 | 3, 4 | 未着手 |
-| 2 | 予約の入口検証を Infra に揃える | 3, 4, 6, 7 | 未着手 |
-| 3 | 入力起因のエラーを 4xx にする | 1, 2, 5 | 未着手 |
+| 0 | 準備とベースライン | — | 完了（候補 A〜F は確認でき次第 §5 へ移す） |
+| 1 | #4 を Emulator で再現 | 3, 4 | 完了（再現した） |
+| 2 | 予約の入口検証を Infra に揃える | 3, 4, 6, 7, 17 | 未着手 |
+| 3 | 入力起因のエラーを 4xx にする | 1, 2, 5, 16, 18 | 未着手 |
 | 4 | 往復検査と制約の突き合わせ | — | 未着手 |
 | 5 | 全 Route Handler のファジング | — | 未着手 |
 | 6 | TZ・時刻の固定テスト | 8, 9 | 未着手 |
@@ -56,16 +56,18 @@
 | 画面・API | ゲスト情報（10/31）・宿泊税テーブル（10月）が表示された。`guest-info`・`daily/todos`・`timetable`・`cleaning-board`・`a-tax-table`（10月・11月）はすべて 200。ブラウザのエラーなし |
 | サーバーログ | 確認した範囲で破損ドキュメントのスキップ・ERROR・ALERT なし |
 
-### コードを読んで見つかった追加の候補（未確認）
+### コードを読んで見つかった追加の候補
+
+確認できたものは `BugHunting.md` §5 に移し、候補の列に移動先を書く。
 
 | 候補 | 根拠 | 関係 |
 |---|---|---|
 | A | `PATCH /api/reservations/[id]` は `check_in_date` を受け取らないため、Route の Zod だけでは `check_out_date > check_in_date` を検査できない。#3 の修正には既存ドキュメントの読み取りが必要 | #3（Step 2 の設計に影響） |
-| B | `ReservationModal.tsx` の `handleFieldChange` は泊数が 0 以下のとき配列をリサイズしないが、`check_out_date` 自体は送る。UI 経由でも #3 が起きる | #3, #4 |
-| C | `useUpdateReservation` は 503 以外のすべての失敗に「管理者に通知済みです」と表示する。400 / 404 は通知されないため、Step 3 で 4xx を増やすと文言が事実と食い違う | Step 3 |
+| B（→ #3 に統合） | `ReservationModal.tsx` の `handleFieldChange` は泊数が 0 以下のとき配列をリサイズしないが、`check_out_date` 自体は送る。UI 経由でも #3 が起きる | #3, #4 |
+| C（→ #18） | `useUpdateReservation` は 503 以外のすべての失敗に「管理者に通知済みです」と表示する。400 / 404 は通知されないため、Step 3 で 4xx を増やすと文言が事実と食い違う | Step 3 |
 | D | `cancel` / `restore` の Command は「doc ID = reservation_number」とコメントしているが、`addReservation` は `.add()` で自動 ID を振るため、手動追加の予約は doc ID と `reservation_number` が一致しない。どこかで `reservation_number` を ID として使っていないか確認する | R1 |
 | E | `PATCH` の `mail_memo` は配列ごと上書きできる。操作履歴（キャンセル・復活の記録）を画面から消せる。意図した仕様か確認する | 仕様 |
-| F | 人工データ（`tests/fixtures/localdev/guestInfoV2.json`）に `check_out_date <= check_in_date` のドキュメントがない。#4 の経路を `make` だけでは通らない | #4 |
+| F（Step 1 で追加済み） | 人工データ（`tests/fixtures/localdev/guestInfoV2.json`）に `check_out_date <= check_in_date` のドキュメントがない。#4 の経路を `make` だけでは通らない | #4 |
 
 ---
 
@@ -82,7 +84,20 @@
 3. 宿泊税テーブル（その月）も開く。`fetchByMonth` も同じ `toReservation` を通るため、同じく落ちるはず。
 4. 結果を §5 の #3・#4 の「確認」列に反映する（コード → 実機）。
 
-**完了条件**: 再現の有無と、再現した画面・status・ログを記録した。fixture の追加はそのままコミットしてよい（Step 2 以降の回帰確認に使う）。
+**完了条件**: 再現の有無と、再現した画面・status・ログを記録した。fixture の追加は Step 2 の修正と同じコミットに含める（先にコミットすると、fixture で開発する環境が Step 2 まで壊れるため）。
+
+### 実行記録（2026-10-31、匿名化データ + fixture）
+
+| 経路 | 操作 | 結果 |
+|---|---|---|
+| UI | 部屋22（C/I 10/31・C/O 11/02）の C/O をキーボードで 10/31 に | `PATCH {"check_out_date":"2026-10-31"}` が 200。泊数 0 は読み取りで例外にならず、全画面 200 |
+| UI | 部屋31（C/I 10/31・C/O 11/03）の C/O を月だけ打ち替えて 10/03 に | 200 で保存。直後から 10/01〜11/30 のタイムテーブル・清掃ボード、10/31〜11/30 のゲスト情報、10月の宿泊税が **503**。ログは `Firestore unknown error`（`FIRESTORE_UNAVAILABLE`）のみ。Infra を直接呼ぶと cause は `RangeError: Invalid array length` |
+| UI | 部屋32 の C/O の日だけ `31` と打つ（11/31） | 入力途中の `11/03` で配列が3泊分にリサイズされ、`"Invalid Date"` と一緒に送られて 400。画面には「管理者に通知済みです」 |
+| データ | fixture に `fixture-corrupted-zero-nights`（11/10→11/10）と `fixture-corrupted-reversed-dates`（11/12→11/11）を追加して `npm run seed -- --fixture` | 10/13〜12/12 のタイムテーブル・清掃ボード、11/12〜12/12 のゲスト情報、11月の宿泊税が 503。範囲外（10/12、12/13）は 200 |
+
+- 予想との違い: status は 500 ではなく 503（`RangeError` が `withFirestoreError` で障害扱いになる）。泊数 0 では落ちず、負のときだけ落ちる。
+- 部屋31 は API で C/O を 11/03 に戻し、Emulator は `make seed` で匿名化データに戻した。
+- 新たに見つかったもの: #16（元の例外がログに出ない）、#17（DatePicker の入力途中の値が保存される）、#18（400 でも「管理者に通知済み」）。
 
 **指示例**
 > docs/BugHuntingRunbook.md の Step 1 を実行して。make で起動した Emulator 上で #4 を UI 経路とデータ経路の両方で再現し、status とログを記録して BugHunting.md §5 を更新して。本番の Firestore には触らないこと。
