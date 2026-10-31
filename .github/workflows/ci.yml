@@ -80,6 +80,7 @@ jobs:
       - run: npm ci
         if: steps.cache.outputs.cache-hit != 'true'
       - run: npm run test
+      - run: npm run test:tz          # tests/time/ を TZ=UTC / Asia/Tokyo / America/Los_Angeles で実行（docs/BugHunting.md §3.4）
 
   # ── Phase 3: 重いテスト（unit-test 通過後）──────────────────────────────
   # Firestore Emulator に実際に書いて読む往復検査（tests/emulator/、docs/BugHunting.md §3.1）

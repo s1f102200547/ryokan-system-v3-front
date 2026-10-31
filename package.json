@@ -12,6 +12,7 @@
     "lint": "eslint",
     "test": "vitest",
     "test:ui": "vitest --ui",
+    "test:tz": "for tz in UTC Asia/Tokyo America/Los_Angeles; do echo \"TZ=$tz\"; TZ=$tz vitest run tests/time || exit 1; done",
     "test:emulator": "firebase emulators:exec --project demo-ryokan --only firestore,auth \"vitest run --config vitest.emulator.config.ts\"",
     "e2e": "playwright test",
     "audit:ci": "tsx scripts/ci/audit.ts"

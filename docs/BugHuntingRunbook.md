@@ -22,7 +22,7 @@
 | 3 | 入力起因のエラーを 4xx にする | 1, 2, 5, 16, 18, 20 | 完了 |
 | 4 | 往復検査と制約の突き合わせ | — | 完了（新しいバグは見つからず） |
 | 5 | 全 Route Handler のファジング | — | 完了（新しいバグは見つからず） |
-| 6 | TZ・時刻の固定テスト | 8, 9 | 未着手 |
+| 6 | TZ・時刻の固定テスト | 8, 9, 21 | 完了 |
 | 7 | 仕様判断 | 10〜14 | 未着手 |
 | 8 | PBT | — | 未着手 |
 | 9 | 探索的テスト | — | 未着手 |
@@ -270,6 +270,24 @@
 5. 直し方の方針: 日付文字列の計算は `Date.UTC` と `getUTC*` に統一し、「今日」は `getTodayJST()` だけから得る。`new Date('YYYY-MM-DD')` とローカル時刻の比較をやめ、文字列（`YYYY-MM-DD`）で比較する。
 
 **完了条件**: 3つの TZ で同じ結果になる / #8・#9 が直っている / CI の matrix を入れた場合は `docs/CICD.md` も更新した。
+
+### 実行記録（2026-10-31）
+
+| 作ったもの | 内容 |
+|---|---|
+| `npm run test:tz` | `tests/time/` を `TZ=UTC` / `Asia/Tokyo` / `America/Los_Angeles` で3回実行。CI の `unit-test` と `make check` に追加 |
+| `tests/time/`（124 件 × 3 TZ） | `getTodayJST`・`addDays`/`dateDiff`（月末・閏日・夏時間の切り替え日）、`DateSchema` の範囲の端（JST の境界時刻ごと）、手動追加の操作履歴の月日（#8）、宿泊税テーブルの対象月、Session Cookie の期限（22:54 / 22:56 / 23:00 など）、時間帯制限（5:59 / 6:00 / 23:00）、UseCase の取得窓 |
+| `tests/utils/timeHelper.ts` | JST の日時で時刻を固定する `setNowJST` と境界時刻の一覧 |
+
+修正前の結果:
+- #8: `TZ=UTC` と `America/Los_Angeles` で、JST 0:00〜8:59 の手動追加が前日の日付になった（Cloud Run は UTC）。
+- #9: `TZ=Asia/Tokyo` でも、JST 0:00〜8:59 は「今日」が前日になり、今日の行が出なかった（`toISOString()` が UTC）。`TZ=UTC` ではさらに、未受領の日からの範囲もずれた。ただし、このフィルタは画面から呼ばれていない（`ATaxTable.tsx` は常に `enableFilter=false`）。
+- Session Cookie の期限、時間帯制限、`addDays` / `dateDiff`、`DateSchema`、UseCase の取得窓は、修正前から3つの TZ で同じ結果だった。
+
+直し方: 「今日」は `getTodayJST()` だけから得て、日付は `YYYY-MM-DD` の文字列のまま比べる。操作履歴の月日は `toMonthDay()`（`dateUtils.ts`）にまとめ、手動追加・キャンセル・復活・画面の履歴追加で共通にした。宿泊税テーブルの今月・先月は `monthlyTarget(option, today)` に切り出した。宿泊税テーブルの今月フィルタ（`computeProcessedRows` の `enableFilter`）は画面から使われていなかったので、質問への回答（案A）に従って削除した。印刷時刻は `timeZone: 'Asia/Tokyo'` で表示する。
+
+- 新たに見つかったもの: #21（ブラウザのローカル時刻に依存する箇所。端末が JST なら問題は出ない）。
+- 実機での確認はしていない。サーバーの時刻を JST 0:00〜9:00 にずらして動かす手段がないため、テストで固定した時刻と3つの TZ で確認した。
 
 ---
 

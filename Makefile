@@ -27,6 +27,7 @@ check: ## lint・型チェック・unit/integration test・Emulator の往復検
 	npm run lint
 	npx tsc --noEmit
 	npm run test -- --run
+	npm run test:tz
 	npm run test:emulator
 	npm run e2e
 

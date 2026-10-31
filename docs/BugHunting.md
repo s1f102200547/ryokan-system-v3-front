@@ -237,8 +237,8 @@ JST 0:00〜9:00 は UTC では前日なので、本番の営業時間（6:00〜2
 | 5 | 存在しない ID・不正な ID への PATCH / cancel / restore / a-tax が、Firestore の NOT_FOUND などを `FIRESTORE_UNAVAILABLE` に分類し、503 + ALERT になる。`[id]` は検証していない | R5 | 実機 | 対応済み（Step 3） |
 | 6 | `PATCH /api/reservations/[id]` が泊別配列・`arrival_time`・`age_groups` の値と長さを検査しない。保存は成功するが、読み戻すと fallback に化ける（長さが違えば全夜分が初期化される） | R1, R2, R4 | コード | 対応済み（Step 2） |
 | 7 | POST / PATCH / cancel / restore の日付が書式しか見ず、実在日（`2026-02-30`）も範囲も検査しない（GET 系の `dateSchema` と食い違う） | R1, R3 | コード | 対応済み（Step 2） |
-| 8 | `addReservationCommand` の操作履歴（`mail_memo`）の月日がサーバーのローカル時刻。Cloud Run（UTC）では JST 6:00〜9:00 の手動追加が前日の日付になる | R3 | コード | 未対応 |
-| 9 | `computeProcessedRows`（宿泊税テーブルの今月フィルタ）が今日を `toISOString()`（UTC）で求め、`new Date('YYYY-MM-DD')`（UTC）とローカル時刻を比べている。JST 0:00〜9:00 に範囲が1日ずれる可能性 | R3 | コード | 未対応 |
+| 8 | `addReservationCommand` の操作履歴（`mail_memo`）の月日がサーバーのローカル時刻。Cloud Run（UTC）では JST 6:00〜9:00 の手動追加が前日の日付になる | R3 | 実機 | 対応済み（Step 6。TZ=UTC で再現） |
+| 9 | `computeProcessedRows`（宿泊税テーブルの今月フィルタ）が今日を `toISOString()`（UTC）で求め、`new Date('YYYY-MM-DD')`（UTC）とローカル時刻を比べている。JST 0:00〜9:00 に範囲が1日ずれる可能性 | R3 | 実機 | 対応済み（Step 6。JST のブラウザでも 0:00〜9:00 に今日の行が消えることを再現。このフィルタは画面から呼ばれていなかった（常に `enableFilter=false`）ため、利用者への影響はなく、使われないコードとして削除した） |
 | 10 | 破損ドキュメントが `console.error` だけでスキップされ、予約が画面から黙って消える | R2 | 仕様 | 通知の方針を決める |
 | 11 | ダブルブッキングの検査がなく、2件目の予約は清掃ボード・タイムテーブルに出ない | R7 | 仕様 | 仕様の判断待ち |
 | 12 | UseCase の取得窓が前後 30 日のため、31 泊以上の滞在が表示されない | R3 | 仕様 | 長期滞在があり得るか確認 |
@@ -250,6 +250,7 @@ JST 0:00〜9:00 は UTC では前日なので、本番の営業時間（6:00〜2
 | 18 | `useUpdateReservation` が 503 以外の失敗をすべて「保存に失敗しました。管理者に通知済みです。」と表示する。400 は Slack に通知されないので、表示が事実と違う（#17 の 400 で確認） | — | 実機 | 対応済み（Step 3） |
 | 19 | C/O 日を1文字ずつ打つと、入力途中の短い泊数で泊別配列が切り詰められ、泊数が戻っても消えた分は戻らない。例: 2泊（11/02）を 11/15 にしようと日を `15` と打つと、途中の `11/01`（1泊）で2泊目の夕食・メモが消える。Step 2 の修正前からある（2026-10-31 再現） | R4, R6 | 実機 | 対応済み（モーダルを開いている間は縮めた分を覚えておき、伸ばし直したら戻す。大人の人数と `age_groups` も同じ） |
 | 20 | `logger` が `{ level, message, ...extra }` で JSON を作るため、`extra` の `message` がログの本文を上書きする。`handleRouteError` やログインのログで、どの API の何のログかが消えていた（Step 1 の #4 のログが `Firestore unknown error` だけだった一因） | R5 | 実機 | 対応済み（Step 3。`extra.message` は `detail` に移す） |
+| 21 | ブラウザのローカル時刻に依存する箇所: 操作履歴の追加（`MailMemo.tsx` の月日）、宿泊税テーブルの今月・先月（`ATaxTable.tsx`）、タイムテーブルの印刷時刻。端末の TZ が JST 以外だと日付がずれる | R3 | コード | 対応済み（Step 6。JST の今日・`timeZone: 'Asia/Tokyo'` に統一） |
 
 ---
 

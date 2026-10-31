@@ -1,5 +1,6 @@
 import { firestoreReservationRepository } from '@/infra/reservation/firestoreReservationRepository'
 import { notifySlackFireAndForget } from '@/lib/slack'
+import { toMonthDay } from '@/lib/dateUtils'
 import type { MailMemoEntry } from '@/types/guestInfo'
 
 type RestoreInput = {
@@ -11,11 +12,8 @@ type RestoreInput = {
 
 export async function restoreReservationCommand(input: RestoreInput): Promise<void> {
   const { id, staffName, targetDate, reason } = input
-  const [, mm, dd] = targetDate.split('-')
-
   const mailMemoEntry: MailMemoEntry = {
-    month: String(parseInt(mm, 10)),
-    day: String(parseInt(dd, 10)),
+    ...toMonthDay(targetDate),
     name: staffName,
     summary: '手動キャンセル復活',
     text: reason,

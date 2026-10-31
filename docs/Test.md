@@ -86,6 +86,15 @@ npm run test:emulator   # firebase emulators:exec で専用の Emulator（Firest
 
 制約の突き合わせ（UI の選択肢・Route の Zod・Infra の読み取り検証）は `tests/unit/constraints/` に置く。UI が送る値がすべて Route を通り、Infra の読み取りで fallback に置き換えられないことを検査する。Route の Zod は `src/lib/api/reservationSchemas.ts`、UI の選択肢と許容値は `src/constants/guestInfo.ts` にあり、テストはそれを直接参照する（新しい選択肢を足すと自動で検査対象になる）。
 
+## 時刻・タイムゾーン
+
+`tests/time/` は時刻や TZ で結果が変わりうる処理のテスト。`npm run test:tz` で `TZ=UTC`（Cloud Run・CI）/ `Asia/Tokyo`（開発 PC・ブラウザ）/ `America/Los_Angeles`（夏時間あり）の3回実行し、判定は「TZ によって結果が変わらない」（`docs/BugHunting.md` §3.4）。
+
+- 時刻は `tests/utils/timeHelper.ts` の `setNowJST` で JST の日時として固定する。境界は JST 0:00 / 5:59 / 6:00 / 8:59 / 9:00 / 22:54 / 22:56 / 23:00 / 23:59（`JST_BOUNDARY_TIMES`）。
+- 日付は月末・年末年始・閏日・米国の夏時間の切り替え日、`DATE_RANGE_*` の端と1日外を通す。
+- 期待値は具体的な値で書く（スナップショットは最初に実行した TZ の値を固定してしまうので使わない）。
+- 実装の規則: 「今日」は `getTodayJST()` だけから得る。日付は `YYYY-MM-DD` の文字列のまま比べる。`new Date()` のローカル時刻（`getMonth()` / `getDate()`）、`toISOString()`、`new Date('YYYY-MM-DD')` を日付の判定に使わない。
+
 ## Fuzzing
 
 全 Route Handler に、壊れた body・path・query を送る。判定は「入力が原因で 5xx を返さない・Slack に通知しない」（`docs/BugHunting.md` §3.3）。
