@@ -41,3 +41,16 @@ describe('checkSeedTarget（SEED-1）', () => {
     expect(result.success).toBe(false)
   })
 })
+
+describe('checkAnonymizeEnv（ANON-5, AC-14）', () => {
+  it('Emulator 系の変数がなければ実行できる', async () => {
+    const { checkAnonymizeEnv } = await import('../../../scripts/localdev/lib/guards')
+    expect(checkAnonymizeEnv({ PATH: '/usr/bin' }).success).toBe(true)
+  })
+
+  it.each(['FIRESTORE_EMULATOR_HOST', 'FIREBASE_AUTH_EMULATOR_HOST', 'FIREBASE_EMULATOR_HUB', 'FIREBASE_STORAGE_EMULATOR_HOST'])(
+    '%s があれば拒否（空文字でも）', async (name) => {
+      const { checkAnonymizeEnv } = await import('../../../scripts/localdev/lib/guards')
+      expect(checkAnonymizeEnv({ [name]: '' }).success).toBe(false)
+    })
+})

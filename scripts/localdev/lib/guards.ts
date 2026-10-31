@@ -1,4 +1,4 @@
-import { DEMO_PROJECT_PREFIX } from '@/constants/runtimeEnv'
+import { DEMO_PROJECT_PREFIX, EMULATOR_HOST_SUFFIX, EMULATOR_HUB_ENV } from '@/constants/runtimeEnv'
 import type { Result } from '@/types/result'
 
 type Env = Readonly<Record<string, string | undefined>>
@@ -29,4 +29,13 @@ export function checkSeedTarget(env: Env): Result<SeedTarget, string[]> {
 
   if (errors.length > 0 || !firestoreHost || !authHost || !projectId) return { success: false, error: errors }
   return { success: true, value: { projectId, firestoreHost, authHost } }
+}
+
+// ANON-5: Emulator 系の変数が1つでもある環境では匿名化を拒否する（Emulator を本番と取り違えないため）
+export function checkAnonymizeEnv(env: Env): Result<null, string[]> {
+  const found = Object.keys(env).filter((name) =>
+    env[name] !== undefined && (name.endsWith(EMULATOR_HOST_SUFFIX) || name === EMULATOR_HUB_ENV))
+  return found.length === 0
+    ? { success: true, value: null }
+    : { success: false, error: found.map((name) => `${name} が設定されています（Emulator 系の変数がある環境では実行しません）`) }
 }
