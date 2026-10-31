@@ -8,8 +8,9 @@ import type { SkippedReservation } from '@/lib/skippedReservationReporter'
 import { ROOM_NUMBERS } from '@/types/room'
 import type { ReservationRepository } from '@/domain/ports/reservationRepository'
 import type { Reservation } from '@/types/reservation'
+import type { Result } from '@/types/result'
 import type {
-  ATaxPatch, BookingSite, MailMemoEntry, NewReservationInput, ReservationPatch, StayFacts,
+  ATaxPatch, BookingSite, CancelStateFailure, MailMemoEntry, NewReservationInput, ReservationPatch, StayFacts,
 } from '@/types/guestInfo'
 import {
   MAX_NIGHTS, ARRIVAL_TIME_VALUES, BREAKFAST_TIME_VALUES, DINNER_TIME_VALUES, OPEN_AIR_BATH_TIME_VALUES,
@@ -206,16 +207,25 @@ const isStringOrNull = (v: unknown): v is string | null => v === null || typeof 
 
 // キャンセル・復活の状態を変え、操作履歴（mail_memo）の末尾に1件追加する。
 // FieldValue.arrayUnion は同じ内容の要素を追加しないため、同じ日・同じスタッフ・同じ理由で
-// キャンセルと復活を繰り返すと履歴が残らなかった。トランザクションで読んで末尾に足す（BugHunting.md #25）
-async function setCancelWithMemo(id: string, cancel: 0 | 1, mailMemoEntry: MailMemoEntry): Promise<void> {
+// キャンセルと復活を繰り返すと履歴が残らなかった。トランザクションで読んで末尾に足す（BugHunting.md #25）。
+// すでにその状態なら何も書かない。古い画面からの操作で、状態が変わらないのに履歴と通知が増えていた（#27）
+async function setCancelWithMemo(
+  id: string,
+  cancel: 0 | 1,
+  mailMemoEntry: MailMemoEntry,
+): Promise<Result<void, CancelStateFailure>> {
   return withFirestoreError(async () => {
     const ref = adminDb.collection('guestInfoV2').doc(id)
-    await adminDb.runTransaction(async (tx) => {
+    return adminDb.runTransaction(async (tx) => {
       const data = (await tx.get(ref)).data()
       if (data === undefined) throw new InfraError('FIRESTORE_NOT_FOUND', `Reservation not found: ${id}`)
+      // cancel は 1 だけをキャンセル済みとして扱う（読み取りの正規化と同じ）
+      const current = data.cancel === 1 ? 1 : 0
+      if (current === cancel) return { success: false, error: { kind: 'ALREADY_IN_STATE' } } as const
       // 履歴が配列でない（壊れている）ときは、新しい1件から始める
       const memo: unknown[] = Array.isArray(data.mail_memo) ? data.mail_memo : []
       tx.update(ref, { cancel, mail_memo: [...memo, mailMemoEntry] })
+      return { success: true, value: undefined } as const
     })
   })
 }

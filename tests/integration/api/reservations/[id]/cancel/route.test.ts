@@ -66,7 +66,7 @@ describe('PATCH /api/reservations/[id]/cancel', () => {
   })
 
   it('正常リクエストで200', async () => {
-    mockCommand.mockResolvedValue(undefined)
+    mockCommand.mockResolvedValue({ success: true, value: undefined })
     const res = await PATCH(makeRequest(), { params })
     expect(res.status).toBe(200)
   })
@@ -97,6 +97,15 @@ describe('PATCH /api/reservations/[id]/cancel', () => {
     vi.mocked(mockCommand).mockRejectedValue(new InfraError('FIRESTORE_NOT_FOUND', 'not found'))
     const res = await PATCH(makeRequest(validBody), { params })
     expect(res.status).toBe(404)
+    expect(notifySlackFireAndForget).not.toHaveBeenCalled()
+  })
+
+  // BugHunting.md #27: すでにその状態なら 409（履歴も通知も増やさない）
+  it('すでにその状態なら409', async () => {
+    mockCommand.mockResolvedValue({ success: false, error: { kind: 'ALREADY_IN_STATE' } })
+    const res = await PATCH(makeRequest(), { params })
+    expect(res.status).toBe(409)
+    expect(await res.json()).toEqual({ error: 'already_cancelled' })
     expect(notifySlackFireAndForget).not.toHaveBeenCalled()
   })
 })

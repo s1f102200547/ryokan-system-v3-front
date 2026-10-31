@@ -345,6 +345,65 @@ test.describe('GuestInfo - モーダル（auto-save）', () => {
     })
   })
 
+  // BugHunting.md §3.7: 自動保存（500ms の debounce）と閉じる・失敗・遅い応答の組み合わせ
+  test.describe('保存の順序', () => {
+    test('入力の直後（debounce 中）に閉じても保存し、一覧の再取得は保存のあと', async ({ page }) => {
+      const events: string[] = []
+      page.on('request', (r) => {
+        if (r.method() === 'PATCH') events.push(`PATCH ${r.postData()}`)
+        if (r.url().includes('/api/guest-info')) events.push('GET guest-info')
+      })
+      await page.getByTestId('reservation-card').first().click()
+      await page.getByText('name').first().click()
+      await page.getByLabel('ゲスト名').fill('すぐ閉じる')
+      events.length = 0
+      await page.getByRole('button', { name: '閉じる' }).click()
+      await expect(page.getByRole('dialog')).not.toBeVisible()
+      await expect.poll(() => events.length).toBeGreaterThanOrEqual(1)
+      expect(events[0]).toBe('PATCH {"guest_name":"すぐ閉じる"}')
+    })
+
+    test('保存に失敗したあと別の項目を編集すると、失敗した変更も一緒に送る', async ({ page }) => {
+      const bodies: Record<string, unknown>[] = []
+      await page.route('**/api/reservations/test-id-1', async (route) => {
+        bodies.push(route.request().postDataJSON() as Record<string, unknown>)
+        if (bodies.length === 1) await route.abort('failed')
+        else await route.fulfill({ status: 200, json: { ok: true } })
+      })
+      await page.getByTestId('reservation-card').first().click()
+      await page.getByText('name').first().click()
+      await page.getByLabel('ゲスト名').fill('一度目は失敗')
+      await page.keyboard.press('Tab')
+      await expect(page.getByText('通信エラーが発生しました')).toBeVisible()
+      await page.getByRole('button', { name: 'C/I後' }).click()
+      await page.getByLabel('未受領').click()
+      await expect.poll(() => bodies.length).toBe(2)
+      expect(bodies[1]).toMatchObject({ guest_name: '一度目は失敗', a_tax_received: true })
+    })
+
+    test('前の保存の応答が遅くても、次の保存はその応答を待ってから送る（応答の順序が入れ替わらない）', async ({ page }) => {
+      const log: string[] = []
+      await page.route('**/api/reservations/test-id-1', async (route) => {
+        const body = route.request().postData() ?? ''
+        log.push(`start ${body}`)
+        if (log.length === 1) await new Promise((r) => setTimeout(r, 1500))   // 1件目だけ遅い
+        log.push(`end ${body}`)
+        await route.fulfill({ status: 200, json: { ok: true } })
+      })
+      await page.getByTestId('reservation-card').first().click()
+      await page.getByText('name').first().click()
+      await page.getByLabel('ゲスト名').fill('一件目')
+      await page.keyboard.press('Tab')
+      await page.getByLabel('ゲスト名').fill('二件目')
+      await page.keyboard.press('Tab')
+      await expect.poll(() => log.length, { timeout: 5000 }).toBe(4)
+      expect(log).toEqual([
+        'start {"guest_name":"一件目"}', 'end {"guest_name":"一件目"}',
+        'start {"guest_name":"二件目"}', 'end {"guest_name":"二件目"}',
+      ])
+    })
+  })
+
   test('予約カードクリックでモーダルが開く', async ({ page }) => {
     await page.getByTestId('reservation-card').first().click()
     await expect(page.getByRole('dialog')).toBeVisible()
@@ -386,6 +445,16 @@ test.describe('GuestInfo - キャンセル（非auto-save）', () => {
     await page.getByTestId('cancel-button').first().click()
     await expect(page.getByRole('dialog')).toBeVisible()
     await expect(page.getByLabel('キャンセル理由')).toBeVisible()
+  })
+
+  // BugHunting.md #27: 古い画面から、すでにキャンセル済みの予約をキャンセルしたとき
+  test('すでにキャンセル済み（409）なら、再読み込みを促す', async ({ page }) => {
+    await page.route('**/api/reservations/*/cancel', (route) => route.fulfill({ status: 409, json: { error: 'already_cancelled' } }))
+    await page.getByTestId('cancel-button').first().click()
+    await page.getByLabel('スタッフ名').fill('スタッフ')
+    await page.getByLabel('キャンセル理由').fill('理由')
+    await page.getByRole('dialog').getByRole('button', { name: 'キャンセル実行' }).click()
+    await expect(page.getByRole('dialog')).toContainText('すでにキャンセル済みです。画面を再読み込みしてください')
   })
 })
 

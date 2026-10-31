@@ -36,13 +36,13 @@ async function call(handler: unknown, path: string, method: string, params: Reco
   return (handler as Handler)(request, { params: Promise.resolve(params) })
 }
 
-async function createReservation(): Promise<string> {
+async function createReservation(cancel: 0 | 1 = 0): Promise<string> {
   const id = `${RUN_ID}-${createdReservationIds.length}`
   createdReservationIds.push(id)
   await adminDb.collection('guestInfoV2').doc(id).set({
     check_in_date: toFirestoreDate(CHECK_IN),
     check_out_date: toFirestoreDate(addDays(CHECK_IN, 2)),
-    adult_count: 2, child_count: 0, room: '21', cancel: 0,
+    adult_count: 2, child_count: 0, room: '21', cancel,
     dinner_time: ['NONE', 'NONE'], age_groups: [null, null],
   })
   return id
@@ -90,7 +90,8 @@ describe.each(ID_ROUTES)('%s の [id]', (_name, handler, suffix, body) => {
   })
 
   it('存在する ID は 200（Emulator に正しく届いている）', async () => {
-    const id = await createReservation()
+    // 復活はキャンセル済みの予約にだけできる（そうでなければ 409。BugHunting.md #27）
+    const id = await createReservation(suffix === '/restore' ? 1 : 0)
     const res = await call(handler, `/api/reservations/${id}${suffix}`, 'PATCH', { id }, body)
     expect(res.status, await res.clone().text()).toBe(200)
   })

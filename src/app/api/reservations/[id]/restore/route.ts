@@ -29,12 +29,16 @@ export async function PATCH(
   }
 
   try {
-    await restoreReservationCommand({
+    const result = await restoreReservationCommand({
       id,
       staffName: parsed.data.staff_name,
       targetDate: parsed.data.target_date,
       reason: parsed.data.reason,
     })
+    if (!result.success) {
+      // すでにその状態（古い画面からの操作など）。履歴も通知も増やさない（BugHunting.md #27）
+      return NextResponse.json({ error: 'not_cancelled' }, { status: 409 })
+    }
     return NextResponse.json({ ok: true })
   } catch (e) {
     return handleRouteError(e, '予約復活')

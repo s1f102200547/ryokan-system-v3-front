@@ -1,7 +1,8 @@
 import { firestoreReservationRepository } from '@/infra/reservation/firestoreReservationRepository'
 import { notifySlackFireAndForget } from '@/lib/slack'
 import { toMonthDay } from '@/lib/dateUtils'
-import type { MailMemoEntry } from '@/types/guestInfo'
+import type { Result } from '@/types/result'
+import type { CancelStateFailure, MailMemoEntry } from '@/types/guestInfo'
 
 type CancelInput = {
   id: string           // Firestore のドキュメント ID（reservation_number とは限らない。手動追加は自動 ID）
@@ -10,7 +11,7 @@ type CancelInput = {
   reason: string
 }
 
-export async function cancelReservationCommand(input: CancelInput): Promise<void> {
+export async function cancelReservationCommand(input: CancelInput): Promise<Result<void, CancelStateFailure>> {
   const { id, staffName, targetDate, reason } = input
   const mailMemoEntry: MailMemoEntry = {
     ...toMonthDay(targetDate),
@@ -20,6 +21,8 @@ export async function cancelReservationCommand(input: CancelInput): Promise<void
     source: 'システム',
   }
 
-  await firestoreReservationRepository.cancelReservation(id, mailMemoEntry)
-  notifySlackFireAndForget(`[キャンセル] ${id} - 理由: ${reason}`)
+  const result = await firestoreReservationRepository.cancelReservation(id, mailMemoEntry)
+  // すでにその状態なら何も変えていないので通知しない（BugHunting.md #27）
+  if (result.success) notifySlackFireAndForget(`[キャンセル] ${id} - 理由: ${reason}`)
+  return result
 }
