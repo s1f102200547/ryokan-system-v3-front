@@ -114,7 +114,7 @@ export const firestoreReservationRepository: ReservationRepository = {
   },
 
   // 読み取り・検査・書き込みを1つのトランザクションで行う。
-  // 検査と書き込みの間に別の更新で泊数が変わっても、古い泊数で検査した配列を書き込まない（BugHunting.md Step 2）
+  // 検査と書き込みの間に別の更新で泊数が変わっても、古い泊数で検査した配列を書き込まない（BugHunting.md #3, #6）
   async updateReservation(id, patch: ReservationPatch, validate) {
     return withFirestoreError(async () => {
       const ref = adminDb.collection('guestInfoV2').doc(id)
