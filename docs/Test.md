@@ -75,7 +75,7 @@ Route Handler の `*.test.ts` は、外部依存を mock して HTTP として�
 `tests/emulator/` は Firestore Emulator に実際に書いて読む。Integration test は Application 層を、E2E は API を丸ごと mock するため、「Route が受け付けた値を Firestore に書き、読み戻して画面に出す」経路はここでしか通らない（`docs/BugHunting.md` §1.2）。
 
 ```bash
-npm run test:emulator   # firebase emulators:exec で専用の Emulator を起動して実行（Firebase CLI と Java が必要）
+npm run test:emulator   # firebase emulators:exec で専用の Emulator（Firestore・Auth）を起動して実行（Firebase CLI と Java が必要）
 ```
 
 - 設定は `vitest.emulator.config.ts`（`127.0.0.1` の Emulator と demo project のみ。起動ガードも通る）。通常の `npm run test` からは除外している。
@@ -85,6 +85,14 @@ npm run test:emulator   # firebase emulators:exec で専用の Emulator を起�
 - 書いたドキュメントは `emutest-` で始まる ID にし、終わったら消す。
 
 制約の突き合わせ（UI の選択肢・Route の Zod・Infra の読み取り検証）は `tests/unit/constraints/` に置く。UI が送る値がすべて Route を通り、Infra の読み取りで fallback に置き換えられないことを検査する。Route の Zod は `src/lib/api/reservationSchemas.ts`、UI の選択肢と許容値は `src/constants/guestInfo.ts` にあり、テストはそれを直接参照する（新しい選択肢を足すと自動で検査対象になる）。
+
+## Fuzzing
+
+全 Route Handler に、壊れた body・path・query を送る。判定は「入力が原因で 5xx を返さない・Slack に通知しない」（`docs/BugHunting.md` §3.3）。
+
+- 入力の一覧は `tests/utils/fuzzInputs.ts` に1つにまとめる（不正な JSON・深い入れ子・巨大な値・型違い・実在しない日付・ID の制約違反など）。
+- mock 版（`tests/integration/fuzz/routes.fuzz.test.ts`）: Application / Infra を mock し、Route ごとの「正しい入力」から1か所ずつ壊した入力を網羅する。`src/app/api/**/route.ts` を走査し、export された HTTP メソッドがすべて対象に入っていることも検査する（Route を追加したら、対象に足さないとテストが落ちる）。
+- Emulator 版（`tests/emulator/routes.fuzz.test.ts`）: 実際の Firestore / Auth に向けて、エラーの分類まで確かめる。ID の制約に反する `[id]` は 400、ID として有効で存在しないものは 404。ログインは Auth Emulator の `verifyIdToken` を通す。
 
 ## E2E Test
 
