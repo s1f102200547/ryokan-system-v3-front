@@ -67,7 +67,10 @@ src/
 tests/
 ├── unit/           # Domain 層のユニットテスト（src/ に依存しない純粋 TS テスト）
 │   ├── domain/     # auth/, reservation/, room/ の各ビジネスルールテスト
-│   └── lib/        # 外部 SDK に依存しない lib の純粋関数（起動ガード、CSP）
+│   ├── lib/        # 外部 SDK に依存しない lib の純粋関数（起動ガード、CSP）
+│   └── localdev/   # scripts/localdev/lib の純粋関数（保存形式、投入ガード）
+├── fixtures/
+│   └── localdev/   # Emulator へ投入する人工データ
 ├── integration/    # Route Handler の統合テスト（verifySession・InfraError・HTTP変換を含む）
 │   └── api/        # src/app/api/ と対応するディレクトリ構造
 ├── mocks/          # vi.mock 用のモック実装（将来的な手動モック置き場）

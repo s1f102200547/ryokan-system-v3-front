@@ -99,11 +99,14 @@ Cloud Run は `PORT` を注入するが、Dockerfile では既定値として `P
 ローカル開発は Firebase Emulator にだけ接続する（`docs/LocalDevelopment.md`）。`.env.development` は `.env.development.example` をコピーして作り、本番の鍵は置かない（置くと起動が拒否される）。Firebase CLI（`firebase-tools`）と Java が必要。
 
 ```bash
-npm run emulators   # 端末1: Firestore / Auth Emulator（127.0.0.1、UI は http://127.0.0.1:4000）
-npm run dev         # 端末2: http://127.0.0.1:3000（127.0.0.1 にだけ bind）
+npm run emulators            # 端末1: Firestore / Auth Emulator（127.0.0.1、UI は http://127.0.0.1:4000）
+npm run seed -- --fixture    # 端末2: 人工データを投入（匿名化データがあれば npm run seed）
+npm run dev                  # 端末2: http://127.0.0.1:3000（127.0.0.1 にだけ bind）
 ```
 
-Emulator は停止するとデータとユーザーを失う。投入スクリプトは未実装（`docs/LocalDevelopmentImplementation.md` Phase 5）のため、それまではログイン用ユーザーを Emulator UI の Authentication 画面から作る。
+Emulator は停止するとデータとユーザーを失うので、起動のたびに `npm run seed` を実行する。投入は Emulator の全データと全ユーザーを消してから行う（何度実行しても重複しない）。開発用ユーザーは `dev@example.com` / `dev-password`（Emulator 専用の固定値。`scripts/localdev/constants.ts`）。
+
+`npm run seed` は Emulator 系の変数・demo project・ローカルの接続先（127.0.0.1 / localhost）が揃っていなければ何も書かずに終了する。
 
 本番相当の standalone build を確認する場合:
 

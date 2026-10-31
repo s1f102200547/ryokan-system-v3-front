@@ -9,7 +9,8 @@
 | 0 | 完了 | Cloud Run `ryokan-system` の環境変数は `SLACK_WEBHOOK_URL` のみ（鍵なし）。実行用 SA（既定の Compute SA）は `roles/firebase.admin` を持つ。閲覧専用 SA `anon-reader`（`roles/datastore.viewer` のみ、鍵なし）を作成。`.env.development` の鍵は `firebase-adminsdk-fbsvc` の鍵 `06fcc5a2…`（2026-04-02 作成）と公開鍵の照合で特定 |
 | 1〜4 | 実装済み（ブランチ `feat/local-dev-emulator`） | 開発者の `.env.development` も Emulator 用に置き換え済み。AC-10 / AC-11 はリポジトリ本体の build でも再確認済み。CI（AC-9）は PR で確認する |
 | 8 | ほぼ完了（2026-10-31） | 鍵 `06fcc5a2…` を無効化（SA の公開証明書一覧から消えたことで確認）。gcloud / ADC / Firebase CLI からログアウト済み（AC-27）。残り: 数日後に本番（ログイン、gmail-listener の取り込み、dinner-system）に影響がなければ鍵を削除する。同じ SA の別の鍵を `dinner-system-front`（Secret Manager 経由）が使っている。このプロジェクト外の PC 上にも SA の鍵ファイルがある（gmail-listener、dinner-system-front） |
-| 5〜9 | 未着手 | |
+| 5 | 実装済み（ブランチ `feat/local-dev-seed`） | `npm run seed [-- --fixture]`。下記「Phase 5 の確認結果」 |
+| 6〜7, 9 | 未着手 | |
 
 ### 実装中に分かったこと
 
@@ -31,6 +32,21 @@
 | 公開範囲 | 開発サーバー 3000、Emulator 8080 / 9099 / 4000 / 4400 / 4500 / 9150 がすべて `127.0.0.1` で待ち受け |
 | 接続先 | 存在しないユーザーでのログインは `127.0.0.1:9099` にだけ送信され、CSP 違反なし、認証失敗のメッセージを表示 |
 | 参考（AC-5 の前倒し） | Emulator UI 相当の API で一時ユーザーを作り、ログイン → Session Cookie（httpOnly, SameSite=Strict）→ `/api/guest-info` / `/api/daily/*/todos` が 200。ブラウザの外向き通信は `127.0.0.1:9099` のみ。ADC ログイン済みの PC で実施。正式な確認は Phase 5 |
+
+### Phase 5 の確認結果（2026-10-31）
+
+| 確認 | 結果 |
+|---|---|
+| AC-25（投入の拒否） | Emulator 系の変数なし、`FIREBASE_PROJECT_ID=ryokan-system`、接続先 `firestore.googleapis.com:443` の各パターンで何も書かずに exit 1。Emulator 未起動も案内を出して exit 1 |
+| AC-26（重複しない） | 2回続けて投入して guestInfoV2 10 件 / dailyInfo 3 件 / ユーザー 1 人のまま |
+| SEED-3（値を変えない） | Emulator の REST で読み戻し、integerValue / doubleValue（`NaN`, `15000.5`）/ Timestamp / 破損日付の文字列 / `room: ""` / 配列でない値がそのまま |
+| AC-6 | `dev@example.com` でログインし、予約カードが表示される |
+| AC-7 | 画面からの保存（ゲスト名）・キャンセル・追加（`POST /api/reservations` 201）が Emulator に反映。ブラウザの外向き通信は `127.0.0.1:9099` のみ |
+| 形の扱い | 型違いの `adult_count` のドキュメントは読み飛ばし（ログあり）、`room: ""` は `null`、泊別配列の長さ違いは fallback。API は 200 |
+| AC-5 | Phase 1〜4 の確認時に ADC ログイン済みの PC で実施済み（その後 ADC は削除） |
+
+- 投入ガードは仕様に加えて、接続先がローカル（`127.0.0.1` / `localhost` / `[::1]`）であることも要求する。全データを消す処理なので、他人の Emulator やリモートには向けない。
+- 追加ダイアログの「部屋」などの Select は `labelId` がなく、アクセシブルネームがない（既存。テストでは表示テキストで選ぶ）。
 
 ---
 

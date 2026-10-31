@@ -46,7 +46,9 @@ Domain 層は最も厚くテストする。
 - 配列境界: 空配列、増減、undefined 補完。
 - Domain は Firebase/React/Next.js に依存しない。
 
-Domain 以外でも、外部 SDK に依存しない純粋関数は `tests/unit/lib/` に置く（起動時の環境変数ガード `runtimeEnvGuard`、CSP の組み立て `csp`）。
+Domain 以外でも、外部 SDK に依存しない純粋関数は `tests/unit/lib/` に置く（起動時の環境変数ガード `runtimeEnvGuard`、CSP の組み立て `csp`）。ローカル開発用スクリプト（`scripts/localdev/lib/`）の純粋関数は `tests/unit/localdev/` に置き、`// @vitest-environment node` で実行する。
+
+`tests/fixtures/localdev/` は Emulator へ投入する人工データ（`npm run seed -- --fixture`）。本番データの形（キー欠損、型違い、`''` と `null` の混在、破損日付、`NaN`、Timestamp）をわざと含む。実データは入れない。
 
 Vitest は `vitest.config.ts` の `test.env` で、Emulator 系の変数を到達不能なアドレス（`127.0.0.1:1`）と demo project（`demo-test`）に設定して動く。`admin.ts` を読み込むテスト（`vi.mock` の自動モックを含む）は Emulator 経路で初期化されるため、誤って Firestore / Auth を呼んでも本番にも開発 PC の ADC にも届かず、すぐ失敗する。`test.env` を外すと起動ガードで落ちる。
 
