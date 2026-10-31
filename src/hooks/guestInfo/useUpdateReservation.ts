@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import type { ReservationPatch } from '@/types/guestInfo'
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -18,7 +19,7 @@ export function useUpdateReservation() {
     setSaveStatus('saving')
     setError(null)
     try {
-      const res = await fetch(`/api/reservations/${id}`, {
+      const res = await fetchWithSession(`/api/reservations/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patch),

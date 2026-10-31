@@ -3,13 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 127.0.0.1",
+    "emulators": "firebase emulators:start --project demo-ryokan --only firestore,auth",
+    "seed": "tsx --env-file=.env.development scripts/localdev/seed.ts",
+    "anonymize": "bash scripts/localdev/anonymize.sh",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "audit:ci": "tsx scripts/ci/audit.ts"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -21,7 +25,6 @@
     "dayjs": "^1.11.20",
     "firebase": "^12.11.0",
     "firebase-admin": "^13.8.0",
-    "maxmind": "^5.0.5",
     "next": "^16.2.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -30,17 +33,18 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@playwright/test": "^1.58.2",
+    "@playwright/test": "^1.64.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@vitest/ui": "^4.1.2",
+    "@vitest/ui": "^4.1.12",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
     "jsdom": "^29.0.1",
+    "tsx": "^4.23.15",
     "typescript": "^5",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.12"
   }
 }

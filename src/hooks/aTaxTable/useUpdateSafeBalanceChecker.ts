@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 
 export function useUpdateSafeBalanceChecker() {
   const [isPending, setIsPending] = useState(false)
@@ -10,7 +11,7 @@ export function useUpdateSafeBalanceChecker() {
     setIsPending(true)
     setError(null)
     try {
-      const res = await fetch(`/api/daily/${date}/safe-balance-checker`, {
+      const res = await fetchWithSession(`/api/daily/${date}/safe-balance-checker`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ staffName }),

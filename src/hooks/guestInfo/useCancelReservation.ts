@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 
 type CancelInput = {
   id: string
@@ -17,7 +18,7 @@ export function useCancelReservation() {
     setIsPending(true)
     setError(null)
     try {
-      const res = await fetch(`/api/reservations/${input.id}/cancel`, {
+      const res = await fetchWithSession(`/api/reservations/${input.id}/cancel`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

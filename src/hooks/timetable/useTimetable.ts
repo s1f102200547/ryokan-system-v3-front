@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { TimetableData } from '@/types/timetable'
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 
 type State = {
   data: TimetableData | null
@@ -23,7 +24,7 @@ export function useTimetable(targetDate: string) {
 
     const load = async () => {
       try {
-        const res = await fetch(`/api/timetable?date=${targetDate}`)
+        const res = await fetchWithSession(`/api/timetable?date=${targetDate}`)
         if (cancelled) return
         if (!res.ok) {
           const message =

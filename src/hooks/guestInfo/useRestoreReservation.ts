@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 
 type RestoreInput = {
   id: string
@@ -17,7 +18,7 @@ export function useRestoreReservation() {
     setIsPending(true)
     setError(null)
     try {
-      const res = await fetch(`/api/reservations/${input.id}/restore`, {
+      const res = await fetchWithSession(`/api/reservations/${input.id}/restore`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

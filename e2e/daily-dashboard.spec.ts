@@ -6,12 +6,29 @@ import type { TimetableData, TimetableGuestInfoRow } from '../src/types/timetabl
 // ヘルパー
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function login(page: Page, email: string, password: string) {
-  await page.goto('/login')
-  await page.getByLabel('メールアドレス').fill(email)
-  await page.getByLabel('パスワード').fill(password)
-  await page.getByRole('button', { name: 'ログイン' }).click()
-  await page.waitForURL('/')
+// 実際の Firebase 認証に依存しない（AGENTS.md）。Session Cookie はモックの値を入れ、
+// API はすべて page.route で返す。proxy.ts は Cookie の有無だけを見る
+async function setupAuth(page: Page) {
+  await page.context().addCookies([{
+    name: 'session',
+    value: 'mock-session',
+    domain: '127.0.0.1',
+    path: '/',
+  }])
+}
+
+// ダッシュボードが呼ぶ API の既定のモック。各テストで page.route を後から登録すると、そちらが優先される
+async function mockDashboardApi(page: Page) {
+  // モックしていない API は開発サーバーに届かせない
+  await page.route('**/api/**', (route) => route.fulfill({ status: 404, json: { error: 'not mocked' } }))
+  await page.route('/api/guest-info*', (route) => route.fulfill({
+    json: { normal: [], staying: [], cancelled: [] },
+  }))
+  await page.route('**/api/daily/**/todos', (route) => route.fulfill({ json: { todos: [] } }))
+  await page.route('**/api/daily/**/safe-balance-checker', (route) => route.fulfill({ json: { staffName: '' } }))
+  await page.route('/api/a-tax-table*', (route) => route.fulfill({ json: { rows: [], safeBalanceCheckers: {} } }))
+  await page.route('/api/timetable*', (route) => route.fulfill({ json: mockFor0412() }))
+  await page.route('/api/cleaning-board*', (route) => route.fulfill({ json: mockCleaningBoard() }))
 }
 
 async function suppressPrint(page: Page) {
@@ -129,11 +146,8 @@ function mockCleaningBoard(
 
 test.describe('デイリーダッシュボード', () => {
   test.beforeEach(async ({ page }) => {
-    const email = process.env.TEST_EMAIL
-    const password = process.env.TEST_PASSWORD
-    if (!email || !password) test.skip()
-
-    await login(page, email!, password!)
+    await setupAuth(page)
+    await mockDashboardApi(page)
     await page.goto('/daily-dashboard?date=2026-04-12&today=2026-04-12')
     await expect(page.getByTestId('date-label')).toContainText('4 / 12')
   })
@@ -189,12 +203,9 @@ test.describe('デイリーダッシュボード', () => {
 
 test.describe('タイムテーブル印刷コンテンツ', () => {
   test.beforeEach(async ({ page }) => {
-    const email = process.env.TEST_EMAIL
-    const password = process.env.TEST_PASSWORD
-    if (!email || !password) test.skip()
-
     await suppressPrint(page)
-    await login(page, email!, password!)
+    await setupAuth(page)
+    await mockDashboardApi(page)
     await page.route('/api/timetable*', (route) => route.fulfill({ json: mockFor0412() }))
     await page.goto('/daily-dashboard?date=2026-04-12&today=2026-04-12')
     await expect(page.getByTestId('date-label')).toContainText('4 / 12')
@@ -246,12 +257,9 @@ test.describe('タイムテーブル印刷コンテンツ', () => {
 
 test.describe('タイムテーブル印刷コンテンツ（4/13）', () => {
   test.beforeEach(async ({ page }) => {
-    const email = process.env.TEST_EMAIL
-    const password = process.env.TEST_PASSWORD
-    if (!email || !password) test.skip()
-
     await suppressPrint(page)
-    await login(page, email!, password!)
+    await setupAuth(page)
+    await mockDashboardApi(page)
     await page.route('/api/timetable*', async (route) => {
       const url = new URL(route.request().url())
       const date = url.searchParams.get('date')
@@ -282,12 +290,9 @@ test.describe('タイムテーブル印刷コンテンツ（4/13）', () => {
 
 test.describe('清掃ボード印刷コンテンツ', () => {
   test.beforeEach(async ({ page }) => {
-    const email = process.env.TEST_EMAIL
-    const password = process.env.TEST_PASSWORD
-    if (!email || !password) test.skip()
-
     await suppressPrint(page)
-    await login(page, email!, password!)
+    await setupAuth(page)
+    await mockDashboardApi(page)
   })
 
   test('印刷エリアに日付ヘッダーが表示される', async ({ page }) => {

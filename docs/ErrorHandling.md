@@ -7,6 +7,7 @@
 - Application 層は原則 catch せず、InfraError を上位へ伝搬する。
 - Route Handler は `InfraError` を HTTP status に変換し、ログ出力と Slack 通知を行う。
 - Hooks 層は HTTP status と fetch 失敗をユーザー向け日本語メッセージに変換する。
+- ログインが必要な API は `src/hooks/auth/fetchWithSession.ts` 経由で呼ぶ。401（Session Cookie の期限切れ・無効、Emulator の再起動など）はエラーメッセージにせず、`/login` へ移す。`/api/auth/login` の 401 は認証情報の誤りなので対象外（`useLogin` は `fetch` を直接使う）。
 - UI 層は Hooks から受け取った日本語メッセージを表示する。
 
 ## InfraErrorCode

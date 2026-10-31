@@ -1,26 +1,17 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { buildCsp } from '@/lib/csp'
 
 export function proxy(request: NextRequest) {
   // nonce 生成
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
 
-  // Reactは開発モードでeval()を使用する（コールスタック再構築等のデバッグ機能）
-  // 本番では不要なため、開発環境のみ 'unsafe-eval' を許可する
   const isDev = process.env.NODE_ENV === 'development'
-
-  // self: 自分のドメインのみ許可
-  const csp = [
-    `default-src 'self'`,
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ''}`, //「'nonce-${nonce}' 'strict-dynamic'」 -> nonceあったらok
-    `style-src 'self' 'unsafe-inline'`,           // MUI使用するのでinlineCSSを許可
-    `img-src 'self'`,
-    `font-src 'self'`,  // next/font/google はビルド時に自己ホスト化されるので 'self' のみで十分
-    `connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com`, // Firebase Auth（signInWithEmailAndPassword）が叩く外部エンドポイントを許可
-    `frame-ancestors 'none'`, // iframeとして埋め込まれない
-    `base-uri 'self'`,        // baseタグは自分のドメインのみ、悪意あるドメインが設定されないようにする
-    `form-action 'self'`,     // formの送信先制限
-  ].join('; ')
+  const csp = buildCsp({
+    nonce,
+    isDev,
+    authEmulatorHost: process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST,
+  })
 
   const { pathname } = request.nextUrl
   const isLoginPage = pathname === '/login'

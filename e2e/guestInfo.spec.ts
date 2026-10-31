@@ -72,7 +72,7 @@ async function setupAuth(page: Page) {
   await page.context().addCookies([{
     name: 'session',
     value: 'mock-session',
-    domain: 'localhost',
+    domain: '127.0.0.1',
     path: '/',
   }])
 }

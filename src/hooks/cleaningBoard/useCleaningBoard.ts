@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { CleaningBoardData } from '@/types/cleaningBoard'
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 
 type State = {
   data: CleaningBoardData | null
@@ -24,7 +25,7 @@ export function useCleaningBoard(targetDate: string) {
 
     const load = async () => {
       try {
-        const res = await fetch(`/api/cleaning-board?date=${targetDate}`) // 2. データを取りにいく（fetch）
+        const res = await fetchWithSession(`/api/cleaning-board?date=${targetDate}`) // 2. データを取りにいく（fetch）
         if (cancelled) return
         if (!res.ok) {
           const message = res.status === 503

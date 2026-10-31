@@ -36,7 +36,6 @@ Domain 層は最も厚くテストする。
 - `src/domain/room/roomState.ts`
 - `src/domain/reservation/bookingSitePolicy.ts`
 - `src/domain/reservation/nightArrays.ts`
-- `src/domain/auth/loginPolicy.ts`
 
 確認する観点:
 
@@ -45,6 +44,12 @@ Domain 層は最も厚くテストする。
 - 数値境界: 人数 0、泊数 0、1泊、複数泊。
 - 配列境界: 空配列、増減、undefined 補完。
 - Domain は Firebase/React/Next.js に依存しない。
+
+Domain 以外でも、外部 SDK に依存しない純粋関数は `tests/unit/lib/` に置く（起動時の環境変数ガード `runtimeEnvGuard`、CSP の組み立て `csp`）。ローカル開発用スクリプト（`scripts/localdev/lib/`）の純粋関数は `tests/unit/localdev/` に置き、`// @vitest-environment node` で実行する。
+
+`tests/fixtures/localdev/` は Emulator へ投入する人工データ（`npm run seed -- --fixture`）。本番データの形（キー欠損、型違い、`''` と `null` の混在、破損日付、`NaN`、Timestamp）をわざと含む。実データは入れない。
+
+Vitest は `vitest.config.ts` の `test.env` で、Emulator 系の変数を到達不能なアドレス（`127.0.0.1:1`）と demo project（`demo-test`）に設定して動く。`admin.ts` を読み込むテスト（`vi.mock` の自動モックを含む）は Emulator 経路で初期化されるため、誤って Firestore / Auth を呼んでも本番にも開発 PC の ADC にも届かず、すぐ失敗する。`test.env` を外すと起動ガードで落ちる。
 
 ## Integration Test
 
@@ -104,10 +109,11 @@ E2E でやりすぎないもの:
 方針:
 
 - Firebase 依存部分は Playwright の route mock で置き換える。
-- CI では Firebase SDK の API key 存在チェックを通すため、`NEXT_PUBLIC_FIREBASE_*` にダミー値を設定する。
+- 開発サーバーは `playwright.config.ts` の `webServer.env` で Emulator 系の変数・demo project・ダミーの API key を渡して起動する（起動ガードを通すため。ローカルと CI で同じ）。ブラウザの Auth は Auth Emulator の URL（`http://127.0.0.1:9099/identitytoolkit.googleapis.com/...`）に向かうが、モックの glob `**/identitytoolkit.googleapis.com/**` で捕捉される。Emulator 本体は起動しない。
+- 接続先は `http://127.0.0.1:3000`。Cookie はホスト名ごとに分かれるため、spec で設定する Cookie の `url` / `domain` も `127.0.0.1` にする。
 - 実リクエストは mock で遮断し、外部サービスに依存しない。
 
-ローカルの `.env.test.local` は必要な場合だけ使う。実運用の認証情報は入れない。
+E2E に実際のアカウントでのログインは使わない。ログイン後の画面は、モックの Session Cookie（`session=mock-session`）と API の `page.route` モックで表示する（`.env.test.local` の `TEST_EMAIL` / `TEST_PASSWORD` は廃止）。
 
 ## Test Data
 
