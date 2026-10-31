@@ -60,7 +60,7 @@ jobs:
           key: node-modules-${{ hashFiles('package-lock.json') }}
       - run: npm ci
         if: steps.cache.outputs.cache-hit != 'true'
-      - run: npm audit --audit-level=high
+      - run: npm run audit:ci # high 以上で例外リスト（scripts/ci/auditAllowlist.ts）にないものがあれば失敗
 
   # ── Phase 2: ユニットテスト（Phase 1 通過後）────────────────────────────
   unit-test:

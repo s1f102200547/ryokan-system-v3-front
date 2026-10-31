@@ -28,12 +28,23 @@
 |---|---|---|
 | `lint` | `npm run lint` | なし |
 | `typecheck` | `npx tsc --noEmit` | なし |
-| `audit` | `npm audit --audit-level=high` | なし |
+| `audit` | `npm run audit:ci`（high 以上で、例外リストにないものがあれば失敗） | なし |
 | `unit-test` | `npm run test` | lint/typecheck/audit |
 | `e2e` | Chromium install 後に `npm run e2e` | unit-test |
 | `zap-scan` | build/start 後に ZAP Baseline Scan | unit-test |
 
 E2E の開発サーバーは `playwright.config.ts` の `webServer.env` で、Emulator 系の変数・demo project（`demo-ryokan`）・ダミーの API key を渡して起動する（ローカルと CI で同じ設定。起動ガードを通すため）。Emulator 本体は起動せず、実リクエストは Playwright の route mock で遮断する前提。
+
+### audit の例外リスト
+
+`npm run audit:ci`（`scripts/ci/audit.ts`）は `npm audit --json` を読み、high 以上の advisory を `scripts/ci/auditAllowlist.ts` と突き合わせる。
+
+- 例外は「advisory の GHSA ID」と「脆弱なパッケージ名」の組で指定する。リストにない high / critical が1件でもあれば CI は失敗する。
+- 各例外には理由（このアプリで脆弱なコードが実行されない根拠）と期限（最長3か月）を書く。期限を過ぎると CI が再び失敗するので、上流の修正を確認して延長か削除を判断する。
+- 報告されなくなった例外は、実行時に「削除してよい」と表示される。
+- 例外を追加できるのは、依存の更新や overrides で解消できない場合だけ。`npm audit fix --force` は破壊的なダウングレードを含むので使わない。
+
+現在の例外（2027-01-31 まで）: `@grpc/grpc-js` の GHSA-m9gg-hp2v-232j（high 4件はすべてこの advisory 由来）。ブラウザ用 `firebase` パッケージの `@firebase/firestore` が grpc-js を `~1.9.0` に固定しており、firebase 最新版でも解消しない。ブラウザでは `firebase/firestore` を import しておらず、脆弱性は gRPC サーバー側の問題のため、このアプリでは実行されない。
 
 ZAP Baseline Scan は `http://localhost:3000/login` を対象にし、`fail_action: warn` のため検出だけでは CI を fail させない。
 

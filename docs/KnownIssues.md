@@ -55,9 +55,10 @@
 
 ## レート制限・DoS対策層
 
-## npm audit（high 以上）が main でも失敗する
-- 2026-10-31 時点で 46件（high 15、critical 2）。CI の `audit` job（`npm audit --audit-level=high`）が通らない
-- `sharp` の libvips など、依存の更新が必要。`npm audit fix --force` は破壊的な更新を含むので個別に確認する
+## npm audit の high 4件を例外として許可している
+- ブラウザ用 `firebase` の `@firebase/firestore` が `@grpc/grpc-js` を `~1.9.0` に固定しており、firebase 最新版（13.1.0）でも high 4件（実体は grpc-js の advisory GHSA-m9gg-hp2v-232j の1件）が残る
+- このアプリでは実行されないコードのため、CI は例外リスト（`scripts/ci/auditAllowlist.ts`、期限 2027-01-31）で許可している。詳細は `docs/CICD.md`
+- 根本対応の候補: firebase の上流修正を待つ / ログインをサーバー側の Identity Toolkit REST に移し、`firebase` パッケージ自体をなくす
 
 ## 新規予約ダイアログの Select にラベルが関連付いていない
 - `AddReservationDialog.tsx` の「部屋」などの `Select` に `labelId` がなく、アクセシブルネームがない
