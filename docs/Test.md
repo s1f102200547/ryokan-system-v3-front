@@ -95,6 +95,15 @@ npm run test:emulator   # firebase emulators:exec で専用の Emulator（Firest
 - 期待値は具体的な値で書く（スナップショットは最初に実行した TZ の値を固定してしまうので使わない）。
 - 実装の規則: 「今日」は `getTodayJST()` だけから得る。日付は `YYYY-MM-DD` の文字列のまま比べる。`new Date()` のローカル時刻（`getMonth()` / `getDate()`）、`toISOString()`、`new Date('YYYY-MM-DD')` を日付の判定に使わない。
 
+## PBT（Property-Based Testing）
+
+`tests/pbt/` と `tests/time/dateProperties.test.ts` は fast-check で大量の入力を生成し、単純で一般的な性質を確かめる（`docs/BugHunting.md` §3.5）。
+
+- 性質は md（BugHunting.md §3.5、Schema、仕様の決定）から立てる。コードを読んでから立てると、バグに合わせた性質になる。
+- 入力の生成器は `tests/utils/arbitraries.ts`。本番データの「形」（型違い・null・範囲外・欠損）を混ぜる。
+- 条件を満たす入力だけで確かめる性質（例: 更新の検査を通った patch）は、条件を満たした件数も検査する。件数が少ないと、何も確かめていないのに通ってしまう。
+- 失敗したら、fast-check が縮めた最小の反例（Counterexample）と seed が出る。md に根拠があれば実装のバグ、なければ仕様の穴として人間が判断する。
+
 ## Fuzzing
 
 全 Route Handler に、壊れた body・path・query を送る。判定は「入力が原因で 5xx を返さない・Slack に通知しない」（`docs/BugHunting.md` §3.3）。
