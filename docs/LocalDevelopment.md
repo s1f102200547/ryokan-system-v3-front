@@ -67,17 +67,17 @@ Emulator (demo project) <──────────────────�
 
 **許可リスト方式** とする。下表で **コレクション名付きのパスで列挙されたフィールドだけ** がその扱いを受け、それ以外は未知のフィールドも含めてすべてマスクする。表に「など」は使わない。`gmail-listener` が新しいフィールドを追加しても、個人情報が素通りしない。
 
-- パスの書き方: `コレクション名.フィールド名`。マップの中は `.`、配列の各要素は `[]` でつなぐ（例: `guestInfoV2.mail_memo[].summary`）。
+- パスの書き方: `コレクション名.フィールド名`。マップの中は `.`、配列の各要素は `[]` でつなぐ（例: `guestInfoV2.mail_memo[].source`）。
 - 同じ名前でもパスが違えば別のフィールドとして扱う（例: `guestInfoV2.source` は残すが、`dailyInfo.source.path` はマスクする）。
 
 **guestInfoV2**
 
 | 扱い | 対象フィールド |
 |---|---|
-| 残す | `check_in_date`, `check_out_date`, `room`, `adult_count`, `child_count`, `room_count`, `cancel`, `late_out`, `booking_site`, `room_type`, `stay_plan`, `total_price`, `source`, `arrival_time`, `dinner_time`, `breakfast_time`, `open_air_bath_time`, `group_type`, `purpose`, `tourism_type`, `age_groups`, `a_tax_received`, `mail_memo[].month`, `mail_memo[].day`, `mail_memo[].summary`, `mail_memo[].source` |
+| 残す | `check_in_date`, `check_out_date`, `room`, `adult_count`, `child_count`, `room_count`, `cancel`, `late_out`, `booking_site`, `room_type`, `stay_plan`, `total_price`, `source`, `arrival_time`, `dinner_time`, `breakfast_time`, `open_air_bath_time`, `group_type`, `purpose`, `tourism_type`, `age_groups`, `a_tax_received`, `mail_memo[].month`, `mail_memo[].day`, `mail_memo[].source` |
 | ID として振り直す | ドキュメント ID, `reservation_number`, `mail_id` |
 | シャッフル | `country` |
-| マスク | 上記以外すべて（例: `guest_name`, `city`, `remarks`, `payment`, `profession`, `other_note`, `timetable_info`, `dinner_info`, `check_in_staff_name`, `a_tax_received_by_staff_name`, `mail_memo[].name`, `mail_memo[].text`, 未知のフィールド） |
+| マスク | 上記以外すべて（例: `guest_name`, `city`, `remarks`, `payment`, `profession`, `other_note`, `timetable_info`, `dinner_info`, `check_in_staff_name`, `a_tax_received_by_staff_name`, `mail_memo[].name`, `mail_memo[].summary`, `mail_memo[].text`, 未知のフィールド） |
 
 **dailyInfo**
 
@@ -129,6 +129,17 @@ Emulator (demo project) <──────────────────�
 | ANON-9 | 匿名化データには **匿名化した日** を記録する |
 | ANON-10 | 実行のたびに **形のレポート** を出力する。内容はコレクション・フィールドごとの型の件数（`string` / `number` / `null` / `''` / 欠損 / 破損日付 など）だけで、値は含めない |
 | ANON-11 | 前回のレポートをローカルに保存しておき、型の種類が増えたフィールドを警告する（本番データの形が変わった合図） |
+
+形のレポートで「破損日付」として数える基準（値は変えず、数えるだけに使う）:
+
+| フィールド | 正常な日付 |
+|---|---|
+| `guestInfoV2.check_in_date`, `guestInfoV2.check_out_date` | `YYYY/MM/DD` で、暦の上で実在する日付 |
+| `dailyInfo` のドキュメント ID, `dailyInfo.date` | `YYYY-MM-DD` で、暦の上で実在する日付 |
+| `dailyInfo.updated_at`, `dailyInfo.migrated_at` | ISO 8601 で、暦の上で実在する日時 |
+| `guestInfoV2.mail_memo[].month` + `day` | 月が `"1"`〜`"12"`、日が `"1"`〜`"31"` の文字列で、その月に実在しうる日（2月は29日まで可） |
+
+上の基準に合わない文字列（例: `2026-13-99`、`check_in_date` の `2026-01-05` のような書式違い）を破損日付として数える。
 
 ### 4.4 Emulator への投入（SEED）
 
@@ -182,7 +193,7 @@ Emulator (demo project) <──────────────────�
 | AC-20 | マスク後の文字列で、文字数・全角半角・空白・改行・記号が元と同じ | マスク |
 | AC-21 | 振り直した ID で、コレクション間の参照関係が保たれる | ID の振り直し |
 | AC-22 | 匿名化データに匿名化した日が記録されている | ANON-9 |
-| AC-23 | 形のレポートに値が含まれない | ANON-10 |
+| AC-23 | 形のレポートに値が含まれず、書式違い・実在しない日付を含むテストデータで、破損日付の件数が正しく数えられる | ANON-10 |
 | AC-24 | フィールドの型の種類を増やしたテストデータで、警告が出る | ANON-11 |
 | AC-25 | Emulator 系の環境変数がない環境で、投入が拒否される | SEED-1 |
 | AC-26 | 2回続けて投入しても、データが重複しない | SEED-2 |
