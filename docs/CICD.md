@@ -33,7 +33,7 @@
 | `e2e` | Chromium install 後に `npm run e2e` | unit-test |
 | `zap-scan` | build/start 後に ZAP Baseline Scan | unit-test |
 
-E2E では Firebase SDK の同期的な API key チェックを通すため、CI 上で `NEXT_PUBLIC_FIREBASE_*` にダミー値を渡す。実リクエストは Playwright の route mock で遮断する前提。
+E2E の開発サーバーは `playwright.config.ts` の `webServer.env` で、Emulator 系の変数・demo project（`demo-ryokan`）・ダミーの API key を渡して起動する（ローカルと CI で同じ設定。起動ガードを通すため）。Emulator 本体は起動せず、実リクエストは Playwright の route mock で遮断する前提。
 
 ZAP Baseline Scan は `http://localhost:3000/login` を対象にし、`fail_action: warn` のため検出だけでは CI を fail させない。
 
@@ -96,9 +96,14 @@ Cloud Run は `PORT` を注入するが、Dockerfile では既定値として `P
 
 ## Local Environment
 
+ローカル開発は Firebase Emulator にだけ接続する（`docs/LocalDevelopment.md`）。`.env.development` は `.env.development.example` をコピーして作り、本番の鍵は置かない（置くと起動が拒否される）。Firebase CLI（`firebase-tools`）と Java が必要。
+
 ```bash
-npm run dev
+npm run emulators   # 端末1: Firestore / Auth Emulator（127.0.0.1、UI は http://127.0.0.1:4000）
+npm run dev         # 端末2: http://127.0.0.1:3000（127.0.0.1 にだけ bind）
 ```
+
+Emulator は停止するとデータとユーザーを失う。投入スクリプトは未実装（`docs/LocalDevelopmentImplementation.md` Phase 5）のため、それまではログイン用ユーザーを Emulator UI の Authentication 画面から作る。
 
 本番相当の standalone build を確認する場合:
 

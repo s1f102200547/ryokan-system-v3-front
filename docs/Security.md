@@ -12,6 +12,19 @@ XSS、MIME スニッフィング、クリックジャッキング、情報漏洩
 - `src/app/api/auth/login/route.ts`: Firebase idToken 検証、Session Cookie 発行。
 - `src/lib/auth/verifySession.ts`: Route Handler 共通の Session Cookie 検証。
 
+## 起動時の環境変数ガード
+
+`src/instrumentation.ts` がサーバー起動時に `src/lib/firebase/runtimeEnvGuard.ts` の判定を実行し、満たさなければプロセスを終了する（throw だけでは `next start` / standalone server が 500 を返し続ける状態で残り、Cloud Run が起動成功と見なすため）。`src/lib/firebase/admin.ts` も初期化前に同じ判定を行う（fail closed）。
+
+| NODE_ENV | 拒否する条件 |
+|---|---|
+| `development` / `test` | Firestore / Auth Emulator の接続先がない、サーバー側 project ID が `demo-` で始まらない、ブラウザ側の project ID・Auth Emulator の接続先がサーバー側とずれる、本番の認証情報（`FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL`, `GOOGLE_APPLICATION_CREDENTIALS`、名前に `PRIVATE_KEY` を含む変数）がある |
+| それ以外（production など） | Emulator 系の変数（`*_EMULATOR_HOST`, `FIREBASE_EMULATOR_HUB`）が1つでもある（空文字を含む）、project ID が `demo-` で始まる |
+
+- Admin SDK は Auth Emulator の接続先があるとトークンの署名を検証しない。production に Emulator 系の変数が入ると認証を素通りされるため、production 側のガードは外さない。
+- development / test の Admin SDK は `initializeApp({ projectId })` で初期化し、認証情報を渡さない。鍵での初期化（`cert()`）は削除済み。Emulator 接続時、SDK は ADC を読まない（Auth は `owner` トークン、Firestore は insecure channel）。
+- 開発サーバー（`next dev -H 127.0.0.1`）と Emulator（`firebase.json`）は `127.0.0.1` にだけ bind する。開発用ユーザーのパスワードは固定値のため、同じネットワークの他人から触れないようにする。
+
 ## 認証境界
 
 `proxy.ts` の Cookie 存在確認は UX ナビゲーションであり、セキュリティ境界ではない。保護対象 API は各 Route Handler で `verifySession()` を呼び、Firebase Admin SDK の `verifySessionCookie(cookie, true)` で暗号的に検証する。
@@ -70,7 +83,7 @@ API 層: `QueryDateSchema`（クエリパラメータ用）・`PathDateSchema`�
 
 ## CSP
 
-`proxy.ts` はリクエストごとに nonce を生成し、`Content-Security-Policy` と `x-nonce` ヘッダーを設定する。
+`proxy.ts` はリクエストごとに nonce を生成し、`src/lib/csp.ts` の `buildCsp()` で組み立てた `Content-Security-Policy` と `x-nonce` ヘッダーを設定する。
 
 現在の方針:
 
@@ -81,7 +94,7 @@ API 層: `QueryDateSchema`（クエリパラメータ用）・`PathDateSchema`�
 | `style-src` | `'self'`, `'unsafe-inline'` |
 | `img-src` | `'self'` |
 | `font-src` | `'self'` |
-| `connect-src` | `'self'`, Firebase Auth endpoints |
+| `connect-src` | `'self'`, Firebase Auth endpoints。development のみ Auth Emulator（`NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST`）を追加 |
 | `frame-ancestors` | `'none'` |
 | `base-uri` | `'self'` |
 | `form-action` | `'self'` |

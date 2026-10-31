@@ -2,6 +2,35 @@
 
 `docs/LocalDevelopment.md`（以下「仕様」）を実装するための手順書。要件 ID（DEV-1 など）と受け入れ基準 ID（AC-1 など）は仕様のものを使う。
 
+## 進捗
+
+| Phase | 状態 | 備考 |
+|---|---|---|
+| 0 | 一部完了 | Context7 / SDK ソースでの確認は完了（下記）。GCP の作業（Cloud Run の環境変数確認、閲覧専用 SA、鍵 ID の控え）は未実施 |
+| 1〜4 | 実装済み（ブランチ `feat/local-dev-emulator`） | 開発者の `.env.development` の置き換え（Phase 4-3 の後半）は未実施 |
+| 5〜9 | 未着手 | |
+
+### 実装中に分かったこと
+
+- **Admin SDK の Emulator 経路は ADC を読まない。** `initializeApp({ projectId })` は内部で ApplicationDefaultCredential を作るが、Auth は `FIREBASE_AUTH_EMULATOR_HOST` があるとトークンを `owner` に固定し、Firestore は `FIRESTORE_EMULATOR_HOST` があると insecure channel を使うため、どちらも ADC を読み込まない（`firebase-admin` v13 / `@google-cloud/firestore` のソースで確認）。credential に独自オブジェクトを渡すと Firestore が初期化に失敗するので、渡さない。
+- **`register()` で throw するだけでは production で起動を拒否できない。** `next start` / standalone の `server.js` は「Failed to prepare server」を出した後も待ち受けを続け、全リクエストに 500 を返す。Cloud Run はこれを起動成功と見なすため、`src/lib/firebase/enforceRuntimeEnv.ts` で `process.exit(1)` する。Edge 向け bundle に `process.exit` を含めないよう、`instrumentation.ts` は `NEXT_RUNTIME === 'nodejs'` の分岐内で動的 import する。development は throw だけでも終了する。
+- **ブラウザの Auth は最初に使うときに初期化する（`getFirebaseAuth()`）。** モジュール読み込み時に `getAuth()` を呼ぶと、API key 未設定の build（CI の ZAP job）や SSR で `auth/invalid-api-key` を投げうる。`connectAuthEmulator` は同じ設定で2回呼んでも no-op だが、`auth.emulatorConfig` でも防ぐ。
+- **Firebase CLI はグローバルの `firebase` を使う**（devDependency にはしていない）。Emulator は作業ディレクトリに `firestore-debug.log` などを書くため `.gitignore` に追加した。
+- **E2E のスキップ 22 件は既存のもの**（`TEST_EMAIL` / `TEST_PASSWORD` がない場合に skip。CI と同じ）。
+
+### Phase 1〜4 の確認結果（2026-10-31、作業ツリーのコピーで実施）
+
+| 確認 | 結果 |
+|---|---|
+| AC-1〜4（development の起動拒否） | `FIRESTORE_EMULATOR_HOST` 空、project ID `ryokan-prod`、ブラウザ側 project ID のずれ、`FIREBASE_PRIVATE_KEY` 設定の各パターンで、違反名を出して終了。正しい設定では HTTP 200 |
+| AC-10, AC-11（production の起動拒否） | `next start` と standalone `server.js` の両方で、`FIRESTORE_EMULATOR_HOST` / `FIREBASE_AUTH_EMULATOR_HOST` / `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST` / `FIREBASE_PROJECT_ID=demo-x` の各パターンで exit 1。何も足さなければ起動（ZAP job と同じ） |
+| AC-8（CSP） | unit test で固定。production の `connect-src` は変更前と同一、development は `http://127.0.0.1:9099` を追加 |
+| AC-9（E2E） | Emulator を起動せずに 26 passed / 22 skipped。CI での確認は PR で行う |
+| G-11（Vitest） | `test.env` を外すと `admin.ts` を読むテストが起動ガードで失敗することを確認。全 unit / integration test 成功 |
+| 公開範囲 | 開発サーバー 3000、Emulator 8080 / 9099 / 4000 / 4400 / 4500 / 9150 がすべて `127.0.0.1` で待ち受け |
+| 接続先 | 存在しないユーザーでのログインは `127.0.0.1:9099` にだけ送信され、CSP 違反なし、認証失敗のメッセージを表示 |
+| 参考（AC-5 の前倒し） | Emulator UI 相当の API で一時ユーザーを作り、ログイン → Session Cookie（httpOnly, SameSite=Strict）→ `/api/guest-info` / `/api/daily/*/todos` が 200。ブラウザの外向き通信は `127.0.0.1:9099` のみ。ADC ログイン済みの PC で実施。正式な確認は Phase 5 |
+
 ---
 
 ## 0. 現状（2026-10-31 調査）

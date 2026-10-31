@@ -152,7 +152,7 @@
 | 2 | 不正な idToken で 503 + Slack [ALERT] | ファジング | 未対応 |
 | 3 | `PATCH /api/reservations/[id]` で `check_out_date <= check_in_date` を許す | 横展開 | 未対応 |
 | 4 | ダブルブッキングの検査がない（仕様の穴の可能性） | PBT の性質検討 | 仕様の判断待ち |
-| 5 | `.env.development` のキー名の不一致でログイン不可 | 実際に動かす | ローカルで修正済み。`.env.development.example` への追記は未対応 |
+| 5 | `.env.development` のキー名の不一致でログイン不可 | 実際に動かす | 開発環境の Emulator 化で解消（鍵を置かない。名前に `PRIVATE_KEY` を含む変数は起動ガードで拒否。`docs/LocalDevelopment.md`） |
 
 ## 進め方
 

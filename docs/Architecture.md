@@ -41,6 +41,7 @@ Shared（constants/, lib/, types/）
 ```
 src/
 ├── proxy.ts        # CSP/セキュリティヘッダー、時間帯制限、session Cookie 有無のページガード
+├── instrumentation.ts # 起動時の環境変数ガード（Emulator / 本番の取り違えを防ぐ）
 ├── app/            # App Router のページと Route Handlers
 │   ├── api/        # guest-info, reservations, timetable, cleaning-board, daily, auth
 │   ├── daily-dashboard/
@@ -60,12 +61,13 @@ src/
 │   ├── daily/
 │   └── reservation/
 ├── constants/      # 部屋番号、タイムテーブル、ゲスト情報などのドメイン定数
-├── lib/            # Route helper, Firebase 初期化, logger, Slack, 日付など
+├── lib/            # Route helper, Firebase 初期化と起動ガード, CSP, logger, Slack, 日付など
 └── types/          # 共通型、Result 型、InfraError 型
 
 tests/
 ├── unit/           # Domain 層のユニットテスト（src/ に依存しない純粋 TS テスト）
-│   └── domain/     # auth/, reservation/, room/ の各ビジネスルールテスト
+│   ├── domain/     # auth/, reservation/, room/ の各ビジネスルールテスト
+│   └── lib/        # 外部 SDK に依存しない lib の純粋関数（起動ガード、CSP）
 ├── integration/    # Route Handler の統合テスト（verifySession・InfraError・HTTP変換を含む）
 │   └── api/        # src/app/api/ と対応するディレクトリ構造
 ├── mocks/          # vi.mock 用のモック実装（将来的な手動モック置き場）

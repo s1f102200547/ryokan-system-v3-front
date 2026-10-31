@@ -55,12 +55,14 @@
 - セッション期限と本番時間帯制限は当日 23:00 JST に揃える。時間外は `/time-restricted`。
 - CSP は nonce ベース。MUI/Emotion 互換のため `style-src 'unsafe-inline'` は残し、MUI style tag には nonce を渡す。
 - 外部 API、画像 CDN、analytics、iframe を追加する場合は CSP、COEP、CORP、Security doc を更新する。
+- development / test は Firebase Emulator にだけ接続し、本番の鍵を置かない。起動ガード（`src/instrumentation.ts`, `src/lib/firebase/runtimeEnvGuard.ts`）を外さない。開発サーバーと Emulator は `127.0.0.1` に bind する（`docs/LocalDevelopment.md`）。
 
 ## Test
 - Unit test は Domain 層を最厚にし、日付・部屋状態・予約状態・配列長・境界値を固定する。
 - Integration test は Route Handler の認証、validation、正常系、主要 InfraError、想定外エラーを確認する。
 - E2E はログイン、routing、daily dashboard、guest info、a-tax など重要フローに限定する。
-- E2E は実 Firebase 認証に依存しない。Playwright route mock と CI の dummy `NEXT_PUBLIC_FIREBASE_*` を使う。
+- E2E は実 Firebase 認証に依存しない。Playwright route mock と、`playwright.config.ts` の `webServer.env`（Emulator 系の変数・demo project・dummy API key）を使う。
+- Vitest は `test.env` で到達不能な Emulator を向く。テストから本番や ADC に届く経路を作らない。
 - 実データ・実認証情報をテストへ入れない。
 
 ## ErrorHandling
