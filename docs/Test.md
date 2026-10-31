@@ -112,7 +112,7 @@ E2E でやりすぎないもの:
 - 接続先は `http://127.0.0.1:3000`。Cookie はホスト名ごとに分かれるため、spec で設定する Cookie の `url` / `domain` も `127.0.0.1` にする。
 - 実リクエストは mock で遮断し、外部サービスに依存しない。
 
-ローカルの `.env.test.local` は必要な場合だけ使う。実運用の認証情報は入れない。
+E2E に実際のアカウントでのログインは使わない。ログイン後の画面は、モックの Session Cookie（`session=mock-session`）と API の `page.route` モックで表示する（`.env.test.local` の `TEST_EMAIL` / `TEST_PASSWORD` は廃止）。
 
 ## Test Data
 
