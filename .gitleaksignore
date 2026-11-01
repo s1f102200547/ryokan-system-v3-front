@@ -1,0 +1,5 @@
+# gitleaks の誤検知の除外（T8-1）。1行に1つ、gitleaks が出力する Fingerprint を書く。除外する理由を上の行にコメントで残す
+# 本物の秘密情報は除外しない。漏れたら、履歴から消すより先にキーを無効化する
+
+# 以前の ci.yml の E2E 用のダミー値（dummy-api-key-for-e2e）。本物の API キーではない
+24c618be641b62e6f4e9e1a53888d7a53533e545:.github/workflows/ci.yml:generic-api-key:106
