@@ -6,8 +6,9 @@ on:
   push: # developmentではCIのみ、mainではdeployのworkflow_runトリガーにもなる
     branches: [development, main]
 
+# 書かなかった権限は none になる。非公開リポジトリでは contents: read がないと checkout できない（T6-7）
 permissions:
-  issues: write
+  contents: read
 
 jobs:
   # ── Phase 1: 軽量チェック（並列）────────────────────────────────────────
@@ -139,6 +140,9 @@ jobs:
     name: OWASP ZAP Baseline Scan
     runs-on: ubuntu-latest
     needs: [unit-test]
+    permissions:
+      contents: read
+      issues: write   # ZAP の action が結果を Issue に書く
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

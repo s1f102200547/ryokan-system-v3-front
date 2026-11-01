@@ -34,6 +34,8 @@
 | `e2e` | Chromium install 後に `npm run e2e` | unit-test |
 | `zap-scan` | build/start 後に ZAP Baseline Scan | unit-test |
 
+権限（`permissions`）は、ワークフロー全体を `contents: read` にし、`zap-scan` のジョブにだけ `issues: write` を付ける（T6-7）。`permissions` を書くと、書かなかった権限は `none` になる。非公開リポジトリでは `contents: read` がないと `actions/checkout` が「Repository not found」で失敗する。
+
 E2E の開発サーバーは `playwright.config.ts` の `webServer.env` で、Emulator 系の変数・demo project（`demo-ryokan`）・ダミーの API key を渡して起動する（ローカルと CI で同じ設定。起動ガードを通すため）。Emulator 本体は起動せず、実リクエストは Playwright の route mock で遮断する前提。
 
 ### audit の例外リスト

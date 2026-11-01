@@ -116,7 +116,7 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 ### Step 1-1: CI の権限と固定（T6-6、T6-7）
 
 🤖 Claude
-1. `ci.yml` の全体の `permissions` を `contents: read` にし、`zap-scan` のジョブにだけ `issues: write` を付ける。
+1. `ci.yml` の全体の `permissions` を `contents: read` にし、`zap-scan` のジョブにだけ `issues: write` を付ける。（済。非公開リポジトリで checkout が失敗したため先に行った）
 2. `ci.yml` と `deploy.yml` の全アクションをコミット SHA に固定し、行末にバージョンをコメントで残す（`pinact` を使うか手で調べる。`pinact` を開発 PC に入れるかは着手時に相談する）。
 3. `npx wait-on` と `npm install -g firebase-tools@15` を、正確なバージョンに固定する。
 4. `docs/CICD.md` を更新する。
