@@ -51,27 +51,52 @@ gcloud iam service-accounts create github-actions-deployer \
 
 ## 4. GCP — ロール付与
 
+権限は**対象のリソースにだけ**付ける。プロジェクト全体には付けない（T5-4）。デプロイ用の SA が乗っ取られても、ほかの Cloud Run サービス、ほかのリポジトリ、IAM の設定には届かないようにする。
+
 ```bash
 SA=github-actions-deployer@YOUR_PROJECT_ID.iam.gserviceaccount.com
+RUNTIME_SA=YOUR_PROJECT_NUMBER-compute@developer.gserviceaccount.com  # 実行用の SA（T6-1 で専用の SA に替える）
 
-# Cloud Run へのデプロイ権限
-gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+# Cloud Run のサービス ryokan-system にだけ、デプロイの権限
+# run.developer は公開設定（IAM ポリシー）を変えられない。deploy.yml で --allow-unauthenticated を渡さないのはそのため
+gcloud run services add-iam-policy-binding ryokan-system \
+  --region=asia-northeast1 \
   --member="serviceAccount:$SA" \
-  --role="roles/run.admin"
+  --role="roles/run.developer" \
+  --project=YOUR_PROJECT_ID
 
-# Artifact Registry へのイメージ push 権限
-gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+# Artifact Registry のリポジトリ ryokan にだけ、イメージの push 権限
+gcloud artifacts repositories add-iam-policy-binding ryokan \
+  --location=asia-northeast1 \
   --member="serviceAccount:$SA" \
-  --role="roles/artifactregistry.writer"
+  --role="roles/artifactregistry.writer" \
+  --project=YOUR_PROJECT_ID
 
-# Cloud Run のランタイム SA になりすます権限（デプロイ時に必要）
-gcloud iam service-accounts add-iam-policy-binding \
-  YOUR_PROJECT_NUMBER-compute@developer.gserviceaccount.com \
+# 実行用の SA にだけ、それを Cloud Run に割り当てる権限（デプロイ時に必要）
+gcloud iam service-accounts add-iam-policy-binding $RUNTIME_SA \
   --member="serviceAccount:$SA" \
-  --role="roles/iam.serviceAccountUser"
+  --role="roles/iam.serviceAccountUser" \
+  --project=YOUR_PROJECT_ID
 ```
 
-> `YOUR_PROJECT_NUMBER` は `gcloud projects describe YOUR_PROJECT_ID --format="value(projectNumber)"` で確認。
+> - `YOUR_PROJECT_NUMBER` は `gcloud projects describe YOUR_PROJECT_ID --format="value(projectNumber)"` で確認。
+> - Cloud Run のサービスへの付与は、サービスが存在しないとできない。新しく作る場合は、最初の1回だけオーナーが手でデプロイし、公開の設定（`allUsers` に `roles/run.invoker`）もそのときに付ける。
+
+**以前の手順でプロジェクト全体に付けていた場合**は、上を付けたあとに外す（先に外すと、その間のデプロイが失敗する）。
+
+```bash
+# 今プロジェクト全体に付いているロールを確認する
+gcloud projects get-iam-policy YOUR_PROJECT_ID \
+  --flatten="bindings[].members" \
+  --filter="bindings.members:serviceAccount:$SA" \
+  --format="table(bindings.role)"
+
+# プロジェクト全体の付与を外す
+gcloud projects remove-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:$SA" --role="roles/run.admin"
+gcloud projects remove-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:$SA" --role="roles/artifactregistry.writer"
+```
 
 ---
 
