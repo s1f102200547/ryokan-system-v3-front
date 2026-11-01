@@ -77,12 +77,18 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 ### Step P0-3: デプロイ用のサービスアカウントの権限（T5-4）
 
 👤 開発者
-1. `github-actions-deployer` から、プロジェクト全体の `roles/run.admin` と `roles/artifactregistry.writer` を外す。
-2. 対象のリソースにだけ付け直す。
+手順のコマンドは `GCP_SETUP.md` §4。先に外すと、付け直すまでの間のデプロイが失敗するので、**付けてから外す**。
+
+1. `--allow-unauthenticated` を外した `deploy.yml` を `main` に入れる（`run.admin` があるうちにデプロイを通す）。（済）
+2. 対象のリソースにだけ付ける。（済）
    - Cloud Run サービス `ryokan-system` に `roles/run.developer`
-   - 実行用のサービスアカウント（P1-2 で作る。それまでは今のもの）に `roles/iam.serviceAccountUser`
+   - 実行用のサービスアカウント（P1-2 で作る。それまでは今のもの）に `roles/iam.serviceAccountUser`（以前から付いている）
    - Artifact Registry のリポジトリ `ryokan` に `roles/artifactregistry.writer`
-3. 確認: 次のデプロイが成功すること。
+3. `github-actions-deployer` から、プロジェクト全体の `roles/run.admin` と `roles/artifactregistry.writer` を外す。（済）
+4. 確認
+   - プロジェクト全体のロールが残っていないこと（`gcloud projects get-iam-policy`）。（済）
+   - 次のデプロイが成功すること。P0-2 の WIF の条件の確認と同じデプロイで行う。
+   - 本番の URL をログインしていないブラウザで開き、ログイン画面が出ること（公開の設定が残っていること）。
 
 🤖 Claude
 - `GCP_SETUP.md` §4 を、リソースごとの付与に書き直す。（済）
