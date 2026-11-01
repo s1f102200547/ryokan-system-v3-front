@@ -26,6 +26,19 @@ AI エージェントには push・デプロイ・本番の操作をさせない
 - 対策が終わったら、今の実装の説明を `docs/Security/Security.md` に移し、`Tx.md` の該当の行に「済」と書く（`README.md` のルール）。
 - ライブラリ・GitHub Actions・GCP の設定の書き方は、着手時に Context7 か公式 docs で確かめる。
 
+## 後回しにした作業
+
+P0 は 2026-11-01 にいったん完了とした。次の作業は後回しにしたので、条件がそろったら行う。
+
+| 作業 | 後回しにした理由・始める条件 | 詳細 |
+|---|---|---|
+| `main` と `development` のルールセット（T5-1）。必須チェックに `Secret Scan` も加える | 非公開リポジトリでは GitHub Pro が要る。Student Developer Pack の承認を待つ | Step P0-1、Step 1-7 |
+| Environment `production` を作り、デプロイ用の secrets を移す（T5-2） | 同上 | Step 1-2 |
+| WIF の条件に `assertion.environment == 'production'` を加える | Environment を作ったあと | Step P0-2 の 3 |
+| ルールセットと Environment の確認（`main` への直接 push の拒否、ほかのブランチから secrets を読めないこと） | 同上 | Step P0-1 の 3、Step 1-2 |
+| GitHub Pro で Secret scanning が使えるようになるかの確認（T5-10） | 同上 | `T5.md` |
+| オーナー権限の分離とパスキー（T5-5、T5-6） | 時間のあるときに行う。オーナーを外す前に、オーナー用のアカウントで操作できることを確かめる | Step P0-4 |
+
 ---
 
 ## Step 0: 文書の整理（🤖）（済）
@@ -41,7 +54,7 @@ AI エージェントには push・デプロイ・本番の操作をさせない
 
 ---
 
-## P0: 設定の変更（ほぼ 👤）
+## P0: 設定の変更（ほぼ 👤）（いったん完了。残りは「後回しにした作業」）
 
 SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 
@@ -94,7 +107,7 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 - `GCP_SETUP.md` §4 を、リソースごとの付与に書き直す。（済）
 - `deploy.yml` から `--allow-unauthenticated` を外す（`run.developer` は公開の設定を変えられないので、渡すと失敗するおそれがある）。（済）
 
-### Step P0-4: オーナー権限の分離とパスキー（T5-5、T5-6）
+### Step P0-4: オーナー権限の分離とパスキー（T5-5、T5-6）（後回し）
 
 👤 開発者
 1. オーナー用の Google アカウントを別に用意し、GCP プロジェクトのオーナーにする。
@@ -109,12 +122,12 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 2. SSH 鍵にパスフレーズを付ける（`ssh-keygen -p -f ~/.ssh/<鍵>`）。（済）
 3. 素性の分からないリポジトリは Dev Container か Codespaces で開く、と決めておく。（済）
 
-### Step P0-6: その他の P0（T5-10、T1、README の P0）
+### Step P0-6: その他の P0（T5-10、T1、README の P0）（済）
 
 👤 開発者
 1. ~~Secret scanning を有効にする（T5-10）~~ 非公開リポジトリでは使えないので、Step 1-7 の gitleaks で代わりにする。
-2. Firebase Authentication で新規登録が API レベルで無効になっていることを確認する（Authentication → Settings → User actions の「Enable create (sign-up)」がオフ）。確認として、公開の API キーで `accounts:signUp` を呼び、拒否されることを確かめる。
-3. GCP の予算アラートを設定する（DDoS の請求額を抑える。`SecurityPolicy.md` §8）。
+2. Firebase Authentication で新規登録が API レベルで無効になっていることを確認する（Authentication → Settings → User actions の「Enable create (sign-up)」がオフ）。確認として、公開の API キーで `accounts:signUp` を呼び、拒否されることを確かめる。（済）
+3. GCP の予算アラートを設定する（DDoS の請求額を抑える。`SecurityPolicy.md` §8）。（済）
 
 ---
 
