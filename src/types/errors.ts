@@ -2,6 +2,7 @@ export type InfraErrorCode =
   | 'FIRESTORE_UNAVAILABLE'
   | 'FIRESTORE_PERMISSION'
   | 'FIRESTORE_DATA_CORRUPTION'
+  | 'FIRESTORE_NOT_FOUND'        // 存在しないドキュメントへの更新（入力が原因。通知しない）
   | 'AUTH_FAILED'
   | 'AUTH_UNAVAILABLE'
 

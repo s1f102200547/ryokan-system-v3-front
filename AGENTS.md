@@ -40,7 +40,7 @@
 - `application/` は UseCase/Command の手順を表現する。読み取りは UseCase、状態変更は Command。
 - `components/` は表示とイベント通知、`hooks/` は API 呼び出し・loading/error・日本語メッセージ変換を担当する。
 - Route Handler は session 検証、Zod 入力検証、Application/Infra 呼び出し、HTTP response 変換を担当する。
-- テストは `src/` 外の `tests/` に分離する。`tests/unit/` は Domain 層、`tests/integration/` は Route Handler、`tests/utils/` は共通ヘルパー（`routeTestHelper` 等）、`tests/setup/` は Vitest グローバルセットアップ。`@tests/*` エイリアスで `tests/` 配下を絶対 import する。
+- テストは `src/` 外の `tests/` に分離する。`tests/unit/` は Domain 層、`tests/integration/` は Route Handler、`tests/emulator/` は Firestore Emulator への往復検査（`npm run test:emulator`）、`tests/utils/` は共通ヘルパー（`routeTestHelper` 等）、`tests/setup/` は Vitest グローバルセットアップ。`@tests/*` エイリアスで `tests/` 配下を絶対 import する。
 
 ## CI/CD
 - CI は `pull_request` to `main` と `push` to `main` で `lint`、`typecheck`、`audit`、`unit-test`、`e2e`、`zap-scan` を実行する。
@@ -52,15 +52,17 @@
 ## Security
 - `proxy.ts` の Cookie 存在確認は UX ナビゲーションであり、セキュリティ境界ではない。保護対象 API は各 Route Handler で `verifySession()` を呼ぶ。
 - Session Cookie は Firebase Admin SDK で発行・検証し、`httpOnly`, production `secure`, `sameSite: 'strict'`, `path: '/'`。
-- セッション期限と本番時間帯制限は当日 23:00 JST に揃える。時間外は `/time-restricted`。
+- セッション期限と本番時間帯制限は当日 23:00 JST に揃える（`src/constants/date.ts` の `BUSINESS_HOURS_*`）。時間外の画面は `/time-restricted`、ログイン API は 403。
 - CSP は nonce ベース。MUI/Emotion 互換のため `style-src 'unsafe-inline'` は残し、MUI style tag には nonce を渡す。
 - 外部 API、画像 CDN、analytics、iframe を追加する場合は CSP、COEP、CORP、Security doc を更新する。
+- development / test は Firebase Emulator にだけ接続し、本番の鍵を置かない。起動ガード（`src/instrumentation.ts`, `src/lib/firebase/runtimeEnvGuard.ts`）を外さない。開発サーバーと Emulator は `127.0.0.1` に bind する（`docs/LocalDevelopment.md`）。
 
 ## Test
 - Unit test は Domain 層を最厚にし、日付・部屋状態・予約状態・配列長・境界値を固定する。
 - Integration test は Route Handler の認証、validation、正常系、主要 InfraError、想定外エラーを確認する。
 - E2E はログイン、routing、daily dashboard、guest info、a-tax など重要フローに限定する。
-- E2E は実 Firebase 認証に依存しない。Playwright route mock と CI の dummy `NEXT_PUBLIC_FIREBASE_*` を使う。
+- E2E は実 Firebase 認証に依存しない。Playwright route mock と、`playwright.config.ts` の `webServer.env`（Emulator 系の変数・demo project・dummy API key）を使う。
+- Vitest は `test.env` で到達不能な Emulator を向く。テストから本番や ADC に届く経路を作らない。
 - 実データ・実認証情報をテストへ入れない。
 
 ## ErrorHandling
@@ -69,7 +71,7 @@
 - Application は原則 catch せず伝搬する。
 - Route Handler は `InfraError` を HTTP status に変換し、ログと必要な Slack 通知を行う。
 - Hooks は HTTP status と fetch 失敗をユーザー向け日本語メッセージに変換する。
-- `FIRESTORE_UNAVAILABLE` と `AUTH_UNAVAILABLE` は 503、`FIRESTORE_PERMISSION` と `FIRESTORE_DATA_CORRUPTION` は 500、`AUTH_FAILED` は 401。
+- `FIRESTORE_UNAVAILABLE` と `AUTH_UNAVAILABLE` は 503、`FIRESTORE_PERMISSION` と `FIRESTORE_DATA_CORRUPTION` は 500、`FIRESTORE_NOT_FOUND` は 404（通知しない）、`AUTH_FAILED` は 401。
 - `InfraErrorCode` 追加時は `src/lib/infraErrorToHttpStatus.ts` と `docs/ErrorHandling.md` を更新する。
 
 ## Context7
@@ -83,3 +85,13 @@
 - 予約の部屋は `"21" | "22" | "31" | "32" | "42" | "43" | "61" | null`。空文字は null に正規化する。
 - 予約の泊別配列は泊数と同じ長さに正規化し、不正値は fallback で補完する。
 - DB 読み取り時の破損は Infra 層で Zod 検証し、必要に応じて `FIRESTORE_DATA_CORRUPTION` とする。
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

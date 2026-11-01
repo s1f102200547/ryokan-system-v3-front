@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import type { TimetableData } from '@/types/timetable'
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
+import { httpErrorMessage } from '@/hooks/httpErrorMessage'
 
 type State = {
   data: TimetableData | null
@@ -23,13 +25,11 @@ export function useTimetable(targetDate: string) {
 
     const load = async () => {
       try {
-        const res = await fetch(`/api/timetable?date=${targetDate}`)
+        const res = await fetchWithSession(`/api/timetable?date=${targetDate}`)
         if (cancelled) return
         if (!res.ok) {
           const message =
-            res.status === 503
-              ? '一時的に通信に失敗しました。しばらく待ってから再度お試しください。'
-              : 'データの取得に失敗しました。管理者に通知済みです。'
+            httpErrorMessage(res.status, 'fetch', 'データの取得に失敗しました。管理者に通知済みです。')
           setState({ data: null, fetchedDate: targetDate, error: message })
           return
         }

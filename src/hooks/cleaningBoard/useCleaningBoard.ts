@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import type { CleaningBoardData } from '@/types/cleaningBoard'
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
+import { httpErrorMessage } from '@/hooks/httpErrorMessage'
 
 type State = {
   data: CleaningBoardData | null
@@ -24,12 +26,10 @@ export function useCleaningBoard(targetDate: string) {
 
     const load = async () => {
       try {
-        const res = await fetch(`/api/cleaning-board?date=${targetDate}`) // 2. データを取りにいく（fetch）
+        const res = await fetchWithSession(`/api/cleaning-board?date=${targetDate}`) // 2. データを取りにいく（fetch）
         if (cancelled) return
         if (!res.ok) {
-          const message = res.status === 503
-            ? '一時的に通信に失敗しました。しばらく待ってから再度お試しください。' // 一時的なサーバ不調
-            : 'データの取得に失敗しました。管理者に通知済みです。'                // サーバ側の一般エラー
+          const message = httpErrorMessage(res.status, 'fetch', 'データの取得に失敗しました。管理者に通知済みです。')
           setState({ data: null, fetchedDate: targetDate, error: message })
           return
         }

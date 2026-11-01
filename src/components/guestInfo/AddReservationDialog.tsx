@@ -19,6 +19,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import { useAddReservation } from '@/hooks/guestInfo/useAddReservation'
 import { ROOM_NUMBERS } from '@/constants/room'
 import type { BookingSite } from '@/types/guestInfo'
+import { bookingSiteOptions, countOptions, MAX_NIGHTS } from '@/constants/guestInfo'
 
 type Props = {
   open: boolean
@@ -26,15 +27,6 @@ type Props = {
   onClose: () => void
   onAdded: () => void
 }
-
-const BOOKING_SITES: { value: BookingSite; label: string }[] = [
-  { value: 'chillnn',     label: 'Chillnn（A税不要）' },
-  { value: 'booking.com', label: 'Booking.com' },
-  { value: 'expedia',     label: 'Expedia' },
-  { value: 'other',       label: 'その他' },
-]
-
-const COUNT_OPTIONS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({ value: n, label: String(n) }))
 
 export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Props) {
   const [checkOutDate, setCheckOutDate] = useState<Dayjs | null>(dayjs(checkInDate).add(1, 'day'))
@@ -79,13 +71,15 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
     }
   }
 
-  const checkOutStr = checkOutDate?.format('YYYY-MM-DD') ?? ''
+  // 直接入力の途中の値は 'Invalid Date' になり、文字列比較では C/I より後と判定されてしまうため isValid も見る
+  const checkOutStr = checkOutDate?.isValid() ? checkOutDate.format('YYYY-MM-DD') : ''
   const canSubmit =
     room !== '' &&
     guestName.trim().length > 0 &&
     addReason.trim().length > 0 &&
     staffName.trim().length > 0 &&
-    checkOutStr > checkInDate
+    checkOutStr > checkInDate &&
+    checkOutStr <= dayjs(checkInDate).add(MAX_NIGHTS, 'day').format('YYYY-MM-DD')
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
@@ -100,6 +94,7 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
             value={checkOutDate}
             onChange={(v) => setCheckOutDate(v)}
             minDate={dayjs(checkInDate).add(1, 'day')}
+            maxDate={dayjs(checkInDate).add(MAX_NIGHTS, 'day')}
             slotProps={{ textField: { size: 'small', fullWidth: true } }}
           />
 
@@ -119,7 +114,7 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
               label="大人人数"
               onChange={(e) => setAdultCount(Number(e.target.value))}
             >
-              {COUNT_OPTIONS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+              {countOptions.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
             </Select>
           </FormControl>
 
@@ -130,7 +125,7 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
               label="子供人数"
               onChange={(e) => setChildCount(Number(e.target.value))}
             >
-              {COUNT_OPTIONS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+              {countOptions.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
             </Select>
           </FormControl>
 
@@ -156,7 +151,7 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
               label="予約サイト（A税の有無に影響）"
               onChange={(e) => setBookingSite(e.target.value as BookingSite)}
             >
-              {BOOKING_SITES.map((s) => (
+              {bookingSiteOptions.map((s) => (
                 <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
               ))}
             </Select>

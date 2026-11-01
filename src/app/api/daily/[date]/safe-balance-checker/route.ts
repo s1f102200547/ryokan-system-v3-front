@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { firestoreDailyRepository } from '@/infra/daily/firestoreDailyRepository'
-import { getSession, handleRouteError } from '@/lib/api/routeHelpers'
+import { handleRouteError, requireSession } from '@/lib/api/routeHelpers'
 import { PathDateSchema } from '@/lib/api/dateSchema'
 
 const BodySchema = z.object({
@@ -12,8 +12,8 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ date: string }> },
 ) {
-  const session = await getSession(request)
-  if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const unauthorized = await requireSession(request, '締めスタッフ取得')
+  if (unauthorized) return unauthorized
 
   const { date } = await params
   if (!PathDateSchema.safeParse(date).success) {
@@ -32,8 +32,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ date: string }> },
 ) {
-  const session = await getSession(request)
-  if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const unauthorized = await requireSession(request, '締めスタッフ更新')
+  if (unauthorized) return unauthorized
 
   const { date } = await params
   if (!PathDateSchema.safeParse(date).success) {

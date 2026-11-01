@@ -6,6 +6,7 @@ import TextField from '@mui/material/TextField'
 import AddIcon from '@mui/icons-material/Add'
 import RemoveIcon from '@mui/icons-material/Remove'
 import type { MailMemoEntry } from '@/types/guestInfo'
+import { getTodayJST, toMonthDay } from '@/lib/dateUtils'
 import type { BookingSite } from '@/types/guestInfo'
 
 type Props = {
@@ -36,12 +37,11 @@ const tinyDateInput = {
 
 export function MailMemo({ bookingSite, items, onChange }: Props) {
   const addItem = () => {
-    const now = new Date()
     onChange([
       ...items,
       {
-        month: String(now.getMonth() + 1),
-        day: String(now.getDate()),
+        // ブラウザのローカル時刻ではなく JST の今日
+        ...toMonthDay(getTodayJST()),
         name: '',
         summary: '',
         text: '',

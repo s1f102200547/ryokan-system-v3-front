@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth'
+import { signInWithEmailAndPassword } from 'firebase/auth'
 import type { FirebaseError } from 'firebase/app'
-import { firebaseApp } from '@/lib/firebase/client'
+import { getFirebaseAuth } from '@/lib/firebase/client'
 import { CREDENTIAL_ERROR_CODES } from '@/lib/firebase/credentialErrorCodes'
 
 // ログイン処理＋UI状態（loading / error / 遷移）をまとめる
@@ -22,8 +22,7 @@ export function useLogin() {
       // Step 1: Firebase Client SDK で認証
       let idToken: string
       try {
-        const auth = getAuth(firebaseApp)
-        const credential = await signInWithEmailAndPassword(auth, credentials.email, credentials.password)
+        const credential = await signInWithEmailAndPassword(getFirebaseAuth(), credentials.email, credentials.password)
         idToken = await credential.user.getIdToken()
       } catch (e) {
         const code = (e as FirebaseError).code
@@ -43,6 +42,10 @@ export function useLogin() {
       })
       if (response.ok) {
         router.push('/')
+        return
+      }
+      if (response.status === 403) {
+        setError('利用時間外です（6:00〜23:00）')
         return
       }
       // 503・500 ともに原因を明かさずあいまいに返す（監視インフラの存在を公開しない）

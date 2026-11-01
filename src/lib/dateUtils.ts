@@ -12,6 +12,12 @@ export function dateDiff(from: string, to: string): number {
   return (Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86400000
 }
 
+// YYYY-MM-DD → 操作履歴（mail_memo）の月日（0 埋めなし）
+export function toMonthDay(dateStr: string): { month: string; day: string } {
+  const [, month, day] = dateStr.split('-').map(Number)
+  return { month: String(month), day: String(day) }
+}
+
 export function formatDateLabel(dateStr: string): string {
   const parts = dateStr.split('-').map(Number)
   return `${parts[1]}/${parts[2]}`

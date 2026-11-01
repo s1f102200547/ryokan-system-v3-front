@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
+import { httpErrorMessage } from '@/hooks/httpErrorMessage'
 
 type RestoreInput = {
   id: string
@@ -17,7 +19,7 @@ export function useRestoreReservation() {
     setIsPending(true)
     setError(null)
     try {
-      const res = await fetch(`/api/reservations/${input.id}/restore`, {
+      const res = await fetchWithSession(`/api/reservations/${input.id}/restore`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -28,9 +30,10 @@ export function useRestoreReservation() {
       })
       if (!res.ok) {
         setError(
-          res.status === 503
-            ? '一時的に通信に失敗しました。しばらく待ってから再度お試しください。'
-            : '復活処理に失敗しました。管理者に通知済みです。',
+          // 409: すでにその状態（古い画面からの操作など。BugHunting.md #27）
+          res.status === 409
+            ? 'この予約はキャンセルされていません。画面を再読み込みしてください。'
+            : httpErrorMessage(res.status, 'save', '復活処理に失敗しました。管理者に通知済みです。'),
         )
         return false
       }

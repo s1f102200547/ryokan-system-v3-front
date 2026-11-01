@@ -4,6 +4,12 @@ node_modules
 .github
 *.md
 e2e
+tests
+scripts
+.localdev
+firebase.json
+.firebaserc
+*-debug.log
 playwright-report
 coverage
 .env*

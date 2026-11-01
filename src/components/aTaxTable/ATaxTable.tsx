@@ -10,13 +10,13 @@ import { MonthSelector } from './MonthSelector'
 import { BalanceDisplay } from './BalanceDisplay'
 import { ReservationTable, computeProcessedRows } from './ReservationTable'
 import type { ATaxTableRow } from '@/application/aTaxTable/getATaxTableUseCase'
+import { getTodayJST } from '@/lib/dateUtils'
 
 type MonthOption = 'previous' | 'current'
 
-function useMonthlyTarget(option: MonthOption) {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth() + 1
+// 今月・先月は JST の今日（YYYY-MM-DD）から決める。ブラウザのローカル時刻に依存させない
+export function monthlyTarget(option: MonthOption, today: string) {
+  const [year, month] = today.split('-').map(Number)
   const prevMonth = month === 1 ? 12 : month - 1
   const prevYear = month === 1 ? year - 1 : year
   return {
@@ -88,8 +88,8 @@ function ATaxTableBody({
   )
 
   const processedRows = useMemo(
-    () => computeProcessedRows(displayRows, safeBalanceCheckers, option, false),
-    [displayRows, safeBalanceCheckers, option],
+    () => computeProcessedRows(displayRows, safeBalanceCheckers),
+    [displayRows, safeBalanceCheckers],
   )
 
   const handleToggle = useCallback((id: string, checked: boolean) => {
@@ -137,7 +137,7 @@ function ATaxTableBody({
 
 export function ATaxTable() {
   const [selectedOption, setSelectedOption] = useState<MonthOption>('current')
-  const { targetYear, targetMonth, previousLabel, currentLabel } = useMonthlyTarget(selectedOption)
+  const { targetYear, targetMonth, previousLabel, currentLabel } = monthlyTarget(selectedOption, getTodayJST())
   const { data, isLoading, error } = useATaxTable(targetYear, targetMonth)
 
   const handleOptionChange = (opt: MonthOption) => {

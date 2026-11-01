@@ -2,6 +2,8 @@
 
 import { useState, useCallback } from 'react'
 import type { ATaxPatch } from '@/types/guestInfo'
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
+import { httpErrorMessage } from '@/hooks/httpErrorMessage'
 
 export function useUpdateATax() {
   const [isPending, setIsPending] = useState(false)
@@ -11,16 +13,14 @@ export function useUpdateATax() {
     setIsPending(true)
     setError(null)
     try {
-      const res = await fetch(`/api/reservations/${id}/a-tax`, {
+      const res = await fetchWithSession(`/api/reservations/${id}/a-tax`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patch),
       })
       if (!res.ok) {
         const msg =
-          res.status === 503
-            ? '一時的に通信に失敗しました。しばらく待ってから再度お試しください。'
-            : '保存に失敗しました。管理者に通知済みです。'
+          httpErrorMessage(res.status, 'save', '保存に失敗しました。管理者に通知済みです。')
         setError(msg)
         return msg
       }

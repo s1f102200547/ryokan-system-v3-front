@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 
 type State = {
   staffName: string
@@ -17,7 +18,7 @@ export function useSafeBalanceChecker(date: string) {
 
     const load = async () => {
       try {
-        const res = await fetch(`/api/daily/${date}/safe-balance-checker`)
+        const res = await fetchWithSession(`/api/daily/${date}/safe-balance-checker`)
         if (cancelled) return
         if (!res.ok) {
           setState({ staffName: '', fetchedDate: date, error: 'データの取得に失敗しました' })
@@ -37,7 +38,7 @@ export function useSafeBalanceChecker(date: string) {
   const update = useCallback(async (staffName: string): Promise<void> => {
     setIsPending(true)
     try {
-      const res = await fetch(`/api/daily/${date}/safe-balance-checker`, {
+      const res = await fetchWithSession(`/api/daily/${date}/safe-balance-checker`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ staffName }),
