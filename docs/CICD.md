@@ -29,7 +29,8 @@
 | `lint` | `npm run lint` | なし |
 | `typecheck` | `npx tsc --noEmit` | なし |
 | `audit` | `npm run audit:ci`（high 以上で、例外リストにないものがあれば失敗） | なし |
-| `unit-test` | `npm run test`、`npm run test:tz`（`tests/time/` を3つの TZ で実行） | lint/typecheck/audit |
+| `secret-scan` | gitleaks（v8.30.1、チェックサムを確かめてダウンロード）で全履歴の秘密情報を検査する。誤検知は `.gitleaksignore` に Fingerprint で除外する（T8-1） | なし |
+| `unit-test` | `npm run test`、`npm run test:tz`（`tests/time/` を3つの TZ で実行） | lint/typecheck/audit/secret-scan |
 | `emulator-test` | Java 21・firebase-tools 15（グローバル）を入れて `npm run test:emulator`（Firestore / Auth Emulator への往復検査とファジング。`tests/emulator/`） | unit-test |
 | `e2e` | Chromium install 後に `npm run e2e` | unit-test |
 | `zap-scan` | build/start 後に ZAP Baseline Scan | unit-test |

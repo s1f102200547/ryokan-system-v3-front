@@ -63,11 +63,34 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
       - run: npm run audit:ci # high 以上で例外リスト（scripts/ci/auditAllowlist.ts）にないものがあれば失敗
 
+  # 秘密情報の検査（T8-1）。GitHub の Secret scanning は非公開リポジトリでは使えないので、その代わり
+  # サードパーティの action を増やさないよう、本体をバージョン固定でダウンロードし、チェックサムを確かめて実行する
+  # 毎回すべての履歴を検査する（数秒で終わる）。誤検知は .gitleaksignore に Fingerprint で除外する
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb # gitleaks_8.30.1_checksums.txt の linux_x64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 全履歴を取得する（既定の 1 だと最新のコミットしか検査できない）
+      - name: Install gitleaks
+        working-directory: ${{ runner.temp }}
+        run: |
+          TARBALL="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSLO "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${TARBALL}"
+          echo "${GITLEAKS_SHA256}  ${TARBALL}" | sha256sum -c -
+          tar -xzf "${TARBALL}" gitleaks
+      - name: Run gitleaks
+        run: ${{ runner.temp }}/gitleaks git --redact --no-banner -v . # --redact: 見つかった値をログに出さない
+
   # ── Phase 2: ユニットテスト（Phase 1 通過後）────────────────────────────
   unit-test:
     name: Unit Test
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, audit]
+    needs: [lint, typecheck, audit, secret-scan]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
