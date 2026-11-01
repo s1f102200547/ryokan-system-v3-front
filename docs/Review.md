@@ -32,7 +32,7 @@
 
 ### セキュリティ
 
-- `docs/Security.md` の認証境界、CSP、Cookie、Cloud Run 公開設定と矛盾しないか。
+- `docs/Security/Security.md` の認証境界、CSP、Cookie、Cloud Run 公開設定と矛盾しないか。
 - API は session 検証を必ず行っているか。ただし `/api/auth/login` は例外。
 - Cookie は `httpOnly`, `sameSite`, production `secure` を維持しているか。
 - Firebase の秘密情報や実顧客情報がコード・テスト・ログ・ドキュメントに混入していないか。

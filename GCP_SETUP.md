@@ -125,10 +125,12 @@ gcloud iam workload-identity-pools create github-pool \
   --project=YOUR_PROJECT_ID
 
 # プロバイダー作成
+# main の deploy.yml 以外のワークフローは、トークンの交換の時点で拒否する（T5-3）
 gcloud iam workload-identity-pools providers create-oidc github-provider \
   --location=global \
   --workload-identity-pool=github-pool \
-  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
+  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.ref=assertion.ref,attribute.workflow_ref=assertion.workflow_ref" \
+  --attribute-condition="assertion.repository == 'YOUR_GITHUB_ORG/YOUR_REPO_NAME' && assertion.ref == 'refs/heads/main' && assertion.workflow_ref.startsWith('YOUR_GITHUB_ORG/YOUR_REPO_NAME/.github/workflows/deploy.yml@')" \
   --issuer-uri="https://token.actions.githubusercontent.com" \
   --project=YOUR_PROJECT_ID
 
@@ -138,6 +140,29 @@ gcloud iam service-accounts add-iam-policy-binding \
   --member="principalSet://iam.googleapis.com/projects/YOUR_PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/attribute.repository/YOUR_GITHUB_ORG/YOUR_REPO_NAME" \
   --role="roles/iam.workloadIdentityUser"
 ```
+
+**作成済みの provider に条件を付ける場合:**
+
+```bash
+# 今の設定を控える（attributeMapping と attributeCondition）
+gcloud iam workload-identity-pools providers describe github-provider \
+  --location=global \
+  --workload-identity-pool=github-pool \
+  --project=YOUR_PROJECT_ID
+
+# 上の create-oidc と同じ --attribute-mapping と --attribute-condition で更新する
+gcloud iam workload-identity-pools providers update-oidc github-provider \
+  --location=global \
+  --workload-identity-pool=github-pool \
+  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.ref=assertion.ref,attribute.workflow_ref=assertion.workflow_ref" \
+  --attribute-condition="assertion.repository == 'YOUR_GITHUB_ORG/YOUR_REPO_NAME' && assertion.ref == 'refs/heads/main' && assertion.workflow_ref.startsWith('YOUR_GITHUB_ORG/YOUR_REPO_NAME/.github/workflows/deploy.yml@')" \
+  --project=YOUR_PROJECT_ID
+```
+
+> - 値は大文字・小文字を区別する。`YOUR_GITHUB_ORG/YOUR_REPO_NAME` は GitHub の表示どおりに書く。
+> - 更新したら `main` で deploy を1回動かし、auth のステップが通ることを確かめる。条件に合わないと、auth のステップが `The given credential is rejected by the attribute condition` で失敗する。そのときは `describe` で控えた条件に戻して原因を調べる。
+> - Environment `production`（T5-2）を使い始めたら、条件の末尾に ` && assertion.environment == 'production'` を加える。
+> - ほかのブランチから deploy できないことの確認は、`docs/Security/SecurityMeasures/T5.md` の「確認方法」の 2・3 で行う。
 
 ---
 
