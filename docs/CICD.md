@@ -78,7 +78,7 @@ Cloud Run settings:
 | service | `ryokan-system` |
 | repository | `ryokan` |
 | port | `8080` |
-| auth | `--allow-unauthenticated` |
+| auth | 公開（`allUsers` に `roles/run.invoker`）。サービスに付けた設定のまま。デプロイ用の SA は `roles/run.developer` で、公開の設定を変えられないので、`deploy.yml` は `--allow-unauthenticated` を渡さない |
 
 ## Required Secrets
 
