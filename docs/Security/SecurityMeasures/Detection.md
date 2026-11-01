@@ -9,5 +9,6 @@
 | 5xx・想定外のエラーの急増 | ログベースのアラート | T6 | P1 |
 | Slack 通知の失敗（今はログに出るだけで気付けない。`docs/KnownIssues.md`） | `Slack通知失敗` のログに、ログベースのアラートを付け、メールで通知する | 全般 | P1 |
 | GCP の管理操作（IAM の変更、サービスアカウントの鍵の作成、Cloud Run の設定変更） | Cloud Audit Logs（管理アクティビティのログは既定で有効）にアラートを付ける | T5 | P1 |
+| 本番へのデプロイ | `deploy.yml` の最後に、コミット・コミットした人・実行 URL を Slack に通知する（T5-9） | T5 | P1 |
 | 予算の超過 | 予算アラート（メール） | `SecurityPolicy.md` §8 の DDoS | P0 |
 | 依存パッケージの脆弱性、シークレットの漏えい | Dependabot と Secret scanning の通知をメールで受け取る | T5、T6 | P1 |

@@ -9,7 +9,7 @@
 | 段階 | 対象 | 方法 |
 |---|---|---|
 | 1（P1 に含まれる） | Firestore Rules、Cloud Run の設定（サービスアカウント、最大インスタンス数、secrets）、Dependabot、npm の設定、ZAP の除外ルール | リポジトリ内のファイル（`firestore.rules`、`deploy.yml` の flags、`.github/dependabot.yml`、`.npmrc`、ZAP の rules ファイル） |
-| 2（P5） | GCP と Firebase（`Checklist.md` の F・G、T5 の WIF・IAM・サービスアカウント、`Detection.md` のアラート、予算） | Terraform。既存のリソースは `import` ブロックで取り込む（作り直さない）。state はバージョニングを有効にした GCS バケットに置く |
+| 2（P4） | GCP と Firebase（`Checklist.md` の F・G、T5 の WIF・IAM・サービスアカウント、`Detection.md` のアラート、予算） | Terraform。既存のリソースは `import` ブロックで取り込む（作り直さない）。state はバージョニングを有効にした GCS バケットに置く |
 | 3（任意） | GitHub の設定（ルールセット、Environment、Actions の権限など） | Terraform の `integrations/github` provider。項目が少ないので、四半期ごとの手作業の点検で済ませてもよい |
 
 - **ずれの自動検知**: GitHub Actions で週1回、読み取り専用のサービスアカウントで `terraform plan -detailed-exitcode` を実行し、差分があれば通知する。

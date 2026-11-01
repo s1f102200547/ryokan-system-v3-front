@@ -11,7 +11,6 @@
 | F5 | Identity Platform のリクエストログ | 有効。Google に直接送られたログイン試行も Cloud Logging に残る（P3 でサーバー経由になるまでの、唯一の失敗記録） | T1 | P1 |
 | G1 | 既定の Compute Engine サービスアカウント | Editor 権限を外す（使っていなければ無効化） | T6 | P1 |
 | G2 | API キーの制限 | Identity Toolkit API と Token Service API だけを許可し、HTTP リファラーを本番ドメインに限定する（P3 でキーを作り直すまでの暫定措置） | T1 | P0 |
-| G3 | デプロイ用サービスアカウントの権限 | Cloud Run のデプロイ、Artifact Registry への push、実行用サービスアカウントの指定（actAs）だけ | T5 | P0 |
 | G4 | サービスアカウントの鍵 | 鍵ファイルが1つもない（WIF と ADC を使うので不要） | T5 | P0 |
 | G5 | Cloud Run の最大インスタンス数 | 小さい値（例: 2〜3）にして、DDoS のときの請求額を抑える | `SecurityPolicy.md` §8 の DDoS | P1 |
 | G6 | Artifact Registry | 脆弱性スキャンを有効にし、古いイメージを消すクリーンアップポリシーを設定する | T6 | P1 |
