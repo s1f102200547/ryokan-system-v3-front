@@ -45,7 +45,9 @@ AI エージェントには push・デプロイ・本番の操作をさせない
 
 SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 
-### Step P0-1: `main` と `development` の保護（T5-1）
+### Step P0-1: `main` と `development` の保護（T5-1）（保留）
+
+> 保留: 非公開リポジトリのルールセットは GitHub Pro 以上でないと効かない。GitHub Student Developer Pack（GitHub Pro を含む）を申請中なので、承認されてから行う。Step 1-2 の Environment `production`（Deployment branches の制限）も同じ理由で、承認後に行う。
 
 👤 開発者
 1. GitHub → Settings → Rules → Rulesets で、`main` のルールセットを作る。
@@ -70,7 +72,7 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 4. 確認は P1-2 の確認とまとめて行う。
 
 🤖 Claude
-- `GCP_SETUP.md` §6 の provider 作成コマンドを、新しい属性の対応付けと条件に書き直す。
+- `GCP_SETUP.md` §6 の provider 作成コマンドを、新しい属性の対応付けと条件に書き直す。（済）
 
 ### Step P0-3: デプロイ用のサービスアカウントの権限（T5-4）
 
@@ -125,6 +127,8 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 コミットの単位: 1つ（CI の変更）。
 
 ### Step 1-2: deploy の経路と実行用のサービスアカウント（T5-2、T6-1、T6-8、T6-10、T5-9）
+
+> Environment `production` に関わる作業（👤 の 3・4、🤖 の `environment: production`、マージ後の 4・5）は、GitHub Pro が使えるようになってから行う（P0-1 の保留を参照）。それ以外は先に進めてよい。
 
 👤 開発者（先に行う）
 1. 実行用のサービスアカウント（例: `ryokan-runtime`）を作り、Firestore と Firebase Auth に必要な権限だけを付ける。候補は `roles/datastore.user` と `roles/firebaseauth.admin`。`createSessionCookie` と `verifySessionCookie(cookie, true)` に必要な権限は、着手時に公式 docs で確かめる。
