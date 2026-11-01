@@ -59,4 +59,5 @@ jobs:
           # サーバーサイド専用の環境変数（Firebase Admin は ADC で自動認証、NEXT_PUBLIC_ 不要）
           env_vars: |
             SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}
-          flags: --allow-unauthenticated
+          # 公開の設定（allUsers に run.invoker）はサービスに付いたまま残るので、デプロイのたびには渡さない。
+          # デプロイ用の SA は run.developer で、公開の設定を変えられない（T5-4、GCP_SETUP.md §4）
