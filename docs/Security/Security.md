@@ -141,15 +141,17 @@ API 層: `QueryDateSchema`（クエリパラメータ用）・`PathDateSchema`�
 
 ## ZAP 指摘の扱い
 
-現時点で対応不要と判断しているもの:
+CI の ZAP Baseline Scan は、対応不要と決めた指摘を `.zap/rules.tsv` で除外（IGNORE）し、それ以外の指摘が1件でもあれば CI を失敗させる（T6-9）。
+
+現時点で対応不要と判断しているもの（`.zap/rules.tsv`）:
 
 | 指摘 | 判断 |
 |---|---|
-| CSP `style-src 'unsafe-inline'` [10055] | MUI/Emotion との互換性のため残す。nonce も併用する |
+| CSP `style-src 'unsafe-inline'` [10055] | MUI/Emotion との互換性のため残す。nonce も併用する。ZAP はルール ID 単位でしか除外できないので CSP 全体の検査が外れるが、本番の CSP の値は `tests/unit/lib/csp.test.ts` で固定しているので、ほかの変化はテストで気付ける |
 | Modern Web Application [10109] | SPA/SSR アプリケーションであることの情報レベル |
-| Non-Storable Content | 現状の業務画面では追加対応不要 |
+| Non-Storable Content [10049] | 現状の業務画面では追加対応不要 |
 
-ZAP の新規指摘を KnownIssues に記録する場合は、理由・影響・対応不要と判断した条件を併記する。
+新しい指摘で CI が失敗したら、直すか、対応不要と判断した理由をこの表と `.zap/rules.tsv` に加える（理由・影響・対応不要と判断した条件を書く）。`.zap/rules.tsv` は ASCII だけ・タブ区切り・空行なしで書く（ZAP のコンテナと action の読み込みのため）。
 
 ## 変更時の注意
 

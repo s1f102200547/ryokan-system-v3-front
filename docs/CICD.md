@@ -30,8 +30,9 @@
 | `typecheck` | `npx tsc --noEmit` | なし |
 | `audit` | `npm run audit:ci`（high 以上で、例外リストにないものがあれば失敗） | なし |
 | `secret-scan` | gitleaks（v8.30.1、チェックサムを確かめてダウンロード）で全履歴の秘密情報を検査する。誤検知は `.gitleaksignore` に Fingerprint で除外する（T8-1） | なし |
-| `unit-test` | `npm run test`、`npm run test:tz`（`tests/time/` を3つの TZ で実行） | lint/typecheck/audit/secret-scan |
-| `emulator-test` | Java 21・firebase-tools 15.34.1（グローバル）を入れて `npm run test:emulator`（Firestore / Auth Emulator への往復検査とファジング。`tests/emulator/`） | unit-test |
+| `semgrep` | Semgrep（v1.182.1 の Docker イメージを digest で固定）で静的解析。指摘が1件でもあれば失敗（T7-1） | なし |
+| `unit-test` | `npm run test`、`npm run test:tz`（`tests/time/` を3つの TZ で実行） | lint/typecheck/audit/secret-scan/semgrep |
+| `emulator-test` | Java 21・firebase-tools 15.34.1（グローバル）を入れて `npm run test:emulator`（Firestore / Auth Emulator への往復検査とファジング、`firestore.rules` が Client SDK の読み書きをすべて拒否することの検査。`tests/emulator/`） | unit-test |
 | `e2e` | Chromium install 後に `npm run e2e` | unit-test |
 | `zap-scan` | build/start し、`curl` でサーバーの起動を待ってから ZAP Baseline Scan（Dependabot の PR では Issue に書かない） | unit-test |
 
@@ -70,6 +71,7 @@ Node.js は 24 LTS（2028-04-30 までサポート）で、npm は Node に付�
 | 頻度 | 週1回（月曜 9:00 JST） |
 | 待つ日数 | 公開から7日（`cooldown`。`.npmrc` の `min-release-age=7` と揃える） |
 | PR の宛先 | `development` |
+| 同時に開く PR の上限 | 20（既定の5だと上限に達し、作られない PR が出たため。2026-11-02） |
 | まとめ方 | npm の minor・patch は1つの PR。npm の major は1つずつ。GitHub Actions は全部で1つの PR（SHA と行末のバージョンのコメントを書き換える） |
 | 上げないもの | Node の major（`node` のイメージ、`@types/node`）。Node を上げるときに手で揃える |
 
@@ -92,7 +94,26 @@ E2E の開発サーバーは `playwright.config.ts` の `webServer.env` で、Em
 
 現在の例外（2027-01-31 まで）: `@grpc/grpc-js` の GHSA-m9gg-hp2v-232j（high 4件はすべてこの advisory 由来）。ブラウザ用 `firebase` パッケージの `@firebase/firestore` が grpc-js を `~1.9.0` に固定しており、firebase 最新版でも解消しない。ブラウザでは `firebase/firestore` を import しておらず、脆弱性は gRPC サーバー側の問題のため、このアプリでは実行されない。
 
-ZAP Baseline Scan は `http://localhost:3000/login` を対象にし、`fail_action: warn` のため検出だけでは CI を fail させない。
+### Semgrep
+
+`semgrep` のジョブは、公式の Docker イメージ（版と digest で固定）で `semgrep scan --metrics=off --error --config p/default --config p/typescript --config p/react` を実行する（T7-1）。
+
+- ルールは実行のたびに Semgrep Registry から取得する（ルールの更新で、コードを変えていないのに新しい指摘が出ることがある）。`--metrics=off` で利用状況は送らない。
+- テストのファイル（`tests/` など）は Semgrep の既定の除外で検査しない。
+- 誤検知は、該当する行の前に理由のコメントと `nosemgrep: <ルールID>` を書いて除外する。今の除外は2つ:
+  - `src/proxy.ts` の `X-Frame-Options`（値は固定の `DENY`。Express 向けのルールの誤検知）
+  - `deploy.yml` の checkout（`workflow_run` で PR のコードを checkout するという指摘。`if:` で `main` への push の CI に限っているので、PR のコードではない）
+- 手元で試すとき: `docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:1.182.1 semgrep scan --metrics=off --config p/default --config p/typescript --config p/react`
+- Semgrep を上げるときは、公開から7日以上たった版の digest を調べて `ci.yml` の `SEMGREP_IMAGE` を書き換える（Dependabot は更新しない）。
+
+### ZAP
+
+ZAP Baseline Scan は `http://localhost:3000/login` を対象にする（T6-9）。
+
+- 対応不要と決めた指摘は `.zap/rules.tsv` で IGNORE にする（一覧と理由は `docs/Security/Security.md`「ZAP 指摘の扱い」）。
+- それ以外の指摘（WARN 以上）が1件でもあれば、`fail_action: true` で CI を失敗させる。
+- 結果は artifact `zap_scan` と、Issue「ZAP Scan Baseline Report」に残る（Dependabot の PR では Issue に書かない）。
+- ZAP のイメージは `docker_name` で版と digest を固定する（今は 2.17.0）。Dependabot は更新しないので、ZAP の新しい版が出たら手で上げる。上げると新しいルールの指摘で CI が失敗することがあるので、PR で確かめてから入れる。
 
 ## Deploy
 
