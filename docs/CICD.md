@@ -33,7 +33,7 @@
 | `unit-test` | `npm run test`、`npm run test:tz`（`tests/time/` を3つの TZ で実行） | lint/typecheck/audit/secret-scan |
 | `emulator-test` | Java 21・firebase-tools 15.34.1（グローバル）を入れて `npm run test:emulator`（Firestore / Auth Emulator への往復検査とファジング。`tests/emulator/`） | unit-test |
 | `e2e` | Chromium install 後に `npm run e2e` | unit-test |
-| `zap-scan` | build/start し、`curl` でサーバーの起動を待ってから ZAP Baseline Scan | unit-test |
+| `zap-scan` | build/start し、`curl` でサーバーの起動を待ってから ZAP Baseline Scan（Dependabot の PR では Issue に書かない） | unit-test |
 
 権限（`permissions`）は、ワークフロー全体を `contents: read` にし、`zap-scan` のジョブにだけ `issues: write` を付ける（T6-7）。`permissions` を書くと、書かなかった権限は `none` になる。非公開リポジトリでは `contents: read` がないと `actions/checkout` が「Repository not found」で失敗する。
 
@@ -60,6 +60,24 @@ Node.js は 24 LTS（2028-04-30 までサポート）で、npm は Node に付�
 依存を追加・更新して `ESTRICTALLOWSCRIPTS` が出たら、そのパッケージの install スクリプトの中身を読み、要らなければ `npm install-scripts deny <pkg>`、必要なら `npm install-scripts approve <pkg>`（版を固定して許可する）を実行し、`package.json` の変更をコミットする。
 
 `npm install -g`（CI の `firebase-tools`）はプロジェクトの `.npmrc` と `allowScripts` を読まない。
+
+### Dependabot
+
+`.github/dependabot.yml` で、`npm`・`github-actions`・`docker` の通常の更新を行う（T6-3）。
+
+| 項目 | 設定 |
+|---|---|
+| 頻度 | 週1回（月曜 9:00 JST） |
+| 待つ日数 | 公開から7日（`cooldown`。`.npmrc` の `min-release-age=7` と揃える） |
+| PR の宛先 | `development` |
+| まとめ方 | npm の minor・patch は1つの PR。npm の major は1つずつ。GitHub Actions は全部で1つの PR（SHA と行末のバージョンのコメントを書き換える） |
+| 上げないもの | Node の major（`node` のイメージ、`@types/node`）。Node を上げるときに手で揃える |
+
+セキュリティ更新の自動 PR（Dependabot security updates）は使わない。`main` 宛てにしか作れず、マージすると `main` と `development` がずれるため。警告（Dependabot alerts）だけを受け取り、`development` で直す。悪用が報告された脆弱性は7日を待たず、`npm install <pkg>@<修正版> --min-release-age=0` で上げて数日以内にデプロイする。
+
+Dependabot が PR を作ると、Slack の GitHub アプリが `#notif-git` に通知する（ワークフローは使わない）。購読は `/github subscribe s1f102200547/ryokan-system-v3-front pulls +label:"dependencies"` で、Dependabot が PR に付ける `dependencies` ラベルの PR だけを通知する。購読の確認は `/github subscribe list features`。GitHub アプリが読めるリポジトリは、このリポジトリだけにする（GitHub → Settings → Applications → Installed GitHub Apps → Slack）。
+
+Dependabot の PR で動く CI は `GITHUB_TOKEN` が読み取り専用になるので、ZAP の結果を Issue に書かない（`allow_issue_writing`）。
 
 E2E の開発サーバーは `playwright.config.ts` の `webServer.env` で、Emulator 系の変数・demo project（`demo-ryokan`）・ダミーの API key を渡して起動する（ローカルと CI で同じ設定。起動ガードを通すため）。Emulator 本体は起動せず、実リクエストは Playwright の route mock で遮断する前提。
 
@@ -88,7 +106,8 @@ Deploy job の流れ:
 4. Buildx をセットアップ
 5. Docker image を build/push。auth が作る `gha-creds-*.json` は `.dockerignore` で build に入れない（T6-10）
 6. Cloud Run へ deploy。実行用の SA は `ryokan-runtime`（Firestore と Session Cookie の発行・確認だけ。`GCP_SETUP.md` §5、T6-1）
-7. 結果（成功・失敗）、コミット、push した人、実行の URL を Slack に通知する（T5-9）
+
+デプロイの開始と結果（成功・失敗）は、Slack の GitHub アプリ（`#notif-git`）の `workflows` の購読（`/github subscribe s1f102200547/ryokan-system-v3-front workflows:{name:"Deploy to Cloud Run"}`）で Slack に通知する（T5-9）。`deploy.yml` の中では通知しない（`deploy.yml` を書き換えられても、通知は GitHub 側から届く）。CI が `main` で失敗したときも、デプロイのジョブがスキップされたことが通知される
 
 Docker image tag:
 
@@ -119,7 +138,7 @@ GitHub Actions secrets:
 | `NEXT_PUBLIC_FIREBASE_API_KEY` | build 時にクライアント bundle へ埋め込む Firebase config |
 | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | build 時にクライアント bundle へ埋め込む Firebase config |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | build 時にクライアント bundle へ埋め込む Firebase config |
-| `SLACK_WEBHOOK_URL` | Cloud Run runtime の障害通知用 webhook。`deploy.yml` のデプロイの通知にも使う |
+| `SLACK_WEBHOOK_URL` | Cloud Run runtime の障害通知用 webhook（`deploy.yml` が Cloud Run の環境変数に渡す） |
 
 Firebase Admin は Cloud Run の Application Default Credentials を使うため、service account key file は使わない。
 
@@ -154,7 +173,7 @@ npm run start
 ## 現状未実装
 
 - PR ごとの staging deploy / PR close 時の自動削除
-- CI 失敗時・deploy 完了時の GitHub Actions からの Slack 通知
+- CI 失敗時の Slack 通知（deploy の通知は Slack の GitHub アプリで行う）
 - 週次の OWASP ZAP Full Scan
 
 これらを追加する場合は、workflow とこのドキュメントを同じ PR で更新する。

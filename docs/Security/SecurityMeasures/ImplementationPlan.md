@@ -14,8 +14,8 @@ AI エージェントには push・デプロイ・本番の操作をさせない
 | 削除した文書（`Checklist.md`、`IaC.md`、`Detection.md`、`IncidentResponse.md`、`Inspection.md`、`Dependencies.md`）への参照 | 参照の文言だけ消す。中身は補わない（Step 0） |
 | T5 の表の「GCP の管理操作を通知して気付く」 | 行わない。表から消す（Step 0） |
 | T7-5（400 の Zod の詳細） | 本番では返さない（Step 1-10） |
-| T8-4（Slack の Webhook を Secret Manager に移す） | 行わない。今のまま Cloud Run の環境変数に置く。通知は専用のチャンネルで、通知に機密情報を入れなければ漏れても被害は小さい。`Rejected.md` に書く（Step 0） |
-| T5-9（デプロイの通知）の Webhook | 今の `SLACK_WEBHOOK_URL` をそのまま使う（Environment `production` に移したもの） |
+| T8-4（Slack の Webhook を Secret Manager に移す） | ~~行わない（2026-11-01）~~ → 後回しにして行う。URL の作り直しも一緒に行う（2026-11-02 変更。「後回しにした作業」） |
+| T5-9（デプロイの通知） | Slack の GitHub アプリの `workflows` の購読で通知する。`deploy.yml` の Webhook の通知は削除した（2026-11-02 変更） |
 | 大きなコード変更（T1-2〜5、P4 Terraform） | このプランでは概要だけ書き、後日、別のブランチで実装する（P2〜P4） |
 
 ## 進め方
@@ -39,6 +39,7 @@ P0 は 2026-11-01 にいったん完了とした。次の作業は後回しに�
 | GitHub Pro で Secret scanning が使えるようになるかの確認（T5-10） | 同上 | `T5.md` |
 | オーナー権限の分離とパスキー（T5-5、T5-6） | 時間のあるときに行う。オーナーを外す前に、オーナー用のアカウントで操作できることを確かめる | Step P0-4 |
 | `firebase-admin` を 13 から 14 に上げる（T6） | 内部の `uuid@9` などの moderate の脆弱性（Dependabot の警告）が消える。大きな版の変更なので、API の変更点の確認と、Emulator のテスト・E2E での確認が要る。今の脆弱性は、このアプリでは脆弱なコードが実行されない見込みなので後回しにした（2026-11-02） | `docs/KnownIssues.md` |
+| `SLACK_WEBHOOK_URL` を Secret Manager に移し、同時に Webhook の URL を作り直す（T5-9、T8） | 今は Cloud Run の環境変数に平文で入っていて、プロジェクトの閲覧権限があればコンソールで見える。また 2026-11-02 に、Cloud Run の画面の貼り付けで AI エージェントとの会話に値が渡った（通知チャンネルへの投稿しかできない URL なので、作り直しは移すときに一緒に行う）。実行用の SA に、この secret だけの `roles/secretmanager.secretAccessor` を付け、`deploy.yml` は `--set-secrets` で渡す | `GCP_SETUP.md` §5、`docs/CICD.md` |
 | Node.js を 26 LTS に上げる（T6-4） | 26 は 2026-10-28 に LTS になったばかりなので、24（2028-04-30 までサポート）にした（2026-11-02）。2027 年中に上げる | Step 1-3 |
 
 ---
@@ -164,7 +165,7 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
    - checkout と image の tag を `github.event.workflow_run.head_sha` にする（CI が検査したコミットをデプロイする）。（済）
    - deploy ジョブに `environment: production` を付ける（T5-2）。（Pro 待ち）
    - `deploy-cloudrun` に実行用のサービスアカウントを渡す（`--service-account`。名前は `env:` の `RUNTIME_SA_NAME` に置き、プロジェクト ID と組み合わせる）（T6-1）。（済）
-   - 最後に Slack への通知のステップを加える（T5-9）。（済。成功と失敗の両方を通知する）中身はコミットの SHA、コミットした人、ワークフローの実行 URL。値は `run:` に `${{ }}` で直接埋め込まず、`env:` を通して渡す（コミットした人の名前などによるスクリプトの注入を防ぐ）。通知に secret の値を入れない。
+   - 最後に Slack への通知のステップを加える（T5-9）。（2026-11-02 に削除し、Slack の GitHub アプリの `workflows` の購読に替えた。以下は削除前の内容）中身はコミットの SHA、コミットした人、ワークフローの実行 URL。値は `run:` に `${{ }}` で直接埋め込まず、`env:` を通して渡す（コミットした人の名前などによるスクリプトの注入を防ぐ）。通知に secret の値を入れない。
 2. `.dockerignore` と `.gitignore` に `gha-creds-*.json` を加える（T6-10）。（済）
 3. `docs/CICD.md`（Deploy、Required Secrets）と `GCP_SETUP.md`（§5 の実行用のサービスアカウント）を更新する。（済。§7 の secrets の置き場所は、Environment を作るときに更新する）
 
@@ -192,14 +193,20 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 
 コミットの単位: Node の更新と `.npmrc` で2つ。
 
-### Step 1-4: Dependabot（T6-3）
+### Step 1-4: Dependabot（T6-3）（🤖 済）
 
 🤖 Claude
-1. `.github/dependabot.yml` を作る。対象は `npm`、`github-actions`、`docker`。頻度は週1、`cooldown`（公開から数日待つ設定）を付ける。PR の宛先は `development` にする。
-2. 更新の手順（悪用が報告された脆弱性は数日以内に修正版をデプロイする、など）を `T6.md` に1〜2行で書くか、開発者と相談する。
+1. `.github/dependabot.yml` を作る。対象は `npm`、`github-actions`、`docker`。頻度は週1、`cooldown` は7日（`.npmrc` の `min-release-age=7` と揃える）。PR の宛先は `development` にする。（済。npm の minor・patch と GitHub Actions はまとめて1つの PR にする。Node の major（`node` のイメージ、`@types/node`）は上げない）
+2. 更新の手順を `T6.md` に書く。（済。悪用が報告された脆弱性は7日を待たず数日以内に修正版をデプロイする。それ以外は週1回の PR）
+3. `docs/CICD.md` を更新する。（済）
+4. Dependabot の PR では ZAP の結果を Issue に書かない（`GITHUB_TOKEN` が読み取り専用のため）。（済）
+
+セキュリティ更新の自動 PR は `main` 宛てにしか作れない（`target-branch` が効かない）。マージすると `main` と `development` がずれるので、使わずに警告だけを受け取る（2026-11-02 決定）。
 
 👤 開発者
-- GitHub → Settings → Code security で Dependabot alerts と security updates を有効にする。
+- GitHub → Settings → Code security で、**Dependabot alerts を有効**、**Dependabot security updates を無効**にする。
+- Dependabot の PR を Slack に通知する。Slack の GitHub アプリで `#notif-git` に `/github subscribe s1f102200547/ryokan-system-v3-front pulls +label:"dependencies"` を設定した。（済。2026-11-02）GitHub アプリが読めるリポジトリが、このリポジトリだけであることを確かめる。
+- マージのあと、Insights → Dependency graph → Dependabot で、3つの対象が読み込まれてエラーがないことを確かめる。最初の月曜に `development` 宛ての PR が来て、Slack に通知され、CI が通ることを確かめる。
 
 ### Step 1-5: ZAP の指摘で CI を失敗させる（T6-9）
 

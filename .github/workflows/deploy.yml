@@ -68,25 +68,3 @@ jobs:
           # 公開の設定（allUsers に run.invoker）はサービスに付いたまま残るので、デプロイのたびには渡さない。
           # デプロイ用の SA は run.developer で、公開の設定を変えられない（T5-4、GCP_SETUP.md §4）
           flags: --service-account=${{ env.RUNTIME_SA_NAME }}@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
-
-      # 本番へのデプロイを Slack に通知する。身に覚えのないデプロイに気付けるようにする（T5-9）
-      # 失敗も通知する。コミットのメッセージや人の名前は ${{ }} で run に直接埋め込まず env で渡す（スクリプトの注入を防ぐ）
-      # 通知に secrets の値を入れない
-      - name: Notify Slack
-        if: always()
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          JOB_STATUS: ${{ job.status }}
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          PUSHED_BY: ${{ github.event.workflow_run.actor.login }}
-          COMMIT_AUTHOR: ${{ github.event.workflow_run.head_commit.author.name }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          if [ -z "$SLACK_WEBHOOK_URL" ]; then
-            echo "SLACK_WEBHOOK_URL が未設定のため通知しない"
-            exit 0
-          fi
-          TEXT="[DEPLOY] 本番へのデプロイ: ${JOB_STATUS}
-          コミット: ${HEAD_SHA:0:7}（作成: ${COMMIT_AUTHOR}、push: ${PUSHED_BY}）
-          ${RUN_URL}"
-          jq -n --arg text "$TEXT" '{text: $text}' | curl -fsS -X POST -H 'Content-Type: application/json' --data @- "$SLACK_WEBHOOK_URL" > /dev/null
