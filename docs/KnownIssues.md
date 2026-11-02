@@ -1,18 +1,19 @@
 # Known Issues
 
-## firebase-admin の間接依存に low severity の脆弱性（8件）
+## npm audit の moderate（22件）と Dependabot の警告を対応不要としている
 
-**状態**: 未修正（対応不要）
+**状態**: 未修正（対応不要。2026-11-02 確認）
 
-**概要**
+npm audit の moderate は、実体は次の2つの advisory だけで、残りはそれを含む上位のパッケージが数えられたもの。CI（`npm run audit:ci`）は high 以上だけを見るので、どちらも CI を止めない。Dependabot のセキュリティ更新も、今の依存の範囲に直したバージョンがないため失敗する（警告は「Vulnerable code is not actually used」で、下の理由を付けて Dismiss する）。
 
-`firebase-admin` → `@google-cloud/*` → `teeny-request` → `http-proxy-agent` → `@tootallnate/once` の依存チェーンに Incorrect Control Flow Scoping の脆弱性がある。
+| advisory | 依存の経路 | 対応しない理由 | 解消する方法 |
+|---|---|---|---|
+| `uuid` GHSA-w5hq-g745-h8pq（v3・v5・v6 に `buf` を渡したときの範囲外書き込み） | `firebase-admin` → `@google-cloud/firestore`・`@google-cloud/storage` → `google-gax`・`teeny-request`・`retry-request` → `uuid@9` | これらは ID の生成（v4）に使っていて、`buf` を渡す v3・v5・v6 の呼び出しはない見込み。アプリが直接使う `uuid` は修正済みの 14 | `firebase-admin` を 14 に上げる（大きな版の変更なので後回し。`docs/Security/SecurityMeasures/ImplementationPlan.md` の「後回しにした作業」） |
+| `minimatch` GHSA-g3hv-75wg-m249（パターンによる DoS） | `eslint`・`eslint-config-next` → `minimatch@3` | 開発用のツール（lint）だけが使い、本番のイメージには入らない。攻撃者が作ったパターンを渡されることもない | `eslint` 側の依存の更新を待つ |
 
-**対応しない理由**
-
-- severity が low で、旅館アプリではこのコードパスを直接使わない
-- `npm audit fix --force` を実行すると `firebase-admin` が `10.3.0` にダウングレードされ、Firestore / Auth の API が破壊的に変わる
-- 修正は `firebase-admin` 側の依存更新待ち
+- `npm audit fix --force` は使わない。`firebase-admin` や `eslint-config-next` を大きく古い版に下げる案になり、API が壊れる。
+- high の `@grpc/grpc-js` は、下の「npm audit の high 4件を例外として許可している」を参照。
+- 以前ここにあった `@tootallnate/once` の low（8件）は、依存の更新で出なくなった。
 
  ## DBスキーマのDate Format が統一されてない
 
