@@ -208,6 +208,8 @@ Emulator (demo project) <──────────────────�
 
 ### 8.1 使い方
 
+前提: Node.js 24 と、それに付属の npm 11（CI・Docker と同じ。npm 12 は入れない）。依存は `npm ci` で入れる。`.npmrc` の設定で、公開から7日たっていない版は入らず、`package.json` の `allowScripts` にない install スクリプトがあると失敗する（`docs/CICD.md`「依存のインストール」）。
+
 ```bash
 cp .env.development.example .env.development   # 初回のみ。本番の鍵は置かない（置くと起動が拒否される）
 make          # Emulator 起動 → データ投入 → 開発サーバー（http://127.0.0.1:3000）。Ctrl+C で全部止まる
