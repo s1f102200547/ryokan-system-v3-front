@@ -220,15 +220,15 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 👤 開発者
 - PR の CI の `OWASP ZAP Baseline Scan` が通ることを確かめる。失敗したら、ログの `WARN-NEW:` の行（指摘の名前と ID）を Claude に伝える。直すか、理由を付けて `.zap/rules.tsv` に加えるかを決める。
 
-### Step 1-6: `firestore.rules` の管理とテスト（T6-2）
+### Step 1-6: `firestore.rules` の管理とテスト（T6-2）（🤖 済）
 
 🤖 Claude
-1. 全拒否の `firestore.rules` を作り、`firebase.json` から参照する。
-2. `tests/emulator/` に、Client SDK（ID トークンあり・なし）から `guestInfoV2` と `dailyInfo` の読み書きが拒否されることを確かめるテストを加える。使うライブラリ（`@firebase/rules-unit-testing` を devDependencies に加えるか、今ある `firebase` で書くか）は着手時に相談する。
+1. 全拒否の `firestore.rules` を作り、`firebase.json` から参照する。（済。Emulator（`make`、`npm run test:emulator`）もこのルールで起動する。サーバー・シード・匿名化は Admin SDK なので影響しない）
+2. `tests/emulator/firestoreRules.test.ts` に、Client SDK（ログインあり・なし）から `guestInfoV2`、`dailyInfo`、ほかのコレクションの読み取り・一覧・作成・更新・削除が `permission-denied` になることと、Admin SDK は読み書きできることのテストを加える。（済。依存を増やさないよう、`@firebase/rules-unit-testing` ではなく今の `firebase` で書いた（公式の 6.x は firebase 13 専用で、firebase を上げる理由もないため。2026-11-02 決定）。ルールを一時的に全許可にするとテストが失敗することを確かめた）
 
 👤 開発者
-1. 本番のルールとリポジトリの `firestore.rules` が同じであることを Firebase コンソールで確かめる。
-2. ルールの本番への反映は手で行う（`firebase deploy --only firestore:rules`）。エージェントには実行させない。
+1. 本番のルールとリポジトリの `firestore.rules` が同じであることを Firebase コンソール（Firestore → ルール）で確かめる。違えば、リポジトリの内容を手で反映する。
+2. ルールの本番への反映は手で行う（`firebase deploy --only firestore:rules --project ryokan-system`）。エージェントには実行させない。
 
 ### Step 1-7: Semgrep と gitleaks（T7-1、T8-1、T8-5）
 

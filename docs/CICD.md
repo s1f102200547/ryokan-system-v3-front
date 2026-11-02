@@ -31,7 +31,7 @@
 | `audit` | `npm run audit:ci`（high 以上で、例外リストにないものがあれば失敗） | なし |
 | `secret-scan` | gitleaks（v8.30.1、チェックサムを確かめてダウンロード）で全履歴の秘密情報を検査する。誤検知は `.gitleaksignore` に Fingerprint で除外する（T8-1） | なし |
 | `unit-test` | `npm run test`、`npm run test:tz`（`tests/time/` を3つの TZ で実行） | lint/typecheck/audit/secret-scan |
-| `emulator-test` | Java 21・firebase-tools 15.34.1（グローバル）を入れて `npm run test:emulator`（Firestore / Auth Emulator への往復検査とファジング。`tests/emulator/`） | unit-test |
+| `emulator-test` | Java 21・firebase-tools 15.34.1（グローバル）を入れて `npm run test:emulator`（Firestore / Auth Emulator への往復検査とファジング、`firestore.rules` が Client SDK の読み書きをすべて拒否することの検査。`tests/emulator/`） | unit-test |
 | `e2e` | Chromium install 後に `npm run e2e` | unit-test |
 | `zap-scan` | build/start し、`curl` でサーバーの起動を待ってから ZAP Baseline Scan（Dependabot の PR では Issue に書かない） | unit-test |
 
