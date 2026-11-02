@@ -28,6 +28,7 @@ import {
   countOptions,
   DINNER_NONE,
   MAX_NIGHTS,
+  RESERVATION_LIMITS,
 } from '@/constants/guestInfo'
 import { ROOM_NUMBERS } from '@/constants/room'
 import type { Reservation } from '@/types/reservation'
@@ -292,7 +293,7 @@ export const ReservationEditorList = memo(function ReservationEditorList({ local
             <Box key={i} sx={{ px: 1, pt: 1.15, pb: 0.65 }}>
               <TextField
                 label={`Day ${i + 1}`}
-                slotProps={{ inputLabel: { shrink: true } }}
+                slotProps={{ inputLabel: { shrink: true }, htmlInput: { maxLength: RESERVATION_LIMITS.timetableInfoLength } }}
                 value={localData.timetable_info[i] ?? ''}
                 onChange={(e) => {
                   const arr = [...localData.timetable_info]

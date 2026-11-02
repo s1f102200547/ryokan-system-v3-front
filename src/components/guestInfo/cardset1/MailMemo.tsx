@@ -7,6 +7,7 @@ import AddIcon from '@mui/icons-material/Add'
 import RemoveIcon from '@mui/icons-material/Remove'
 import type { MailMemoEntry } from '@/types/guestInfo'
 import { getTodayJST, toMonthDay } from '@/lib/dateUtils'
+import { RESERVATION_LIMITS as L } from '@/constants/guestInfo'
 import type { BookingSite } from '@/types/guestInfo'
 
 type Props = {
@@ -98,7 +99,7 @@ export function MailMemo({ bookingSite, items, onChange }: Props) {
                 placeholder="MM" value={item.month}
                 onChange={(e) => updateField(idx, 'month', e.target.value)}
                 size="small" variant="standard"
-                slotProps={{ input: { disableUnderline: true } }}
+                slotProps={{ input: { disableUnderline: true }, htmlInput: { maxLength: L.mailMemoMonthDayLength } }}
                 sx={{ width: '1.4ch', ...tinyDateInput }}
               />
               <Box sx={{ fontSize: '0.7rem', color: 'grey.500', lineHeight: 1.1, mx: 0 }}>/</Box>
@@ -106,21 +107,21 @@ export function MailMemo({ bookingSite, items, onChange }: Props) {
                 placeholder="DD" value={item.day}
                 onChange={(e) => updateField(idx, 'day', e.target.value)}
                 size="small" variant="standard"
-                slotProps={{ input: { disableUnderline: true } }}
+                slotProps={{ input: { disableUnderline: true }, htmlInput: { maxLength: L.mailMemoMonthDayLength } }}
                 sx={{ width: '2ch', ...tinyDateInput }}
               />
               <TextField
                 placeholder="source" value={item.source}
                 onChange={(e) => updateField(idx, 'source', e.target.value)}
                 size="small" variant="standard"
-                slotProps={{ input: { disableUnderline: true } }}
+                slotProps={{ input: { disableUnderline: true }, htmlInput: { maxLength: L.mailMemoSourceLength } }}
                 sx={{ width: '6ch', ...tinyInput, ml: 0.5 }}
               />
               <TextField
                 placeholder="Name" value={item.name}
                 onChange={(e) => updateField(idx, 'name', e.target.value)}
                 size="small" variant="standard"
-                slotProps={{ input: { disableUnderline: true } }}
+                slotProps={{ input: { disableUnderline: true }, htmlInput: { maxLength: L.mailMemoNameLength } }}
                 sx={{ flex: 1, ...tinyInput }}
               />
             </Box>
@@ -130,7 +131,7 @@ export function MailMemo({ bookingSite, items, onChange }: Props) {
               placeholder="Summary" value={item.summary}
               onChange={(e) => updateField(idx, 'summary', e.target.value)}
               fullWidth variant="standard"
-              slotProps={{ input: { disableUnderline: true } }}
+              slotProps={{ input: { disableUnderline: true }, htmlInput: { maxLength: L.mailMemoSummaryLength } }}
               sx={{ '& .MuiInputBase-input': { fontSize: '0.9rem', lineHeight: 1.1, color: '#202124', p: 0, mt: '-15px' } }}
             />
 
@@ -139,7 +140,7 @@ export function MailMemo({ bookingSite, items, onChange }: Props) {
               placeholder="Text" value={item.text}
               onChange={(e) => updateField(idx, 'text', e.target.value)}
               multiline minRows={1} maxRows={4} fullWidth variant="standard" size="small"
-              slotProps={{ input: { disableUnderline: true } }}
+              slotProps={{ input: { disableUnderline: true }, htmlInput: { maxLength: L.mailMemoTextLength } }}
               sx={{ '& .MuiInputBase-input': { fontSize: '0.75rem', lineHeight: 1.1, whiteSpace: 'pre-wrap', pl: '5px', color: '#4d5156' } }}
             />
           </Box>
@@ -149,8 +150,10 @@ export function MailMemo({ bookingSite, items, onChange }: Props) {
       {/* 追加ボタン */}
       <Box sx={{ display: 'flex', alignItems: 'flex-start', mt: 1 }}>
         <Box sx={{ position: 'relative', width: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', mr: 2 }}>
+          {/* API の上限（RESERVATION_LIMITS.mailMemoItems）に達したら追加できない */}
           <IconButton
-            size="small" onClick={addItem}
+            size="small" onClick={addItem} disabled={items.length >= L.mailMemoItems}
+            aria-label="履歴を追加"
             sx={{ mt: '2px', p: 0.4, width: 18, height: 18, borderRadius: '50%', bgcolor: 'rgba(0,0,0,0.05)', transition: 'transform 0.2s, box-shadow 0.2s, background-color 0.2s', '&:hover': { transform: 'scale(1.1)', boxShadow: 2, bgcolor: 'rgba(0,0,0,0.1)' } }}
           >
             <AddIcon fontSize="inherit" />

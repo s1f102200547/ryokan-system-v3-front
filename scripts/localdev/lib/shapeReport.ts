@@ -108,7 +108,7 @@ function sortKeys<T>(record: Record<string, T>): Record<string, T> {
 }
 
 // 大きさのレポート（Step 1-9 / T7-4 の上限を決めるため）: フィールドごとの文字列の最大長と配列の最大件数だけを数える。値は含めない
-// 文字数は Zod の .max() と同じ UTF-16 の length で数える。
+// 文字数は UTF-16 の length で数える（画面の maxLength と同じ。Zod 4 のコードポイントの数以上になるので、上限を決めるには安全側）。
 // ID の振り直しやシャッフルで文字数が変わるので、匿名化しても変わらない形のレポートとは分ける
 export type FieldSize = { maxLength?: number; maxItems?: number }
 

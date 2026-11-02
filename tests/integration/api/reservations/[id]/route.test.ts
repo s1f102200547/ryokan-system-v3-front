@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { PATCH } from '@/app/api/reservations/[id]/route'
 import { InfraError } from '@/types/errors'
+import { MAX_NIGHTS, RESERVATION_LIMITS } from '@/constants/guestInfo'
 import { setupFakeToday } from '@tests/utils/routeTestHelper'
 
 vi.mock('@/application/guestInfo/updateReservationCommand')
@@ -81,6 +82,28 @@ describe('PATCH /api/reservations/[id]', () => {
       ['open_air_bath_time', { open_air_bath_time: ['7:30', null] }],
     ])('許容値の %s は通す', async (_label, body) => {
       const res = await PATCH(makeRequest(body), { params })
+      expect(res.status).toBe(200)
+    })
+  })
+
+  // 全フィールドの上限ちょうど・上限+1 は tests/unit/constraints/reservationLimits.test.ts
+  describe('入力の上限（T7-4）', () => {
+    it.each([
+      ['other_note が上限+1', { other_note: 'あ'.repeat(RESERVATION_LIMITS.otherNoteLength + 1) }],
+      ['timetable_info の件数が上限+1', { timetable_info: Array(MAX_NIGHTS + 1).fill('') }],
+      ['mail_memo の件数が上限+1', {
+        mail_memo: Array.from({ length: RESERVATION_LIMITS.mailMemoItems + 1 }, () => (
+          { month: '1', day: '1', name: '', summary: '', text: '', source: '' }
+        )),
+      }],
+    ])('%s で400で、Command を呼ばない', async (_label, body) => {
+      const res = await PATCH(makeRequest(body), { params })
+      expect(res.status).toBe(400)
+      expect(mockCommand).not.toHaveBeenCalled()
+    })
+
+    it('上限ちょうどは200', async () => {
+      const res = await PATCH(makeRequest({ other_note: 'あ'.repeat(RESERVATION_LIMITS.otherNoteLength) }), { params })
       expect(res.status).toBe(200)
     })
   })

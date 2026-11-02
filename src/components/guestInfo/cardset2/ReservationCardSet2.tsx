@@ -19,6 +19,7 @@ import {
   tourismOptions,
   ageOptions,
   A_TAX_RATE_PER_PERSON_PER_NIGHT,
+  RESERVATION_LIMITS,
 } from '@/constants/guestInfo'
 import { isATaxExempt, calcATax } from '@/domain/reservation/bookingSitePolicy'
 import { dateDiff } from '@/lib/dateUtils'
@@ -188,7 +189,7 @@ export function ReservationCardSet2({ localData, onFieldChange, onBlurFlush }: P
               value={localData.profession}
               onChange={(e) => onFieldChange('profession', e.target.value)}
               size="small"
-              slotProps={{ inputLabel: { shrink: true } }}
+              slotProps={{ inputLabel: { shrink: true }, htmlInput: { maxLength: RESERVATION_LIMITS.professionLength } }}
             />
           )}
         </Box>
@@ -238,7 +239,7 @@ export function ReservationCardSet2({ localData, onFieldChange, onBlurFlush }: P
           value={localData.other_note}
           onChange={(e) => onFieldChange('other_note', e.target.value)}
           size="small" fullWidth multiline minRows={1}
-          slotProps={{ inputLabel: { shrink: true } }}
+          slotProps={{ inputLabel: { shrink: true }, htmlInput: { maxLength: RESERVATION_LIMITS.otherNoteLength } }}
           placeholder="上記以外で伺ったことがあれば記述（改行可能）"
           sx={{ width: '100%' }}
         />

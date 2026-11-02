@@ -84,7 +84,7 @@ describe('buildSizeReport（T7-4）', () => {
     expect(report.collections.dailyInfo.updated_at).toEqual({ maxLength: 25 })
   })
 
-  it('文字数は Zod の .max() と同じ UTF-16 の length で数える', () => {
+  it('文字数は画面の maxLength と同じ UTF-16 の length で数える', () => {
     const input = docs()
     input.guestInfoV2[0].data.guest_name = '𠮷野' // 𠮷 はサロゲートペア（length 2）
     expect(buildSizeReport(input, 'x').collections.guestInfoV2.guest_name).toEqual({ maxLength: 3 })

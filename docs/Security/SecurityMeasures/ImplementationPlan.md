@@ -256,19 +256,19 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
    （済。外部の接続先を加えたときの CSP・COEP・CORP の更新も加えた）
 2. `docs/LocalDevelopment.md` の `anonymize` の手順に「実行中は AI エージェントを動かさない」を加える（T8-3）。（済。要件 ANON-12 として実行条件の表に加え、§8.1 の使い方にも書いた）
 
-### Step 1-9: 予約 API の上限（T7-4）
+### Step 1-9: 予約 API の上限（T7-4）（🤖 済）
 
 AGENTS.md の順（テスト → 実装）で進める。
 
 🤖 Claude
 1. `scripts/localdev/lib/shapeReport.ts` を拡張し、フィールドごとの文字列の最大長と配列の最大件数も数える（値は含めない）。（済。`buildSizeReport` を加え、`.localdev/reports/size-latest.json` に出す。匿名化で文字数が変わるので形のレポートとは分けた。LocalDevelopment.md ANON-13）
-2. 👤 の計測の結果を受けて、上限を `src/constants/` に置く。
-3. `tests/unit/constraints/` と `tests/integration/api/reservations/` に、上限ちょうど・上限+1 のテストを書く。
-4. `src/lib/api/reservationSchemas.ts` の書き込み側（`ReservationPatchBodySchema`、`MailMemoEntrySchema`、`NewReservationBodySchema`）に上限を入れる。読み取り側（Infra の Zod）には入れない。
-5. 画面の入力欄に同じ上限を付けるかは相談する（付けないと、上限を超えたときに保存が 400 で失敗する）。
+2. 👤 の計測の結果を受けて、上限を `src/constants/` に置く。（済。`src/constants/guestInfo.ts` の `RESERVATION_LIMITS` と `MAX_ADULT_COUNT`。泊別配列の件数は `MAX_NIGHTS`。値は本番の最大の約 2〜5 倍）
+3. `tests/unit/constraints/` と `tests/integration/api/reservations/` に、上限ちょうど・上限+1 のテストを書く。（済。`reservationLimits.test.ts` と PATCH の integration test）
+4. `src/lib/api/reservationSchemas.ts` の書き込み側（`ReservationPatchBodySchema`、`MailMemoEntrySchema`、`NewReservationBodySchema`）に上限を入れる。読み取り側（Infra の Zod）には入れない。（済。`NewReservationBodySchema` はすでに上限があったので変えていない。`group_type` などは選択肢の値に絞らず、文字数の上限だけにした）
+5. 画面の入力欄に同じ上限を付けるかは相談する（付けないと、上限を超えたときに保存が 400 で失敗する）。（済。付けると決めた。`maxLength` を付け、`mail_memo` は上限の件数で追加ボタンを押せなくした。E2E（`e2e/guestInfo.spec.ts`「入力の上限」）で、超えた分が入らず上限ちょうどで保存されること、追加ボタンが押せなくなることを確かめる）
 
 👤 開発者
-- AI エージェントを止めた状態で `npm run anonymize` を実行し、形のレポートから最大長・最大件数を Claude に伝える。
+- AI エージェントを止めた状態で `npm run anonymize` を実行し、形のレポートから最大長・最大件数を Claude に伝える。（済。2026-11-02）
 
 ### Step 1-10: 400 で Zod の詳細を返さない（T7-5）
 
