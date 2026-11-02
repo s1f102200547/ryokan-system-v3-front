@@ -39,6 +39,7 @@ P0 は 2026-11-01 にいったん完了とした。次の作業は後回しに�
 | GitHub Pro で Secret scanning が使えるようになるかの確認（T5-10） | 同上 | `T5.md` |
 | オーナー権限の分離とパスキー（T5-5、T5-6） | 時間のあるときに行う。オーナーを外す前に、オーナー用のアカウントで操作できることを確かめる | Step P0-4 |
 | `firebase-admin` を 13 から 14 に上げる（T6） | 内部の `uuid@9` などの moderate の脆弱性（Dependabot の警告）が消える。大きな版の変更なので、API の変更点の確認と、Emulator のテスト・E2E での確認が要る。今の脆弱性は、このアプリでは脆弱なコードが実行されない見込みなので後回しにした（2026-11-02） | `docs/KnownIssues.md` |
+| Node.js を 26 LTS に上げる（T6-4） | 26 は 2026-10-28 に LTS になったばかりなので、24（2028-04-30 までサポート）にした（2026-11-02）。2027 年中に上げる | Step 1-3 |
 
 ---
 
@@ -176,17 +177,18 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 
 コミットの単位: `deploy.yml` と docs、`.dockerignore`/`.gitignore` の2つ。
 
-### Step 1-3: Node.js 24 と `.npmrc`（T6-4、T6-5）
+### Step 1-3: Node.js 24 と `.npmrc`（T6-4、T6-5）（🤖 済）
 
 🤖 Claude
-1. `Dockerfile` の3つの stage を `node:24-alpine` にする。`ci.yml` の `node-version` を 24 にする。`@types/node` を `^24` にする。
-2. Node 24 に付いている npm のバージョンを確かめる。`min-release-age` は npm 11.10 以降でしか効かないので、足りなければ CI と Dockerfile で npm を固定のバージョンに上げるかを相談する。
-3. `.npmrc` に `min-release-age=7` と `ignore-scripts=true` を書く。Dockerfile の `deps` stage で `.npmrc` も COPY する（今は `package.json` と `package-lock.json` だけ）。
-4. `ignore-scripts=true` で壊れるものがないかを確かめる: `npm ci` → `lint` → `tsc` → `test` → `build` → `e2e` → `test:emulator`。install スクリプトを使うパッケージ（`esbuild`、`unrs-resolver`、`sharp` など）は、`npm ci` のログと `npm query ':attr(scripts, [postinstall])'` などで洗い出し、必要なものだけ扱いを決める。
-5. `docs/CICD.md`、`docs/LocalDevelopment.md`（Node のバージョン）を更新する。
+1. `Dockerfile` の3つの stage を `node:24-alpine` にする。`ci.yml` の `node-version` を 24 にする。`@types/node` を `^24` にする。（済。イメージは digest で固定した（Node 24.22.2 / npm 11.19.1 / Alpine 3.24）。`@types/node` は 24.19.2）
+2. Node 24 に付いている npm のバージョンを確かめる。（済。npm 11.19.1 で、`min-release-age`（11.10 以降）が使えるので、npm を別に上げない。npm 12 は LTS の Node に付属しておらず、12.0.0 が 2026-07 に出たばかりなので使わない（2026-11-02 決定））
+3. `.npmrc` に `min-release-age=7` を書く。install スクリプトは `ignore-scripts=true` ではなく、`package.json` の `allowScripts` と `.npmrc` の `strict-allow-scripts=true` で止める（2026-11-02 決定。新しく install スクリプトを持つ依存が入ったときに、黙って止めずに `npm ci` を失敗させて気付けるため）。Dockerfile の `deps` stage で `.npmrc` も COPY する。（済）
+4. 壊れるものがないかを確かめる。（済。install スクリプトを持つ6つ（`@firebase/util`、`protobufjs`、`esbuild`、`unrs-resolver`、`fsevents` ×2）を `false` にして、npm 11.19.1 の `npm ci` で1つも実行されないこと、`allowScripts` から外すと `ESTRICTALLOWSCRIPTS` で失敗することを確かめた。ローカル（Node 22）で lint・tsc・unit・TZ・build・E2E・Emulator が通った。Node 24 では CI で確かめる）
+5. `docs/CICD.md`（依存のインストール、Docker）、`docs/LocalDevelopment.md`（Node のバージョン）を更新する。（済）
 
 👤 開発者
-- 開発 PC の Node を 24 にする。今の開発 PC は Node 22 / npm 12 なので、npm の扱いも合わせる。
+- 開発 PC の Node を 24 にし、npm は付属の 11 を使う（別に入れた npm 12 は外す）。`npm -v` が 11 系であることを確かめてから `npm ci` で入れ直す。
+- CI（Node 24）と、マージ後のデプロイ（Docker の Node 24）が通ることを確かめる。
 
 コミットの単位: Node の更新と `.npmrc` で2つ。
 
