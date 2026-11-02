@@ -138,12 +138,12 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 
 🤖 Claude
 1. `ci.yml` の全体の `permissions` を `contents: read` にし、`zap-scan` のジョブにだけ `issues: write` を付ける。（済。非公開リポジトリで checkout が失敗したため先に行った）
-2. `ci.yml` と `deploy.yml` の全アクションをコミット SHA に固定し、行末にバージョンをコメントで残す（`pinact` を使うか手で調べる。`pinact` を開発 PC に入れるかは着手時に相談する）。
-3. `npx wait-on` と `npm install -g firebase-tools@15` を、正確なバージョンに固定する。
-4. `docs/CICD.md` を更新する。
+2. `ci.yml` と `deploy.yml` の全アクションをコミット SHA に固定し、行末にバージョンをコメントで残す。（済。`pinact` は入れず、GitHub の API でタグの SHA を調べた。メジャー版は今のまま（同じメジャー版の中の最新版）にし、メジャー版を上げるのは Dependabot に任せる）
+3. `npx wait-on` と `npm install -g firebase-tools@15` を、正確なバージョンに固定する。（済。`firebase-tools@15.34.1`（公開から7日以上の最新）。`wait-on` は `curl` のループに置き換えて依存をなくした）
+4. `docs/CICD.md` を更新する。（済）
 
 👤 開発者
-- GitHub → Settings → Actions → General で、アクションを SHA に固定することを必須にする（設定項目の名前は着手時に確認）。
+- GitHub → Settings → Actions → General で、アクションを SHA に固定することを必須にする（「Require actions to be pinned to a full-length commit SHA」。無料プランの非公開リポジトリで使えるかを確かめる）。
 
 コミットの単位: 1つ（CI の変更）。
 

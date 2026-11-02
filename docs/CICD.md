@@ -31,11 +31,18 @@
 | `audit` | `npm run audit:ci`（high 以上で、例外リストにないものがあれば失敗） | なし |
 | `secret-scan` | gitleaks（v8.30.1、チェックサムを確かめてダウンロード）で全履歴の秘密情報を検査する。誤検知は `.gitleaksignore` に Fingerprint で除外する（T8-1） | なし |
 | `unit-test` | `npm run test`、`npm run test:tz`（`tests/time/` を3つの TZ で実行） | lint/typecheck/audit/secret-scan |
-| `emulator-test` | Java 21・firebase-tools 15（グローバル）を入れて `npm run test:emulator`（Firestore / Auth Emulator への往復検査とファジング。`tests/emulator/`） | unit-test |
+| `emulator-test` | Java 21・firebase-tools 15.34.1（グローバル）を入れて `npm run test:emulator`（Firestore / Auth Emulator への往復検査とファジング。`tests/emulator/`） | unit-test |
 | `e2e` | Chromium install 後に `npm run e2e` | unit-test |
-| `zap-scan` | build/start 後に ZAP Baseline Scan | unit-test |
+| `zap-scan` | build/start し、`curl` でサーバーの起動を待ってから ZAP Baseline Scan | unit-test |
 
 権限（`permissions`）は、ワークフロー全体を `contents: read` にし、`zap-scan` のジョブにだけ `issues: write` を付ける（T6-7）。`permissions` を書くと、書かなかった権限は `none` になる。非公開リポジトリでは `contents: read` がないと `actions/checkout` が「Repository not found」で失敗する。
+
+action とツールのバージョンは固定する（T6-6）。
+
+- action はコミットの SHA で指定し、行末にバージョンをコメントで書く（例: `actions/checkout@<SHA> # v4.4.0`）。タグは付け替えられるが、SHA は変えられない。
+- CI でインストールするツールも正確なバージョンを書く（`firebase-tools@15.34.1`）。公開から7日以上たったバージョンを選ぶ。
+- サーバーの起動待ちは、`npx wait-on` ではなく `curl` のループで行う（`npx` は実行のたびに最新版を取得するため）。
+- 更新するときは、新しいバージョンのタグが指すコミットの SHA を調べて書き換える。
 
 E2E の開発サーバーは `playwright.config.ts` の `webServer.env` で、Emulator 系の変数・demo project（`demo-ryokan`）・ダミーの API key を渡して起動する（ローカルと CI で同じ設定。起動ガードを通すため）。Emulator 本体は起動せず、実リクエストは Playwright の route mock で遮断する前提。
 
@@ -58,7 +65,7 @@ ZAP Baseline Scan は `http://localhost:3000/login` を対象にし、`fail_acti
 
 Deploy job の流れ:
 
-1. `actions/checkout@v4`
+1. `actions/checkout`（v4.4.0 の SHA に固定）
 2. Workload Identity Federation で GCP 認証
 3. Artifact Registry 用に Docker 認証を設定
 4. Buildx をセットアップ
