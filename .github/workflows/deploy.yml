@@ -11,18 +11,24 @@ env:
   SERVICE: ryokan-system
   REGISTRY: asia-northeast1-docker.pkg.dev
   REPO: ryokan   # Artifact Registry のリポジトリ名
+  RUNTIME_SA_NAME: ryokan-runtime # Cloud Run の実行用の SA（Firestore と Firebase Auth に必要な権限だけ。T6-1、GCP_SETUP.md §5）
 
 jobs:
   deploy:
     name: Build & Deploy
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion == 'success'
+    # push で動いた CI が成功したときだけデプロイする（PR の CI では動かさない。T6-8）
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     permissions:
       contents: read
       id-token: write  # Workload Identity Federation に必要
 
     steps:
+      # CI が検査したコミットを取得する。workflow_run の github.sha は「deploy が始まった時点の main の最新」で、
+      # CI のあとに push されたコミットを指すことがあるため、head_sha を使う（T6-8）
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0 / ソースコードを取得
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       # Workload Identity Federation で GCP に認証（キーファイル不要）
       - id: auth
@@ -41,7 +47,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ github.event.workflow_run.head_sha }}
           # NEXT_PUBLIC_ はビルド時に埋め込まれるため build-args で渡す
           build-args: |
             NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
@@ -55,9 +61,32 @@ jobs:
         with:
           service: ${{ env.SERVICE }}
           region: ${{ env.REGION }}
-          image: ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ github.sha }}
+          image: ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ github.event.workflow_run.head_sha }}
           # サーバーサイド専用の環境変数（Firebase Admin は ADC で自動認証、NEXT_PUBLIC_ 不要）
           env_vars: |
             SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}
           # 公開の設定（allUsers に run.invoker）はサービスに付いたまま残るので、デプロイのたびには渡さない。
           # デプロイ用の SA は run.developer で、公開の設定を変えられない（T5-4、GCP_SETUP.md §4）
+          flags: --service-account=${{ env.RUNTIME_SA_NAME }}@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+
+      # 本番へのデプロイを Slack に通知する。身に覚えのないデプロイに気付けるようにする（T5-9）
+      # 失敗も通知する。コミットのメッセージや人の名前は ${{ }} で run に直接埋め込まず env で渡す（スクリプトの注入を防ぐ）
+      # 通知に secrets の値を入れない
+      - name: Notify Slack
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          JOB_STATUS: ${{ job.status }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          PUSHED_BY: ${{ github.event.workflow_run.actor.login }}
+          COMMIT_AUTHOR: ${{ github.event.workflow_run.head_commit.author.name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "SLACK_WEBHOOK_URL が未設定のため通知しない"
+            exit 0
+          fi
+          TEXT="[DEPLOY] 本番へのデプロイ: ${JOB_STATUS}
+          コミット: ${HEAD_SHA:0:7}（作成: ${COMMIT_AUTHOR}、push: ${PUSHED_BY}）
+          ${RUN_URL}"
+          jq -n --arg text "$TEXT" '{text: $text}' | curl -fsS -X POST -H 'Content-Type: application/json' --data @- "$SLACK_WEBHOOK_URL" > /dev/null

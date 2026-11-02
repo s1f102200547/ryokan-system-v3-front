@@ -14,3 +14,6 @@ playwright-report
 coverage
 .env*
 !.env.example
+
+# google-github-actions/auth が作業ディレクトリに作る GCP の認証ファイル。Docker build や Git に入れない（T6-10）
+gha-creds-*.json

@@ -55,7 +55,7 @@ gcloud iam service-accounts create github-actions-deployer \
 
 ```bash
 SA=github-actions-deployer@YOUR_PROJECT_ID.iam.gserviceaccount.com
-RUNTIME_SA=YOUR_PROJECT_NUMBER-compute@developer.gserviceaccount.com  # 実行用の SA（T6-1 で専用の SA に替える）
+RUNTIME_SA=ryokan-runtime@YOUR_PROJECT_ID.iam.gserviceaccount.com  # 実行用の SA。§5 で作る（新しく作る場合は、下の serviceAccountUser の付与は §5 のあとに行う）
 
 # Cloud Run のサービス ryokan-system にだけ、デプロイの権限
 # run.developer は公開設定（IAM ポリシー）を変えられない。deploy.yml で --allow-unauthenticated を渡さないのはそのため
@@ -79,7 +79,6 @@ gcloud iam service-accounts add-iam-policy-binding $RUNTIME_SA \
   --project=YOUR_PROJECT_ID
 ```
 
-> - `YOUR_PROJECT_NUMBER` は `gcloud projects describe YOUR_PROJECT_ID --format="value(projectNumber)"` で確認。
 > - Cloud Run のサービスへの付与は、サービスが存在しないとできない。新しく作る場合は、最初の1回だけオーナーが手でデプロイし、公開の設定（`allUsers` に `roles/run.invoker`）もそのときに付ける。
 
 **以前の手順でプロジェクト全体に付けていた場合**は、上を付けたあとに外す（先に外すと、その間のデプロイが失敗する）。
@@ -100,17 +99,54 @@ gcloud projects remove-iam-policy-binding YOUR_PROJECT_ID \
 
 ---
 
-## 5. GCP — Cloud Run ランタイム SA に Firebase 権限付与
+## 5. GCP — Cloud Run の実行用 SA（ryokan-runtime）
 
-Cloud Run 上で Firebase Admin SDK が ADC（Application Default Credentials）経由で動作するために必要。
+Cloud Run 上の Firebase Admin SDK は、ADC（Application Default Credentials）でこの SA の権限を使う。コンテナが乗っ取られたときに攻撃者が使える権限になるので、**アプリが使う分だけ**を付ける（T6-1）。既定の Compute Engine の SA（`roles/firebase.admin` や Editor を持つことがある）は使わない。
+
+| アプリがすること | 権限 |
+|---|---|
+| Firestore の読み書き | `roles/datastore.user` |
+| ログイン時の Session Cookie の発行（`createSessionCookie`） | `firebaseauth.users.createSession`（カスタムロール） |
+| Session Cookie の失効の確認（`verifySessionCookie(cookie, true)` がユーザーを読む） | `firebaseauth.users.get`（カスタムロール） |
+| idToken の確認（`verifyIdToken`）、ログ（標準出力） | 不要 |
+
+Firebase Auth は既定のロール（`roles/firebaseauth.admin`）だとユーザーの作成・削除もできるので、カスタムロールにする。乗っ取られても、攻撃者が自分用のアカウントを作れないようにする。
 
 ```bash
-RUNTIME_SA=YOUR_PROJECT_NUMBER-compute@developer.gserviceaccount.com
+RUNTIME_SA=ryokan-runtime@YOUR_PROJECT_ID.iam.gserviceaccount.com
+
+# SA の作成
+gcloud iam service-accounts create ryokan-runtime \
+  --display-name="Cloud Run 実行用（ryokan-system）" \
+  --project=YOUR_PROJECT_ID
+
+# Firestore の読み書き
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:$RUNTIME_SA" \
+  --role="roles/datastore.user" --condition=None
+
+# Firebase Auth は Session Cookie の発行とユーザーの読み取りだけ（カスタムロール）
+gcloud iam roles create ryokanRuntimeAuth \
+  --project=YOUR_PROJECT_ID \
+  --title="ryokan Runtime Auth" \
+  --description="Session Cookie の発行と確認だけ（ユーザーの作成・削除はできない）" \
+  --permissions="firebaseauth.users.createSession,firebaseauth.users.get" \
+  --stage=GA
 
 gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
   --member="serviceAccount:$RUNTIME_SA" \
-  --role="roles/firebase.admin"
+  --role="projects/YOUR_PROJECT_ID/roles/ryokanRuntimeAuth" --condition=None
+
+# デプロイ用の SA が、この SA を Cloud Run に割り当てられるようにする（§4 と同じ）
+gcloud iam service-accounts add-iam-policy-binding $RUNTIME_SA \
+  --member="serviceAccount:github-actions-deployer@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountUser" \
+  --project=YOUR_PROJECT_ID
 ```
+
+> - `deploy.yml` が `--service-account=ryokan-runtime@...` を渡す。SA の名前を変えるときは `deploy.yml` の `RUNTIME_SA_NAME` も変える。
+> - 切り替えたあと、ログイン・予約の閲覧・保存ができることを本番で確かめる。権限が足りないと、ログインやすべての API が 503 になり、Slack に `PERMISSION_DENIED` などの通知が来る。そのときは、Cloud Run の SA を元に戻して（`gcloud run services update ryokan-system --region=asia-northeast1 --service-account=<元の SA>`）原因を調べる。
+> - 動作を確かめたら、既定の Compute Engine の SA から `roles/firebase.admin` を外す（ほかに使っていないことを確かめてから）。
 
 ---
 
