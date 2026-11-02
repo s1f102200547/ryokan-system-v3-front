@@ -71,6 +71,7 @@ Node.js は 24 LTS（2028-04-30 までサポート）で、npm は Node に付�
 | 頻度 | 週1回（月曜 9:00 JST） |
 | 待つ日数 | 公開から7日（`cooldown`。`.npmrc` の `min-release-age=7` と揃える） |
 | PR の宛先 | `development` |
+| 同時に開く PR の上限 | 20（既定の5だと上限に達し、作られない PR が出たため。2026-11-02） |
 | まとめ方 | npm の minor・patch は1つの PR。npm の major は1つずつ。GitHub Actions は全部で1つの PR（SHA と行末のバージョンのコメントを書き換える） |
 | 上げないもの | Node の major（`node` のイメージ、`@types/node`）。Node を上げるときに手で揃える |
 
