@@ -191,3 +191,5 @@ jobs:
         with:
           target: http://localhost:3000/login
           fail_action: warn
+          # Dependabot の PR では GITHUB_TOKEN が読み取り専用で Issue を書けないので、書かない（結果は artifact に残る）
+          allow_issue_writing: ${{ github.event.pull_request.user.login != 'dependabot[bot]' }}
