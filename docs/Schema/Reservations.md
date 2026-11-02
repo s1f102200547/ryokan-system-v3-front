@@ -64,6 +64,7 @@ check_in_date == "YYYY/MM/DD"
 読み取りで fallback に置き換えられる値は、書き込みの入口で拒否する（保存は成功したのに読み戻すと消える、を防ぐ）。
 
 - 許容値（上の表）は `src/constants/guestInfo.ts` の `*_VALUES` に1か所でまとめ、Route の Zod と Infra の読み取り検証が共通で参照する。許容値外は 400。
+- 文字列の長さと配列の件数は `src/constants/guestInfo.ts` の `RESERVATION_LIMITS`（と `MAX_NIGHTS`、`MAX_ADULT_COUNT`）で上限を付け、超えたら 400（T7-4）。値は本番データの最大の約 2〜5 倍で、すべて上限でも1件は Firestore の 1 MiB に収まる。読み取り（Infra）には入れない。画面の入力欄にも同じ値を `maxLength` で付け、`mail_memo` は上限の件数に達すると追加ボタンを押せない。Zod 4 はコードポイント、`maxLength` は UTF-16 で数えるので、画面で入力できる値は必ず通る
 - 日付（`check_out_date`、POST の `check_in_date` / `check_out_date`、cancel / restore の `target_date`）は、実在する日付かつ今日（JST）から `DATE_RANGE_PAST_DAYS` 日前〜`DATE_RANGE_FUTURE_DAYS` 日後。範囲外は 400。
 - 既存の予約と合わせた検査は、読み取り・検査・書き込みを1つのトランザクションで行う（`src/domain/reservation/validateReservationPatch.ts`）。違反は 400（`violations` に理由のコード）、予約が存在しなければ 404。
   - 更新後の C/O は C/I より後（泊数 1 以上）で、30 泊以下。

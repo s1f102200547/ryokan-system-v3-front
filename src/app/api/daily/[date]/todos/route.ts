@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { firestoreDailyRepository } from '@/infra/daily/firestoreDailyRepository'
-import { handleRouteError, requireSession } from '@/lib/api/routeHelpers'
+import { handleRouteError, requireSession, invalidInputResponse } from '@/lib/api/routeHelpers'
 import { PathDateSchema } from '@/lib/api/dateSchema'
 
 const TodoSchema = z.object({
@@ -48,7 +48,7 @@ export async function PATCH(
   const body = await request.json().catch(() => null)
   const parsed = BodySchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'invalid body', details: parsed.error.flatten() }, { status: 400 })
+    return invalidInputResponse('todo更新', 'invalid body', parsed.error)
   }
 
   try {

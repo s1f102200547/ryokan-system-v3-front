@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { ROOM_NUMBERS } from '@/constants/room'
 import {
-  MAX_NIGHTS, ARRIVAL_TIME_VALUES, BREAKFAST_TIME_VALUES, DINNER_TIME_VALUES, OPEN_AIR_BATH_TIME_VALUES,
+  MAX_ADULT_COUNT, MAX_NIGHTS, RESERVATION_LIMITS as L, ARRIVAL_TIME_VALUES, BREAKFAST_TIME_VALUES, DINNER_TIME_VALUES, OPEN_AIR_BATH_TIME_VALUES,
 } from '@/constants/guestInfo'
 import { DateSchema } from '@/lib/api/dateSchema'
 import { dateDiff } from '@/lib/dateUtils'
@@ -11,42 +11,45 @@ import { dateDiff } from '@/lib/dateUtils'
 
 // --- PATCH /api/reservations/[id] ---
 
+// 文字列と配列の上限は src/constants/guestInfo.ts の RESERVATION_LIMITS（T7-4）。読み取り（Infra）には入れない
 const MailMemoEntrySchema = z.object({
-  month:   z.string(),
-  day:     z.string(),
-  name:    z.string(),
-  summary: z.string(),
-  text:    z.string(),
-  source:  z.string(),
+  month:   z.string().max(L.mailMemoMonthDayLength),
+  day:     z.string().max(L.mailMemoMonthDayLength),
+  name:    z.string().max(L.mailMemoNameLength),
+  summary: z.string().max(L.mailMemoSummaryLength),
+  text:    z.string().max(L.mailMemoTextLength),
+  source:  z.string().max(L.mailMemoSourceLength),
 })
+
+const SelectValueSchema = z.string().max(L.selectValueLength)
 
 // ReservationPatch の部分更新を受け付ける（全フィールドoptional）
 // 値の許容範囲は Infra の読み取り検証と揃える。泊数・配列の長さは既存の予約と合わせて Command で検査する
 export const ReservationPatchBodySchema = z.object({
   guest_name:                    z.string().max(100).optional(),
   room:                          z.enum(ROOM_NUMBERS).nullable().optional(),
-  adult_count:                   z.number().int().min(0).max(9).optional(),
+  adult_count:                   z.number().int().min(0).max(MAX_ADULT_COUNT).optional(),
   child_count:                   z.number().int().min(0).max(9).optional(),
   check_out_date:                DateSchema.optional(),
   arrival_time:                  z.enum(ARRIVAL_TIME_VALUES).nullable().optional(),
   late_out:                      z.number().int().min(0).max(1).optional(),
-  dinner_time:                   z.array(z.enum(DINNER_TIME_VALUES)).optional(),
-  dinner_info:                   z.array(z.string()).optional(),
-  breakfast_time:                z.array(z.enum(BREAKFAST_TIME_VALUES).nullable()).optional(),
-  open_air_bath_time:            z.array(z.enum(OPEN_AIR_BATH_TIME_VALUES).nullable()).optional(),
-  timetable_info:                z.array(z.string()).optional(),
-  mail_memo:                     z.array(MailMemoEntrySchema).optional(),
+  dinner_time:                   z.array(z.enum(DINNER_TIME_VALUES)).max(MAX_NIGHTS).optional(),
+  dinner_info:                   z.array(z.string().max(L.dinnerInfoLength)).max(MAX_NIGHTS).optional(),
+  breakfast_time:                z.array(z.enum(BREAKFAST_TIME_VALUES).nullable()).max(MAX_NIGHTS).optional(),
+  open_air_bath_time:            z.array(z.enum(OPEN_AIR_BATH_TIME_VALUES).nullable()).max(MAX_NIGHTS).optional(),
+  timetable_info:                z.array(z.string().max(L.timetableInfoLength)).max(MAX_NIGHTS).optional(),
+  mail_memo:                     z.array(MailMemoEntrySchema).max(L.mailMemoItems).optional(),
   a_tax_received:                z.boolean().optional(),
   a_tax_received_by_staff_name:  z.string().max(100).optional(),
   check_in_staff_name:           z.string().max(100).optional(),
   country:                       z.string().max(100).nullable().optional(),
   city:                          z.string().max(100).optional(),
-  age_groups:                    z.array(z.string().nullable()).optional(),
-  group_type:                    z.string().nullable().optional(),
-  purpose:                       z.string().nullable().optional(),
-  tourism_type:                  z.string().nullable().optional(),
-  profession:                    z.string().optional(),
-  other_note:                    z.string().optional(),
+  age_groups:                    z.array(SelectValueSchema.nullable()).max(MAX_ADULT_COUNT).optional(),
+  group_type:                    SelectValueSchema.nullable().optional(),
+  purpose:                       SelectValueSchema.nullable().optional(),
+  tourism_type:                  SelectValueSchema.nullable().optional(),
+  profession:                    z.string().max(L.professionLength).optional(),
+  other_note:                    z.string().max(L.otherNoteLength).optional(),
 }).refine((d) => Object.keys(d).length > 0, { message: 'patch must not be empty' })
 
 // --- POST /api/reservations ---
