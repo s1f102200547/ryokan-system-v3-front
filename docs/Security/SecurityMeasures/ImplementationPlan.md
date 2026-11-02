@@ -261,7 +261,7 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 AGENTS.md の順（テスト → 実装）で進める。
 
 🤖 Claude
-1. `scripts/localdev/lib/shapeReport.ts` を拡張し、フィールドごとの文字列の最大長と配列の最大件数も数える（値は含めない）。
+1. `scripts/localdev/lib/shapeReport.ts` を拡張し、フィールドごとの文字列の最大長と配列の最大件数も数える（値は含めない）。（済。`buildSizeReport` を加え、`.localdev/reports/size-latest.json` に出す。匿名化で文字数が変わるので形のレポートとは分けた。LocalDevelopment.md ANON-13）
 2. 👤 の計測の結果を受けて、上限を `src/constants/` に置く。
 3. `tests/unit/constraints/` と `tests/integration/api/reservations/` に、上限ちょうど・上限+1 のテストを書く。
 4. `src/lib/api/reservationSchemas.ts` の書き込み側（`ReservationPatchBodySchema`、`MailMemoEntrySchema`、`NewReservationBodySchema`）に上限を入れる。読み取り側（Infra の Zod）には入れない。

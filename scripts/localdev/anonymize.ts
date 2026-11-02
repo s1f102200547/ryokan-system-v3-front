@@ -15,7 +15,7 @@ import { checkAnonymizeEnv } from './lib/guards'
 import { cryptoRng } from './lib/rng'
 import { serializeDocuments } from './lib/serialize'
 import type { JsonValue } from './lib/serialize'
-import { buildShapeReport, diffShapeReports } from './lib/shapeReport'
+import { buildShapeReport, buildSizeReport, diffShapeReports } from './lib/shapeReport'
 import type { ShapeReport } from './lib/shapeReport'
 import { isJsonObject } from './lib/tagged'
 import { anonymizeCollections, checkPreserved } from './lib/transform'
@@ -66,10 +66,14 @@ async function main(): Promise<void> {
   writeJson(path.join(reportDir, `shape-${toTimestampName(now)}.json`), report)
   writeJson(latestPath, report)
   const warnings = diffShapeReports(previous, report)
+  // 大きさのレポート（文字列の最大長・配列の最大件数。値は含まない）。予約 API の上限を決めるのに使う（T7-4）
+  const sizePath = path.join(reportDir, 'size-latest.json')
+  writeJson(sizePath, buildSizeReport(input, now.toISOString()))
 
   console.log(`匿名化データを書き出しました: ${dataDir}`)
   for (const c of SEED_COLLECTIONS) console.log(`  ${c}: ${output[c].length} 件`)
   console.log(`形のレポート: ${latestPath}`)
+  console.log(`大きさのレポート: ${sizePath}`)
   if (previous === null) console.log('  前回のレポートがないため、形の変化は比べていません。')
   for (const w of warnings) console.warn(`  警告（本番データの形が変わった可能性）: ${w}`)
 }
