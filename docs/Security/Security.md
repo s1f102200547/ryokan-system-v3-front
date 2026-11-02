@@ -137,6 +137,7 @@ API 層: `QueryDateSchema`（クエリパラメータ用）・`PathDateSchema`�
 
 - API は Route Handler 入口で request body、query、dynamic params を Zod 検証する。
 - 予約の書き込み API（`PATCH /api/reservations/[id]` など）は、文字列の長さと配列の件数に上限を付ける（`src/constants/guestInfo.ts` の `RESERVATION_LIMITS`。T7-4。詳細は `docs/Schema/Reservations.md`「書き込み時の検査」）。大きすぎる入力で Firestore の 1 MiB を超えたり、保存できない予約ができたりするのを防ぐ。
+- 入力の検証に失敗したときの 400 は、production では検証の詳細（`details`）を返さない。ログには違反の場所と種類だけを残す（T7-5。`docs/ErrorHandling.md`）。
 - 認証が必要な API は `verifySession()` を呼ぶ。`proxy.ts` の Cookie 有無チェックだけに依存しない。
 - DB 読み取り後のデータ検証失敗は `FIRESTORE_DATA_CORRUPTION` として扱い、ユーザーには内部詳細を出さない。
 

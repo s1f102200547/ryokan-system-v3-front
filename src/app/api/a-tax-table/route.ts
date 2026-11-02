@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getATaxTableUseCase } from '@/application/aTaxTable/getATaxTableUseCase'
-import { handleRouteError, requireSession } from '@/lib/api/routeHelpers'
+import { handleRouteError, requireSession, invalidInputResponse } from '@/lib/api/routeHelpers'
 
 const QuerySchema = z.object({
   year: z.coerce.number().int().min(2020).max(2099),
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     month: searchParams.get('month'),
   })
   if (!parsed.success) {
-    return NextResponse.json({ error: 'invalid query', details: parsed.error.flatten() }, { status: 400 })
+    return invalidInputResponse('ATaxTable取得', 'invalid query', parsed.error)
   }
 
   try {

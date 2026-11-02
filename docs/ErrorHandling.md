@@ -27,6 +27,8 @@ Firestore の例外から `InfraError` への変換は `src/infra/firestoreError
 
 入力が原因の失敗を障害に分類しないよう、Route Handler の入口で検証する。`[id]` は `src/lib/api/documentIdSchema.ts`（Firestore のドキュメント ID の制約）、日付は `src/lib/api/dateSchema.ts`、`request.json()` は `.catch(() => null)` で受けて 400 にする。
 
+body・query の Zod 検証に失敗したときの 400 は `src/lib/api/routeHelpers.ts` の `invalidInputResponse` で返す（T7-5）。production では `{ error }` だけを返し、検証の詳細（`details`）は返さない（上限や許容値など、スキーマの手がかりになるため）。代わりに `logger.warn` に違反の場所（`path`）と種類（`code`）だけを残す。入力の値と Zod のメッセージはログにも出さない。development / test では原因が分かるよう `details`（`z.flattenError`）も返す。hooks は `details` を使わない。
+
 ## 認証エラー
 
 認証失敗とインフラ障害を分離する。

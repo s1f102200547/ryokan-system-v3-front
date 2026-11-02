@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { verifySession } from '@/lib/auth/verifySession'
 import { InfraError } from '@/types/errors'
 import { infraErrorToStatus } from '@/lib/infraErrorToHttpStatus'
@@ -38,6 +39,17 @@ export async function getSession(request: Request) {
 function describeCause(cause: unknown): string | undefined {
   if (cause === undefined) return undefined
   return cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause)
+}
+
+// 入力の検証（Zod）に失敗したときの 400（T7-5）。
+// production では、どのフィールドがどの条件に違反したか（details）を返さない。上限や許容値など、スキーマの手がかりになるため。
+// 調べられるよう、ログには場所（path）と違反の種類（code）だけを残す。入力の値とメッセージは出さない（個人情報が入りうる）。
+// development / test では、原因が分かるよう今までどおり details を返す。hooks は details を使っていない
+export function invalidInputResponse(label: string, error: string, zodError: z.ZodError): NextResponse {
+  const issues = zodError.issues.map((i) => ({ path: i.path.map(String).join('.'), code: i.code }))
+  logger.warn(`${label} 入力の検証に失敗`, { issues })
+  if (process.env.NODE_ENV === 'production') return NextResponse.json({ error }, { status: 400 })
+  return NextResponse.json({ error, details: z.flattenError(zodError) }, { status: 400 })
 }
 
 export function handleRouteError(e: unknown, label: string): NextResponse {

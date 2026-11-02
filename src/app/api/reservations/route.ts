@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { addReservationCommand } from '@/application/guestInfo/addReservationCommand'
-import { handleRouteError, requireSession } from '@/lib/api/routeHelpers'
+import { handleRouteError, requireSession, invalidInputResponse } from '@/lib/api/routeHelpers'
 import { NewReservationBodySchema } from '@/lib/api/reservationSchemas'
 
 export async function POST(request: Request) {
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null)
   const parsed = NewReservationBodySchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'invalid body', details: parsed.error.flatten() }, { status: 400 })
+    return invalidInputResponse('予約追加', 'invalid body', parsed.error)
   }
 
   try {
