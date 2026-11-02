@@ -106,7 +106,8 @@ Deploy job の流れ:
 4. Buildx をセットアップ
 5. Docker image を build/push。auth が作る `gha-creds-*.json` は `.dockerignore` で build に入れない（T6-10）
 6. Cloud Run へ deploy。実行用の SA は `ryokan-runtime`（Firestore と Session Cookie の発行・確認だけ。`GCP_SETUP.md` §5、T6-1）
-7. 結果（成功・失敗）、コミット、push した人、実行の URL を Slack に通知する（T5-9）
+
+デプロイの開始と結果（成功・失敗）は、Slack の GitHub アプリ（`#notif-git`）の `workflows` の購読（`/github subscribe s1f102200547/ryokan-system-v3-front workflows:{name:"Deploy to Cloud Run"}`）で Slack に通知する（T5-9）。`deploy.yml` の中では通知しない（`deploy.yml` を書き換えられても、通知は GitHub 側から届く）。CI が `main` で失敗したときも、デプロイのジョブがスキップされたことが通知される
 
 Docker image tag:
 
@@ -137,7 +138,7 @@ GitHub Actions secrets:
 | `NEXT_PUBLIC_FIREBASE_API_KEY` | build 時にクライアント bundle へ埋め込む Firebase config |
 | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | build 時にクライアント bundle へ埋め込む Firebase config |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | build 時にクライアント bundle へ埋め込む Firebase config |
-| `SLACK_WEBHOOK_URL` | Cloud Run runtime の障害通知用 webhook。`deploy.yml` のデプロイの通知にも使う |
+| `SLACK_WEBHOOK_URL` | Cloud Run runtime の障害通知用 webhook（`deploy.yml` が Cloud Run の環境変数に渡す） |
 
 Firebase Admin は Cloud Run の Application Default Credentials を使うため、service account key file は使わない。
 
@@ -172,7 +173,7 @@ npm run start
 ## 現状未実装
 
 - PR ごとの staging deploy / PR close 時の自動削除
-- CI 失敗時・deploy 完了時の GitHub Actions からの Slack 通知
+- CI 失敗時の Slack 通知（deploy の通知は Slack の GitHub アプリで行う）
 - 週次の OWASP ZAP Full Scan
 
 これらを追加する場合は、workflow とこのドキュメントを同じ PR で更新する。
