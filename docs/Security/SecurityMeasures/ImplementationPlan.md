@@ -192,14 +192,20 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 
 コミットの単位: Node の更新と `.npmrc` で2つ。
 
-### Step 1-4: Dependabot（T6-3）
+### Step 1-4: Dependabot（T6-3）（🤖 済）
 
 🤖 Claude
-1. `.github/dependabot.yml` を作る。対象は `npm`、`github-actions`、`docker`。頻度は週1、`cooldown`（公開から数日待つ設定）を付ける。PR の宛先は `development` にする。
-2. 更新の手順（悪用が報告された脆弱性は数日以内に修正版をデプロイする、など）を `T6.md` に1〜2行で書くか、開発者と相談する。
+1. `.github/dependabot.yml` を作る。対象は `npm`、`github-actions`、`docker`。頻度は週1、`cooldown` は7日（`.npmrc` の `min-release-age=7` と揃える）。PR の宛先は `development` にする。（済。npm の minor・patch と GitHub Actions はまとめて1つの PR にする。Node の major（`node` のイメージ、`@types/node`）は上げない）
+2. 更新の手順を `T6.md` に書く。（済。悪用が報告された脆弱性は7日を待たず数日以内に修正版をデプロイする。それ以外は週1回の PR）
+3. `docs/CICD.md` を更新する。（済）
+4. Dependabot の PR では ZAP の結果を Issue に書かない（`GITHUB_TOKEN` が読み取り専用のため）。（済）
+
+セキュリティ更新の自動 PR は `main` 宛てにしか作れない（`target-branch` が効かない）。マージすると `main` と `development` がずれるので、使わずに警告だけを受け取る（2026-11-02 決定）。
 
 👤 開発者
-- GitHub → Settings → Code security で Dependabot alerts と security updates を有効にする。
+- GitHub → Settings → Code security で、**Dependabot alerts を有効**、**Dependabot security updates を無効**にする。
+- Dependabot の PR を Slack に通知する。Slack の GitHub アプリで `#notif-git` に `/github subscribe s1f102200547/ryokan-system-v3-front pulls +label:"dependencies"` を設定した。（済。2026-11-02）GitHub アプリが読めるリポジトリが、このリポジトリだけであることを確かめる。
+- マージのあと、Insights → Dependency graph → Dependabot で、3つの対象が読み込まれてエラーがないことを確かめる。最初の月曜に `development` 宛ての PR が来て、Slack に通知され、CI が通ることを確かめる。
 
 ### Step 1-5: ZAP の指摘で CI を失敗させる（T6-9）
 
