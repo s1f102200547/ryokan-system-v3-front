@@ -4,7 +4,7 @@
 
 **状態**: 未修正（対応不要。2026-11-02 確認）
 
-npm audit の moderate は、実体は次の2つの advisory だけで、残りはそれを含む上位のパッケージが数えられたもの。CI（`npm run audit:ci`）は high 以上だけを見るので、どちらも CI を止めない。Dependabot のセキュリティ更新も、今の依存の範囲に直したバージョンがないため失敗する（警告は「Vulnerable code is not actually used」で、下の理由を付けて Dismiss する）。
+npm audit の moderate は、実体は次の2つの advisory だけで、残りはそれを含む上位のパッケージが数えられたもの。CI（`npm run audit:ci`）は high 以上だけを見るので、どちらも CI を止めない。Dependabot のセキュリティ更新も、今の依存の範囲に直したバージョンがないため失敗する。Dependabot の警告（uuid #1、grpc-js #2・#3、minimatch #4）は、セキュリティの計画（`docs/Security/SecurityMeasures/ImplementationPlan.md`）を実装し終えてから、もう一度分析して Dismiss するかを決める（2026-11-02 決定。それまでは開いたままにする）。
 
 | advisory | 依存の経路 | 対応しない理由 | 解消する方法 |
 |---|---|---|---|

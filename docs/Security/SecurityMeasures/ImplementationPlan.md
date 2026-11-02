@@ -40,6 +40,7 @@ P0 は 2026-11-01 にいったん完了とした。次の作業は後回しに�
 | オーナー権限の分離とパスキー（T5-5、T5-6） | 時間のあるときに行う。オーナーを外す前に、オーナー用のアカウントで操作できることを確かめる | Step P0-4 |
 | `firebase-admin` を 13 から 14 に上げる（T6） | 内部の `uuid@9` などの moderate の脆弱性（Dependabot の警告）が消える。大きな版の変更なので、API の変更点の確認と、Emulator のテスト・E2E での確認が要る。今の脆弱性は、このアプリでは脆弱なコードが実行されない見込みなので後回しにした（2026-11-02） | `docs/KnownIssues.md` |
 | `SLACK_WEBHOOK_URL` を Secret Manager に移し、同時に Webhook の URL を作り直す（T5-9、T8） | 今は Cloud Run の環境変数に平文で入っていて、プロジェクトの閲覧権限があればコンソールで見える。また 2026-11-02 に、Cloud Run の画面の貼り付けで AI エージェントとの会話に値が渡った（通知チャンネルへの投稿しかできない URL なので、作り直しは移すときに一緒に行う）。実行用の SA に、この secret だけの `roles/secretmanager.secretAccessor` を付け、`deploy.yml` は `--set-secrets` で渡す | `GCP_SETUP.md` §5、`docs/CICD.md` |
+| 今ある Dependabot の警告（uuid #1、grpc-js #2・#3、minimatch #4）を分析し直して、Dismiss するかを決める（T6-3） | 今の分析では4件とも、このアプリでは脆弱なコードが実行されない（`docs/KnownIssues.md`、`scripts/ci/auditAllowlist.ts`）。依存の更新や Dependabot の運用で中身が変わりうるので、計画を実装し終えて新しい体制になってから見直す（2026-11-02 決定） | `docs/KnownIssues.md` |
 | Node.js を 26 LTS に上げる（T6-4） | 26 は 2026-10-28 に LTS になったばかりなので、24（2028-04-30 までサポート）にした（2026-11-02）。2027 年中に上げる | Step 1-3 |
 
 ---
