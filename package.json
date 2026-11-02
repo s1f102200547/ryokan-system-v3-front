@@ -38,7 +38,7 @@
     "@playwright/test": "^1.64.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
-    "@types/node": "^20",
+    "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitest/ui": "^4.1.12",
@@ -49,5 +49,12 @@
     "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^4.1.12"
+  },
+  "allowScripts": {
+    "@firebase/util": false,
+    "esbuild": false,
+    "fsevents": false,
+    "protobufjs": false,
+    "unrs-resolver": false
   }
 }

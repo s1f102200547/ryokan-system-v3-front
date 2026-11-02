@@ -44,6 +44,23 @@ action とツールのバージョンは固定する（T6-6）。
 - サーバーの起動待ちは、`npx wait-on` ではなく `curl` のループで行う（`npx` は実行のたびに最新版を取得するため）。
 - 更新するときは、新しいバージョンのタグが指すコミットの SHA を調べて書き換える。
 
+### 依存のインストール
+
+Node.js は 24 LTS（2028-04-30 までサポート）で、npm は Node に付属のもの（11 系）を使う。CI の `node-version`、`Dockerfile` のベースイメージ、`@types/node` を揃える（T6-4）。
+
+`.npmrc` の設定（T6-5）:
+
+| 設定 | 意味 |
+|---|---|
+| `min-release-age=7` | 公開から7日たっていない版を入れない（`npm install` で新しく解決するとき）。乗っ取られた版は数日で見つかって取り下げられることが多い |
+| `strict-allow-scripts=true` | 依存の install スクリプト（`postinstall` など）は、`package.json` の `allowScripts` に書いたものだけを扱う。書いていないパッケージに install スクリプトがあると `npm ci` が `ESTRICTALLOWSCRIPTS` で失敗する |
+
+`allowScripts` には、今ある install スクリプトをすべて `false`（動かさない）で書いている。`@firebase/util`（App Hosting 用の設定の埋め込み）、`protobufjs`（バージョンの確認）、`esbuild`・`unrs-resolver`（OS 用のバイナリの確認。バイナリは別のパッケージで入る）、`fsevents`（Mac 専用）で、どれも動かさなくてもアプリとテストは動く。
+
+依存を追加・更新して `ESTRICTALLOWSCRIPTS` が出たら、そのパッケージの install スクリプトの中身を読み、要らなければ `npm install-scripts deny <pkg>`、必要なら `npm install-scripts approve <pkg>`（版を固定して許可する）を実行し、`package.json` の変更をコミットする。
+
+`npm install -g`（CI の `firebase-tools`）はプロジェクトの `.npmrc` と `allowScripts` を読まない。
+
 E2E の開発サーバーは `playwright.config.ts` の `webServer.env` で、Emulator 系の変数・demo project（`demo-ryokan`）・ダミーの API key を渡して起動する（ローカルと CI で同じ設定。起動ガードを通すため）。Emulator 本体は起動せず、実リクエストは Playwright の route mock で遮断する前提。
 
 ### audit の例外リスト
@@ -108,11 +125,11 @@ Firebase Admin は Cloud Run の Application Default Credentials を使うため
 
 ## Docker
 
-`Dockerfile` は 3 stage 構成。
+`Dockerfile` は 3 stage 構成。ベースイメージは3つとも `node:24-alpine` を digest（`@sha256:...`）で固定する（T6-6）。
 
 | Stage | 役割 |
 |---|---|
-| `deps` | `npm ci` |
+| `deps` | `package.json`・`package-lock.json`・`.npmrc` をコピーして `npm ci` |
 | `builder` | `NEXT_PUBLIC_FIREBASE_*` を build arg として受け取り `npm run build` |
 | `runner` | `.next/standalone` と `.next/static` をコピーし、非 root user で `node server.js` |
 

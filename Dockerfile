@@ -1,11 +1,14 @@
+# ベースイメージは digest で固定する（タグは付け替えられるが digest は変わらない。T6-4、T6-6）
+# node:24-alpine = Node 24.22.2 / npm 11.19.1 / Alpine 3.24（2026-10-28 公開）。更新は Dependabot に任せる
 # ── Stage 1: 依存パッケージのインストール ──────────────────────────────────
-FROM node:20-alpine AS deps
+FROM node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
+# .npmrc（公開から7日たっていない版を入れない・install スクリプトの制限）も一緒に渡す（T6-5）
+COPY package.json package-lock.json .npmrc ./
 RUN npm ci
 
 # ── Stage 2: ビルド ──────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -21,7 +24,7 @@ ENV NEXT_PUBLIC_FIREBASE_PROJECT_ID=$NEXT_PUBLIC_FIREBASE_PROJECT_ID
 RUN npm run build
 
 # ── Stage 3: 実行（最小イメージ）────────────────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
