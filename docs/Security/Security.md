@@ -141,6 +141,25 @@ API 層: `QueryDateSchema`（クエリパラメータ用）・`PathDateSchema`�
 - 認証が必要な API は `verifySession()` を呼ぶ。`proxy.ts` の Cookie 有無チェックだけに依存しない。
 - DB 読み取り後のデータ検証失敗は `FIRESTORE_DATA_CORRUPTION` として扱い、ユーザーには内部詳細を出さない。
 
+## 開発・デプロイの経路と依存
+
+`docs/Security/SecurityMeasures/` の P0・P1 で入れた対策の要約。詳細と手順は `docs/CICD.md` と `GCP_SETUP.md`。
+
+| 対象 | 今の仕組み | 対策 |
+|---|---|---|
+| デプロイの経路 | `main` への push で CI が成功したときだけ、CI が検査したコミット（`head_sha`）をデプロイする。GCP へは WIF で入り、provider の条件で `main` の `deploy.yml` 以外を拒否する | T5-3、T6-8 |
+| デプロイ用の SA | 対象のリソース（Cloud Run のサービス、Artifact Registry のリポジトリ、実行用の SA）にだけロールを付ける。プロジェクト全体のロールはない | T5-4 |
+| 実行用の SA | Cloud Run は `ryokan-runtime` で動く。Firestore の読み書き（`roles/datastore.user`）と、Session Cookie の発行・確認（カスタムロール `ryokanRuntimeAuth`）だけ | T6-1 |
+| Firestore Rules | 全拒否。`firestore.rules` で管理し、Client SDK から読み書きできないことを Emulator のテストで確かめる。本番への反映は開発者が手で行う | T6-2 |
+| GitHub Actions | 全アクションをコミット SHA に固定（リポジトリ設定で強制）。権限は `contents: read` が基本。CI で使うツールと Docker イメージは版と digest で固定 | T6-6、T6-7 |
+| 依存 | Node 24 LTS。`.npmrc` の `min-release-age=7` で公開から7日未満の版を入れない。install スクリプトは `allowScripts` で全部止め、書いていないものがあれば `npm ci` を失敗させる。Dependabot が週1回 `development` 宛てに PR を作る（セキュリティ更新の自動 PR は使わず、警告だけ受け取る） | T6-3〜5 |
+| CI の検査 | Semgrep（静的解析）、gitleaks（秘密情報。毎回全履歴）、npm audit、ZAP（新しい指摘で失敗）。どれも1件でも見つかれば CI が失敗する | T6-9、T7-1、T8-1 |
+| 入力の上限 | 予約の書き込み API の文字列と配列に上限を付け、画面の入力欄にも同じ上限を付ける（「API と入力検証」） | T7-4 |
+| 通知 | 本番へのデプロイと PR の作成を、Slack の GitHub アプリで `#notif-git` に通知する（`deploy.yml` の外なので、ワークフローを書き換えられても止まらない） | T5-9 |
+| 運用のルール | 実データをテスト・docs・Issue・PR・AI エージェントへの指示に貼らない。`anonymize` の実行中は AI エージェントを動かさない。レビューの観点は `docs/Review.md` | T8-2、T8-3 |
+
+まだ入っていない対策（ブランチ保護、Environment `production`、AI エージェントの権限の制限、バックアップなど）は `docs/Security/SecurityMeasures/ImplementationPlan.md` の「進み具合」を参照。
+
 ## ZAP 指摘の扱い
 
 CI の ZAP Baseline Scan は、対応不要と決めた指摘を `.zap/rules.tsv` で除外（IGNORE）し、それ以外の指摘が1件でもあれば CI を失敗させる（T6-9）。

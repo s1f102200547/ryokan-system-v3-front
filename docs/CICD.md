@@ -77,7 +77,7 @@ Node.js は 24 LTS（2028-04-30 までサポート）で、npm は Node に付�
 
 セキュリティ更新の自動 PR（Dependabot security updates）は使わない。`main` 宛てにしか作れず、マージすると `main` と `development` がずれるため。警告（Dependabot alerts）だけを受け取り、`development` で直す。悪用が報告された脆弱性は7日を待たず、`npm install <pkg>@<修正版> --min-release-age=0` で上げて数日以内にデプロイする。
 
-Dependabot が PR を作ると、Slack の GitHub アプリが `#notif-git` に通知する（ワークフローは使わない）。購読は `/github subscribe s1f102200547/ryokan-system-v3-front pulls +label:"dependencies"` で、Dependabot が PR に付ける `dependencies` ラベルの PR だけを通知する。購読の確認は `/github subscribe list features`。GitHub アプリが読めるリポジトリは、このリポジトリだけにする（GitHub → Settings → Applications → Installed GitHub Apps → Slack）。
+Dependabot が PR を作ると、Slack の GitHub アプリが `#notif-git` に通知する（ワークフローは使わない）。購読は `/github subscribe s1f102200547/ryokan-system-v3-front pulls` で、すべての PR の作成・マージなどを通知する。`+label:"dependencies"` で Dependabot の PR だけに絞ると、PR の作成が通知されない（Dependabot は PR を作ってからラベルを付けるので、作成の時点では条件に合わない）。購読の確認は `/github subscribe list features`。GitHub アプリが読めるリポジトリは、このリポジトリだけにする（GitHub → Settings → Applications → Installed GitHub Apps → Slack）。
 
 Dependabot の PR で動く CI は `GITHUB_TOKEN` が読み取り専用になるので、ZAP の結果を Issue に書かない（`allow_issue_writing`）。
 

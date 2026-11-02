@@ -18,6 +18,36 @@ AI エージェントには push・デプロイ・本番の操作をさせない
 | T5-9（デプロイの通知） | Slack の GitHub アプリの `workflows` の購読で通知する。`deploy.yml` の Webhook の通知は削除した（2026-11-02 変更） |
 | 大きなコード変更（T1-2〜5、P4 Terraform） | このプランでは概要だけ書き、後日、別のブランチで実装する（P2〜P4） |
 
+## 進み具合（2026-11-02 時点）
+
+P0 と P1 の Step 1-1〜1-10 は、`security/enhance-difence` ブランチで実装し、`main` にデプロイした（PR #108 まで）。残りは別のブランチで行う。
+
+| ステップ | 状態 | 残っていること |
+|---|---|---|
+| Step 0: 文書の整理 | 済 | — |
+| P0-1: `main` と `development` の保護（T5-1） | 保留 | ルールセット。必須チェックに `Secret Scan`・`Semgrep` も加える（GitHub Pro 待ち） |
+| P0-2: WIF の条件（T5-3） | 済（一部保留） | `assertion.environment == 'production'` の追加（Environment を作ったあと） |
+| P0-3: デプロイ用 SA の権限（T5-4） | 済 | — |
+| P0-4: オーナー権限の分離とパスキー（T5-5、T5-6） | 後回し | すべて |
+| P0-5: 開発 PC の設定（T5-8） | 済 | — |
+| P0-6: 新規登録の無効化・予算アラート | 済 | — |
+| 1-1: CI の権限と固定（T6-6、T6-7） | 済 | — |
+| 1-2: deploy の経路と実行用の SA（T5-2、T6-1、T6-8、T6-10、T5-9） | 済（一部保留） | Environment `production` と、そのあとの確認（GitHub Pro 待ち） |
+| 1-3: Node.js 24 と `.npmrc`（T6-4、T6-5） | 済 | Node 26 への更新（2027 年） |
+| 1-4: Dependabot（T6-3） | 済 | 今ある警告4件の見直し（計画を実装し終えてから） |
+| 1-5: ZAP の指摘で CI を失敗させる（T6-9） | 済 | — |
+| 1-6: `firestore.rules` の管理とテスト（T6-2） | 済 | — |
+| 1-7: Semgrep と gitleaks（T7-1、T8-1） | 済 | 必須チェックへの追加（P0-1 と一緒） |
+| 1-8: レビューの観点と運用のルール（T7-2、T7-3、T8-2、T8-3） | 済 | — |
+| 1-9: 予約 API の上限（T7-4） | 済 | — |
+| 1-10: 400 で Zod の詳細を返さない（T7-5） | 済 | — |
+| 1-11: ログイン成功時の IP 通知（T1-1） | 未着手 | 別のブランチで行う |
+| 1-12: AI エージェントの権限の制限（T5-7） | 未着手 | 別のブランチで行う |
+| 1-13: バックアップ（T5-11） | 未着手 | 別のブランチで行う |
+| P2〜P4 | 未着手 | 下の「大きなコード変更」 |
+
+ほかに後回しにした作業は、下の「後回しにした作業」にまとめた。
+
 ## 進め方
 
 - ブランチは `development` から切る。ステップのまとまりごとにブランチを分けてよい（例: `security/p1-ci`、`security/p1-deploy`）。
@@ -137,7 +167,7 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 
 ## P1: コードと設定
 
-### Step 1-1: CI の権限と固定（T6-6、T6-7）
+### Step 1-1: CI の権限と固定（T6-6、T6-7）（済）
 
 🤖 Claude
 1. `ci.yml` の全体の `permissions` を `contents: read` にし、`zap-scan` のジョブにだけ `issues: write` を付ける。（済。非公開リポジトリで checkout が失敗したため先に行った）
@@ -146,17 +176,17 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 4. `docs/CICD.md` を更新する。（済）
 
 👤 開発者
-- GitHub → Settings → Actions → General で、アクションを SHA に固定することを必須にする（「Require actions to be pinned to a full-length commit SHA」。無料プランの非公開リポジトリで使えるかを確かめる）。
+- GitHub → Settings → Actions → General で、アクションを SHA に固定することを必須にする（「Require actions to be pinned to a full-length commit SHA」。無料プランの非公開リポジトリで使えるかを確かめる）。（済）
 
 コミットの単位: 1つ（CI の変更）。
 
-### Step 1-2: deploy の経路と実行用のサービスアカウント（T5-2、T6-1、T6-8、T6-10、T5-9）
+### Step 1-2: deploy の経路と実行用のサービスアカウント（T5-2、T6-1、T6-8、T6-10、T5-9）（Environment 以外は済）
 
 > Environment `production` に関わる作業（👤 の 3・4、🤖 の `environment: production`、マージ後の 4・5）は、GitHub Pro が使えるようになってから行う（P0-1 の保留を参照）。それ以外は先に進めてよい。
 
 👤 開発者（先に行う）
-1. 実行用のサービスアカウント `ryokan-runtime` を作り、`roles/datastore.user` と、カスタムロール `ryokanRuntimeAuth`（`firebaseauth.users.createSession`、`firebaseauth.users.get`）だけを付ける（2026-11-02 決定。`roles/firebaseauth.admin` はユーザーの作成・削除もできるので使わない）。コマンドは `GCP_SETUP.md` §5。
-2. P0-3 の `roles/iam.serviceAccountUser` を、このサービスアカウントに付ける（`GCP_SETUP.md` §5 の最後のコマンド）。
+1. 実行用のサービスアカウント `ryokan-runtime` を作り、`roles/datastore.user` と、カスタムロール `ryokanRuntimeAuth`（`firebaseauth.users.createSession`、`firebaseauth.users.get`）だけを付ける（2026-11-02 決定。`roles/firebaseauth.admin` はユーザーの作成・削除もできるので使わない）。コマンドは `GCP_SETUP.md` §5。（済）
+2. P0-3 の `roles/iam.serviceAccountUser` を、このサービスアカウントに付ける（`GCP_SETUP.md` §5 の最後のコマンド）。（済）
 3. GitHub → Settings → Environments で `production` を作り、Deployment branches を `main` だけにする。
 4. `WORKLOAD_IDENTITY_PROVIDER`、`SERVICE_ACCOUNT`、`GCP_PROJECT_ID`、`SLACK_WEBHOOK_URL`、`NEXT_PUBLIC_FIREBASE_*` を Environment に登録し、リポジトリ全体の secrets から削除する（`NEXT_PUBLIC_FIREBASE_*` は deploy だけが使うので一緒に移す）。
 
@@ -171,15 +201,15 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 3. `docs/CICD.md`（Deploy、Required Secrets）と `GCP_SETUP.md`（§5 の実行用のサービスアカウント）を更新する。（済。§7 の secrets の置き場所は、Environment を作るときに更新する）
 
 👤 開発者（マージのあと）
-1. デプロイが成功し、Slack に通知が来ることを確かめる。
-2. Cloud Run の画面で、実行用のサービスアカウントが新しいものになっていることを確かめる。ログイン・閲覧・保存が動くことを本番で確かめる。
-3. 既定の Compute Engine のサービスアカウントから `roles/firebase.admin` を外す（ほかに使っていないことを確かめてから）。
+1. デプロイが成功し、Slack に通知が来ることを確かめる。（済。通知は Slack の GitHub アプリから来る）
+2. Cloud Run の画面で、実行用のサービスアカウントが新しいものになっていることを確かめる。ログイン・閲覧・保存が動くことを本番で確かめる。（済）
+3. 既定の Compute Engine のサービスアカウントから `roles/firebase.admin` を外す（ほかに使っていないことを確かめてから）。（済）
 4. P0-2 の 3（`assertion.environment == 'production'`）を加える。
 5. 確認（T5-2・T5-3）: 適当なブランチに、`id-token: write` と `google-github-actions/auth` を使う確認用のワークフローを push し、secrets が空で GCP の認証が失敗することを確かめる。確かめたらブランチを削除する。
 
 コミットの単位: `deploy.yml` と docs、`.dockerignore`/`.gitignore` の2つ。
 
-### Step 1-3: Node.js 24 と `.npmrc`（T6-4、T6-5）（🤖 済）
+### Step 1-3: Node.js 24 と `.npmrc`（T6-4、T6-5）（済）
 
 🤖 Claude
 1. `Dockerfile` の3つの stage を `node:24-alpine` にする。`ci.yml` の `node-version` を 24 にする。`@types/node` を `^24` にする。（済。イメージは digest で固定した（Node 24.22.2 / npm 11.19.1 / Alpine 3.24）。`@types/node` は 24.19.2）
@@ -189,12 +219,12 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 5. `docs/CICD.md`（依存のインストール、Docker）、`docs/LocalDevelopment.md`（Node のバージョン）を更新する。（済）
 
 👤 開発者
-- 開発 PC の Node を 24 にし、npm は付属の 11 を使う（別に入れた npm 12 は外す）。`npm -v` が 11 系であることを確かめてから `npm ci` で入れ直す。
-- CI（Node 24）と、マージ後のデプロイ（Docker の Node 24）が通ることを確かめる。
+- 開発 PC の Node を 24 にし、npm は付属の 11 を使う（別に入れた npm 12 は外す）。`npm -v` が 11 系であることを確かめてから `npm ci` で入れ直す。（済）
+- CI（Node 24）と、マージ後のデプロイ（Docker の Node 24）が通ることを確かめる。（済）
 
 コミットの単位: Node の更新と `.npmrc` で2つ。
 
-### Step 1-4: Dependabot（T6-3）（🤖 済）
+### Step 1-4: Dependabot（T6-3）（済）
 
 🤖 Claude
 1. `.github/dependabot.yml` を作る。対象は `npm`、`github-actions`、`docker`。頻度は週1、`cooldown` は7日（`.npmrc` の `min-release-age=7` と揃える）。PR の宛先は `development` にする。（済。npm の minor・patch と GitHub Actions はまとめて1つの PR にする。Node の major（`node` のイメージ、`@types/node`）は上げない）
@@ -205,32 +235,33 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 セキュリティ更新の自動 PR は `main` 宛てにしか作れない（`target-branch` が効かない）。マージすると `main` と `development` がずれるので、使わずに警告だけを受け取る（2026-11-02 決定）。
 
 👤 開発者
-- GitHub → Settings → Code security で、**Dependabot alerts を有効**、**Dependabot security updates を無効**にする。
-- Dependabot の PR を Slack に通知する。Slack の GitHub アプリで `#notif-git` に `/github subscribe s1f102200547/ryokan-system-v3-front pulls +label:"dependencies"` を設定した。（済。2026-11-02）GitHub アプリが読めるリポジトリが、このリポジトリだけであることを確かめる。
-- マージのあと、Insights → Dependency graph → Dependabot で、3つの対象が読み込まれてエラーがないことを確かめる。最初の月曜に `development` 宛ての PR が来て、Slack に通知され、CI が通ることを確かめる。
+- GitHub → Settings → Code security で、**Dependabot alerts を有効**、**Dependabot security updates を無効**にする。（済）
+- Dependabot の PR を Slack に通知する。Slack の GitHub アプリで `#notif-git` に `/github subscribe s1f102200547/ryokan-system-v3-front pulls` を設定した。（済。2026-11-02）GitHub アプリが読めるリポジトリが、このリポジトリだけであることを確かめる。（済）
+  - 最初は `+label:"dependencies"` で Dependabot の PR だけに絞ったが、PR の作成が通知されなかった。Dependabot は PR を作ってからラベルを付けるので、作成の時点ではラベルの条件に合わないため。ラベルの条件は外し、すべての PR を通知する（2026-11-02）
+- マージのあと、Insights → Dependency graph → Dependabot で、3つの対象が読み込まれてエラーがないことを確かめる。最初の月曜に `development` 宛ての PR が来て、Slack に通知され、CI が通ることを確かめる。（済。最初の PR は #99〜#104。中身の確認とマージは別に行う。同時に開く PR の上限は 20 にした）
 
-### Step 1-5: ZAP の指摘で CI を失敗させる（T6-9）（🤖 済。CI での確認待ち）
+### Step 1-5: ZAP の指摘で CI を失敗させる（T6-9）（済）
 
 🤖 Claude
 1. `.zap/rules.tsv` を作り、`Security.md` で対応不要と決めた指摘（10055、10109、10049 Non-Storable Content）を `IGNORE` にする。（済。ZAP のコンテナで読めるよう ASCII だけで書く。10055 を除外すると CSP 全体の検査が外れるが、本番の CSP は `tests/unit/lib/csp.test.ts` で固定している）
 2. `ci.yml` の ZAP のステップに `rules_file_name` を渡し、`fail_action` を `true` にする。（済。action のソースで確かめた: ZAP が WARN（終了コード 2）でも FAIL（1）でも失敗にする。これまでの `fail_action: warn` は受け付けない値で、何が見つかっても失敗しなかった）。ZAP のイメージを版と digest で固定する（2.17.0。既定の `:stable` は付け替えられる）。（済）
-3. PR の CI で、今の状態が通ることを確かめる。（WSL で Docker が使えないため、ローカルでは確かめていない）
+3. PR の CI で、今の状態が通ることを確かめる。（済。WSL で Docker が使えないため、ローカルでは確かめていない）
 4. `Security.md`（ZAP 指摘の扱い）と `docs/CICD.md`（ZAP）を更新する。（済）
 
 👤 開発者
-- PR の CI の `OWASP ZAP Baseline Scan` が通ることを確かめる。失敗したら、ログの `WARN-NEW:` の行（指摘の名前と ID）を Claude に伝える。直すか、理由を付けて `.zap/rules.tsv` に加えるかを決める。
+- PR の CI の `OWASP ZAP Baseline Scan` が通ることを確かめる。（済）失敗したら、ログの `WARN-NEW:` の行（指摘の名前と ID）を Claude に伝える。直すか、理由を付けて `.zap/rules.tsv` に加えるかを決める。
 
-### Step 1-6: `firestore.rules` の管理とテスト（T6-2）（🤖 済）
+### Step 1-6: `firestore.rules` の管理とテスト（T6-2）（済）
 
 🤖 Claude
 1. 全拒否の `firestore.rules` を作り、`firebase.json` から参照する。（済。Emulator（`make`、`npm run test:emulator`）もこのルールで起動する。サーバー・シード・匿名化は Admin SDK なので影響しない）
 2. `tests/emulator/firestoreRules.test.ts` に、Client SDK（ログインあり・なし）から `guestInfoV2`、`dailyInfo`、ほかのコレクションの読み取り・一覧・作成・更新・削除が `permission-denied` になることと、Admin SDK は読み書きできることのテストを加える。（済。依存を増やさないよう、`@firebase/rules-unit-testing` ではなく今の `firebase` で書いた（公式の 6.x は firebase 13 専用で、firebase を上げる理由もないため。2026-11-02 決定）。ルールを一時的に全許可にするとテストが失敗することを確かめた）
 
 👤 開発者
-1. 本番のルールとリポジトリの `firestore.rules` が同じであることを Firebase コンソール（Firestore → ルール）で確かめる。違えば、リポジトリの内容を手で反映する。
+1. 本番のルールとリポジトリの `firestore.rules` が同じであることを Firebase コンソール（Firestore → ルール）で確かめる。違えば、リポジトリの内容を手で反映する。（済）
 2. ルールの本番への反映は手で行う（`firebase deploy --only firestore:rules --project ryokan-system`）。エージェントには実行させない。
 
-### Step 1-7: Semgrep と gitleaks（T7-1、T8-1、T8-5）（🤖 済）
+### Step 1-7: Semgrep と gitleaks（T7-1、T8-1、T8-5）（済。必須チェックへの追加は P0-1 と一緒）
 
 🤖 Claude
 1. `ci.yml` に `semgrep` のジョブを加える（Community Edition。TypeScript と Next.js のルールセット）。最初の実行で出た指摘は、直すか、理由を付けて除外する。（済。`p/nextjs` は無料版では空だったので、`p/default`・`p/typescript`・`p/react` にした。公式の Docker イメージ v1.182.1 を digest で固定。最初の実行の指摘は10件で、すべて誤検知。`src/proxy.ts` と `deploy.yml` の2か所は理由を付けて `nosemgrep` で除外し、`p/nodejsscan` の8件（`scripts/localdev/` の Emulator 用の固定値と単純な正規表現）はルールセットごと使わないことにした）
@@ -244,7 +275,7 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 
 コミットの単位: Semgrep と gitleaks で2つ。
 
-### Step 1-8: レビューの観点と運用のルール（T7-2、T7-3、T8-2、T8-3）（🤖 済）
+### Step 1-8: レビューの観点と運用のルール（T7-2、T7-3、T8-2、T8-3）（済）
 
 🤖 Claude
 1. `docs/Review.md` のセキュリティ観点に加える。
@@ -256,7 +287,7 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
    （済。外部の接続先を加えたときの CSP・COEP・CORP の更新も加えた）
 2. `docs/LocalDevelopment.md` の `anonymize` の手順に「実行中は AI エージェントを動かさない」を加える（T8-3）。（済。要件 ANON-12 として実行条件の表に加え、§8.1 の使い方にも書いた）
 
-### Step 1-9: 予約 API の上限（T7-4）（🤖 済）
+### Step 1-9: 予約 API の上限（T7-4）（済）
 
 AGENTS.md の順（テスト → 実装）で進める。
 
@@ -270,14 +301,14 @@ AGENTS.md の順（テスト → 実装）で進める。
 👤 開発者
 - AI エージェントを止めた状態で `npm run anonymize` を実行し、形のレポートから最大長・最大件数を Claude に伝える。（済。2026-11-02）
 
-### Step 1-10: 400 で Zod の詳細を返さない（T7-5）（🤖 済）
+### Step 1-10: 400 で Zod の詳細を返さない（T7-5）（済）
 
 🤖 Claude
 1. `src/lib/api/` に、400 の Response を作る関数を1つ作る。production では `{ error }` だけを返し、詳細は `logger.warn` に出す。development / test では今と同じく `details` を返す。（済。`src/lib/api/routeHelpers.ts` の `invalidInputResponse`。ログは値もメッセージも出さず、`path` と `code` だけにした）
 2. `details: parsed.error.flatten()` を返している8つの Route（`reservations`、`reservations/[id]`、`[id]/cancel`、`[id]/restore`、`[id]/a-tax`、`a-tax-table`、`daily/[date]/todos`、`daily/[date]/safe-balance-checker`）を、その関数に置き換える。（済）
 3. integration test で、production のときに `details` がないことを確かめる。hooks が `details` を使っていないことを確かめる。（済。`tests/integration/api/invalidInputResponse.test.ts` で8つの Route を production と test の両方で確かめる。ログに入力の値が出ないことも確かめる。hooks は `details` を使っていなかった）
 
-### Step 1-11: ログイン成功時の IP 通知（T1-1）
+### Step 1-11: ログイン成功時の IP 通知（T1-1）（未着手。別のブランチで行う）
 
 🤖 Claude
 1. `src/app/api/auth/login/route.ts` で、ログインに成功したら、接続元 IP とアカウント（uid）を `logger.info` と Slack に出す。request body（idToken）は出さない。
@@ -287,7 +318,7 @@ AGENTS.md の順（テスト → 実装）で進める。
 👤 開発者
 - デプロイしたあと、数週間 Slack の通知を観察し、旅館の IP が固定かどうかを記録する（P2 の端末登録の設計に使う）。
 
-### Step 1-12: AI エージェントの権限の制限（T5-7）
+### Step 1-12: AI エージェントの権限の制限（T5-7）（未着手。別のブランチで行う）
 
 🤖 Claude
 1. `.claude/settings.json` を作り、`permissions.deny` に `git push`、`gcloud`、`firebase deploy`、`~/.ssh/**` と `~/.config/gcloud/**` の読み取りを入れる。書き方は着手時に Claude Code の docs で確かめる。
@@ -297,7 +328,7 @@ AGENTS.md の順（テスト → 実装）で進める。
 1. Claude に `git push` を頼み、拒否されることを確かめる。
 2. WSL でサンドボックスが使えるかを確かめる。
 
-### Step 1-13: バックアップ（T5-11）
+### Step 1-13: バックアップ（T5-11）（未着手。別のブランチで行う）
 
 👤 開発者
 1. Firestore の PITR と削除保護を有効にする。
@@ -346,12 +377,12 @@ AGENTS.md の順（テスト → 実装）で進める。
 
 ## 着手時に確かめること
 
-| ステップ | 確かめること |
-|---|---|
-| P0-2 | `workflow_run` で動く deploy の OIDC トークンの `ref` と `workflow_ref` の実際の値 |
-| 1-2 | 実行用のサービスアカウントに必要な最小の権限（Session Cookie の発行と失効の確認） |
-| 1-3 | Node 24 の npm のバージョンと `min-release-age` の対応。`ignore-scripts=true` で動かなくなるパッケージ |
-| 1-5 | ZAP の action で、WARN の指摘でも失敗させる設定 |
-| 1-6 | ルールのテストに使うライブラリ |
-| 1-11 | Cloud Run の `X-Forwarded-For` で信頼できる位置 |
-| 1-12 | `.claude/settings.json` の deny の書き方。Codex を使うか |
+| ステップ | 確かめること | 結果 |
+|---|---|---|
+| P0-2 | `workflow_run` で動く deploy の OIDC トークンの `ref` と `workflow_ref` の実際の値 | 済（条件を付けたあとのデプロイが成功した） |
+| 1-2 | 実行用のサービスアカウントに必要な最小の権限（Session Cookie の発行と失効の確認） | 済（`roles/datastore.user` とカスタムロール `ryokanRuntimeAuth`） |
+| 1-3 | Node 24 の npm のバージョンと `min-release-age` の対応。`ignore-scripts=true` で動かなくなるパッケージ | 済（npm 11.19.1。`allowScripts` で止める） |
+| 1-5 | ZAP の action で、WARN の指摘でも失敗させる設定 | 済（`fail_action: true`） |
+| 1-6 | ルールのテストに使うライブラリ | 済（今の `firebase` の Client SDK） |
+| 1-11 | Cloud Run の `X-Forwarded-For` で信頼できる位置 | 未 |
+| 1-12 | `.claude/settings.json` の deny の書き方。Codex を使うか | 未 |
