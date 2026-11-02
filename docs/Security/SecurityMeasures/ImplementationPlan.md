@@ -244,7 +244,7 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 
 コミットの単位: Semgrep と gitleaks で2つ。
 
-### Step 1-8: レビューの観点と運用のルール（T7-2、T7-3、T8-2、T8-3）
+### Step 1-8: レビューの観点と運用のルール（T7-2、T7-3、T8-2、T8-3）（🤖 済）
 
 🤖 Claude
 1. `docs/Review.md` のセキュリティ観点に加える。
@@ -253,7 +253,8 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
    - 新しい入口（Route、外部サービス）を加えたら、`SecurityPolicy.md` の §5 と §7 を更新する
    - 新しい Route は `tests/integration/fuzz/routes.fuzz.test.ts` の `ROUTES` に加える（T7-3）
    - テストデータは `seed` か `anonymize` から作り、実データを `tests/`、`e2e/`、`docs/`、Issue、PR、エージェントへの指示に貼らない（T8-2）
-2. `docs/LocalDevelopment.md` の `anonymize` の手順に「実行中は AI エージェントを動かさない」を加える（T8-3）。
+   （済。外部の接続先を加えたときの CSP・COEP・CORP の更新も加えた）
+2. `docs/LocalDevelopment.md` の `anonymize` の手順に「実行中は AI エージェントを動かさない」を加える（T8-3）。（済。要件 ANON-12 として実行条件の表に加え、§8.1 の使い方にも書いた）
 
 ### Step 1-9: 予約 API の上限（T7-4）
 

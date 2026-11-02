@@ -62,6 +62,7 @@ Emulator (demo project) <──────────────────�
 | ANON-6 | 本番に対しては読み取りだけを行う。対象は全件とする（形のレポートの網羅性のため） |
 | ANON-7 | 変換はメモリ上で行い、**ディスクに書くのは匿名化後のデータだけ** にする。生データの一時ファイルも作らない |
 | ANON-8 | 匿名化データの出力先はリポジトリ内の1か所に固定し、**Git の管理対象にも、コンテナイメージなどのデプロイ成果物にも含めない**。コミットするのは生成手段だけにし、いつでも作り直せるようにする |
+| ANON-12 | **実行中は AI エージェント（Claude Code、Codex など）を動かさない**。実行中は PC に本番の認証情報が載り、本番の生データがメモリにある。エージェントがファイルやコマンドの出力を読むと、それがエージェントの会話（外部のサービス）に渡るおそれがある。実行の前にエージェントを終了し、終了時の後片付け（ANON-3）が済んでから再開する（T8-3） |
 
 #### 変換規則
 
@@ -218,7 +219,7 @@ make          # Emulator 起動 → データ投入 → 開発サーバー（htt
 - ログイン: `dev@example.com` / `dev-password`（Emulator 専用の固定値）。
 - 投入するデータ: `.localdev/data/` に匿名化データがあればそれ、なければ人工データ（`tests/fixtures/localdev/`）。
 - Emulator は停止するとデータとユーザーを失う。`make` は毎回投入し直す。古い Session Cookie で開くと API が 401 を返し、ログイン画面に移る。
-- 匿名化データの作り直し（月1回程度とリリース前。OPS-1）: `make anonymize`（= `npm run anonymize -- --project ryokan-system --sa anon-reader@ryokan-system.iam.gserviceaccount.com`）。ブラウザでログインし、終了時に認証情報が削除される。
+- 匿名化データの作り直し（月1回程度とリリース前。OPS-1）: `make anonymize`（= `npm run anonymize -- --project ryokan-system --sa anon-reader@ryokan-system.iam.gserviceaccount.com`）。ブラウザでログインし、終了時に認証情報が削除される。**実行の前に AI エージェントを終了しておく**（ANON-12）。
 - 個別に動かす場合: `npm run emulators` / `npm run seed [-- --fixture]` / `npm run dev`。Firebase CLI（`firebase-tools`）と Java が必要。
 
 ### 8.2 構成
