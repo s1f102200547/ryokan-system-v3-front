@@ -32,7 +32,7 @@ P0 は 2026-11-01 にいったん完了とした。次の作業は後回しに�
 
 | 作業 | 後回しにした理由・始める条件 | 詳細 |
 |---|---|---|
-| `main` と `development` のルールセット（T5-1）。必須チェックに `Secret Scan` も加える | 非公開リポジトリでは GitHub Pro が要る。Student Developer Pack の承認を待つ | Step P0-1、Step 1-7 |
+| `main` と `development` のルールセット（T5-1）。必須チェックに `Secret Scan` と `Semgrep` も加える | 非公開リポジトリでは GitHub Pro が要る。Student Developer Pack の承認を待つ | Step P0-1、Step 1-7 |
 | Environment `production` を作り、デプロイ用の secrets を移す（T5-2） | 同上 | Step 1-2 |
 | WIF の条件に `assertion.environment == 'production'` を加える | Environment を作ったあと | Step P0-2 の 3 |
 | ルールセットと Environment の確認（`main` への直接 push の拒否、ほかのブランチから secrets を読めないこと） | 同上 | Step P0-1 の 3、Step 1-2 |
@@ -230,12 +230,12 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 1. 本番のルールとリポジトリの `firestore.rules` が同じであることを Firebase コンソール（Firestore → ルール）で確かめる。違えば、リポジトリの内容を手で反映する。
 2. ルールの本番への反映は手で行う（`firebase deploy --only firestore:rules --project ryokan-system`）。エージェントには実行させない。
 
-### Step 1-7: Semgrep と gitleaks（T7-1、T8-1、T8-5）
+### Step 1-7: Semgrep と gitleaks（T7-1、T8-1、T8-5）（🤖 済）
 
 🤖 Claude
-1. `ci.yml` に `semgrep` のジョブを加える（Community Edition。TypeScript と Next.js のルールセット）。最初の実行で出た指摘は、直すか、理由を付けて除外する。
+1. `ci.yml` に `semgrep` のジョブを加える（Community Edition。TypeScript と Next.js のルールセット）。最初の実行で出た指摘は、直すか、理由を付けて除外する。（済。`p/nextjs` は無料版では空だったので、`p/default`・`p/typescript`・`p/react` にした。公式の Docker イメージ v1.182.1 を digest で固定。最初の実行の指摘は10件で、すべて誤検知。`src/proxy.ts` と `deploy.yml` の2か所は理由を付けて `nosemgrep` で除外し、`p/nodejsscan` の8件（`scripts/localdev/` の Emulator 用の固定値と単純な正規表現）はルールセットごと使わないことにした）
 2. `ci.yml` に `gitleaks` のジョブ（`secret-scan`）を加える。（済。PR の差分ではなく毎回全履歴を検査する。数秒で終わり、差分の範囲の扱いが要らないため。本体はバージョン固定でダウンロードし、チェックサムを確かめる。`.gitleaks.toml` は不要で、誤検知は `.gitleaksignore` で除外する）
-3. `docs/CICD.md` を更新する。
+3. `docs/CICD.md` を更新する。（済。`T7.md` も更新）
 
 👤 開発者
 1. gitleaks で全履歴を一度だけ検査する（`gitleaks git .`）。見つかったら、履歴から消すより先にキーを無効化する。（済。443 コミットで1件。以前の `ci.yml` の E2E 用のダミー値で誤検知だったので、`.gitleaksignore` で除外した。2026-11-01）

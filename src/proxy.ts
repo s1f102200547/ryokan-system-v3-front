@@ -65,6 +65,8 @@ function applySecurityHeaders(response: NextResponse, nonce: string, csp: string
   // セキュリティヘッダー
   h.set('Content-Security-Policy', csp)
   h.set('X-Content-Type-Options', 'nosniff')  // MIMEスニッフィング禁止
+  // 値は固定の DENY で、利用者の入力は入らない（Express 向けのルールの誤検知。docs/CICD.md「Semgrep」）
+  // nosemgrep: javascript.express.security.x-frame-options-misconfiguration.x-frame-options-misconfiguration
   h.set('X-Frame-Options', 'DENY')
   h.set('Referrer-Policy', 'strict-origin-when-cross-origin') //遷移時に知られるurlにトークンなどが含まれないようにする
   h.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')

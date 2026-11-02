@@ -26,6 +26,9 @@ jobs:
     steps:
       # CI が検査したコミットを取得する。workflow_run の github.sha は「deploy が始まった時点の main の最新」で、
       # CI のあとに push されたコミットを指すことがあるため、head_sha を使う（T6-8）
+      # Semgrep は「workflow_run で PR のコードを checkout している」と指摘するが、上の if: で main への push の CI に限っているので、
+      # head_sha は main のコミットで、PR のコードではない（誤検知。docs/CICD.md「Semgrep」）
+      # nosemgrep: yaml.github-actions.security.workflow-run-target-code-checkout.workflow-run-target-code-checkout
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0 / ソースコードを取得
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
