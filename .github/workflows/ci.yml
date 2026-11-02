@@ -86,11 +86,28 @@ jobs:
       - name: Run gitleaks
         run: ${{ runner.temp }}/gitleaks git --redact --no-banner -v . # --redact: 見つかった値をログに出さない
 
+  # 静的解析（T7-1）。Semgrep Community Edition のルールセット p/default（GitHub Actions・Dockerfile も含む）・p/typescript・p/react
+  # サードパーティの action を増やさないよう、公式の Docker イメージを版と digest で固定して実行する
+  # 指摘が1件でもあれば失敗する（--error）。誤検知は該当行の前に `nosemgrep: <ルールID>` と理由を書いて除外する（docs/CICD.md「Semgrep」）
+  semgrep:
+    name: Semgrep
+    runs-on: ubuntu-latest
+    env:
+      SEMGREP_IMAGE: semgrep/semgrep:1.182.1@sha256:451b3d875c00dac7ed5db5293e584a07de11449a409c10b3c2d2652f429630b6
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Run Semgrep
+        # --metrics=off: 利用状況を Semgrep 社に送らない。ルールは実行のたびに Semgrep Registry から取得する
+        run: >-
+          docker run --rm -v "${PWD}:/src" -w /src "${SEMGREP_IMAGE}"
+          semgrep scan --metrics=off --error
+          --config p/default --config p/typescript --config p/react
+
   # ── Phase 2: ユニットテスト（Phase 1 通過後）────────────────────────────
   unit-test:
     name: Unit Test
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, audit, secret-scan]
+    needs: [lint, typecheck, audit, secret-scan, semgrep]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -190,6 +207,11 @@ jobs:
         uses: zaproxy/action-baseline@7c4deb10e6261301961c86d65d54a516394f9aed # v0.14.0 / zapを実行
         with:
           target: http://localhost:3000/login
-          fail_action: warn
+          # ZAP のイメージも digest で固定する（既定の :stable は付け替えられ、新しい版でルールが増えると突然 CI が失敗する。T6-6）
+          # Dependabot はここを更新しないので、手で上げる（docs/CICD.md「ZAP」）
+          docker_name: ghcr.io/zaproxy/zaproxy:2.17.0@sha256:030d3df57735dacbb83464854758e674dd9ad01d79d12a129a8e58b1fd384238
+          # 対応不要と決めた指摘は .zap/rules.tsv で IGNORE にする。それ以外の指摘（WARN 以上）が1件でもあれば CI を失敗させる（T6-9）
+          rules_file_name: .zap/rules.tsv
+          fail_action: true
           # Dependabot の PR では GITHUB_TOKEN が読み取り専用で Issue を書けないので、書かない（結果は artifact に残る）
           allow_issue_writing: ${{ github.event.pull_request.user.login != 'dependabot[bot]' }}

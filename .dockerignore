@@ -8,6 +8,7 @@ tests
 scripts
 .localdev
 firebase.json
+firestore.rules
 .firebaserc
 *-debug.log
 playwright-report

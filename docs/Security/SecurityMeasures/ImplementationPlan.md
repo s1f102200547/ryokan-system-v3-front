@@ -32,7 +32,7 @@ P0 は 2026-11-01 にいったん完了とした。次の作業は後回しに�
 
 | 作業 | 後回しにした理由・始める条件 | 詳細 |
 |---|---|---|
-| `main` と `development` のルールセット（T5-1）。必須チェックに `Secret Scan` も加える | 非公開リポジトリでは GitHub Pro が要る。Student Developer Pack の承認を待つ | Step P0-1、Step 1-7 |
+| `main` と `development` のルールセット（T5-1）。必須チェックに `Secret Scan` と `Semgrep` も加える | 非公開リポジトリでは GitHub Pro が要る。Student Developer Pack の承認を待つ | Step P0-1、Step 1-7 |
 | Environment `production` を作り、デプロイ用の secrets を移す（T5-2） | 同上 | Step 1-2 |
 | WIF の条件に `assertion.environment == 'production'` を加える | Environment を作ったあと | Step P0-2 の 3 |
 | ルールセットと Environment の確認（`main` への直接 push の拒否、ほかのブランチから secrets を読めないこと） | 同上 | Step P0-1 の 3、Step 1-2 |
@@ -40,6 +40,7 @@ P0 は 2026-11-01 にいったん完了とした。次の作業は後回しに�
 | オーナー権限の分離とパスキー（T5-5、T5-6） | 時間のあるときに行う。オーナーを外す前に、オーナー用のアカウントで操作できることを確かめる | Step P0-4 |
 | `firebase-admin` を 13 から 14 に上げる（T6） | 内部の `uuid@9` などの moderate の脆弱性（Dependabot の警告）が消える。大きな版の変更なので、API の変更点の確認と、Emulator のテスト・E2E での確認が要る。今の脆弱性は、このアプリでは脆弱なコードが実行されない見込みなので後回しにした（2026-11-02） | `docs/KnownIssues.md` |
 | `SLACK_WEBHOOK_URL` を Secret Manager に移し、同時に Webhook の URL を作り直す（T5-9、T8） | 今は Cloud Run の環境変数に平文で入っていて、プロジェクトの閲覧権限があればコンソールで見える。また 2026-11-02 に、Cloud Run の画面の貼り付けで AI エージェントとの会話に値が渡った（通知チャンネルへの投稿しかできない URL なので、作り直しは移すときに一緒に行う）。実行用の SA に、この secret だけの `roles/secretmanager.secretAccessor` を付け、`deploy.yml` は `--set-secrets` で渡す | `GCP_SETUP.md` §5、`docs/CICD.md` |
+| 今ある Dependabot の警告（uuid #1、grpc-js #2・#3、minimatch #4）を分析し直して、Dismiss するかを決める（T6-3） | 今の分析では4件とも、このアプリでは脆弱なコードが実行されない（`docs/KnownIssues.md`、`scripts/ci/auditAllowlist.ts`）。依存の更新や Dependabot の運用で中身が変わりうるので、計画を実装し終えて新しい体制になってから見直す（2026-11-02 決定） | `docs/KnownIssues.md` |
 | Node.js を 26 LTS に上げる（T6-4） | 26 は 2026-10-28 に LTS になったばかりなので、24（2028-04-30 までサポート）にした（2026-11-02）。2027 年中に上げる | Step 1-3 |
 
 ---
@@ -208,30 +209,33 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 - Dependabot の PR を Slack に通知する。Slack の GitHub アプリで `#notif-git` に `/github subscribe s1f102200547/ryokan-system-v3-front pulls +label:"dependencies"` を設定した。（済。2026-11-02）GitHub アプリが読めるリポジトリが、このリポジトリだけであることを確かめる。
 - マージのあと、Insights → Dependency graph → Dependabot で、3つの対象が読み込まれてエラーがないことを確かめる。最初の月曜に `development` 宛ての PR が来て、Slack に通知され、CI が通ることを確かめる。
 
-### Step 1-5: ZAP の指摘で CI を失敗させる（T6-9）
+### Step 1-5: ZAP の指摘で CI を失敗させる（T6-9）（🤖 済。CI での確認待ち）
 
 🤖 Claude
-1. `.zap/rules.tsv` を作り、`Security.md` で対応不要と決めた指摘（10055、10109、Non-Storable Content）を `IGNORE` にする。
-2. `ci.yml` の ZAP のステップに `rules_file_name` を渡し、`fail_action` を変えて、新しい指摘で失敗させる。WARN でも失敗するかなど、action の挙動は着手時に README で確かめる。
-3. ローカルか PR の CI で、今の状態が通ることを確かめる。
-4. `Security.md`（ZAP 指摘の扱い）と `docs/CICD.md` を更新する。
-
-### Step 1-6: `firestore.rules` の管理とテスト（T6-2）
-
-🤖 Claude
-1. 全拒否の `firestore.rules` を作り、`firebase.json` から参照する。
-2. `tests/emulator/` に、Client SDK（ID トークンあり・なし）から `guestInfoV2` と `dailyInfo` の読み書きが拒否されることを確かめるテストを加える。使うライブラリ（`@firebase/rules-unit-testing` を devDependencies に加えるか、今ある `firebase` で書くか）は着手時に相談する。
+1. `.zap/rules.tsv` を作り、`Security.md` で対応不要と決めた指摘（10055、10109、10049 Non-Storable Content）を `IGNORE` にする。（済。ZAP のコンテナで読めるよう ASCII だけで書く。10055 を除外すると CSP 全体の検査が外れるが、本番の CSP は `tests/unit/lib/csp.test.ts` で固定している）
+2. `ci.yml` の ZAP のステップに `rules_file_name` を渡し、`fail_action` を `true` にする。（済。action のソースで確かめた: ZAP が WARN（終了コード 2）でも FAIL（1）でも失敗にする。これまでの `fail_action: warn` は受け付けない値で、何が見つかっても失敗しなかった）。ZAP のイメージを版と digest で固定する（2.17.0。既定の `:stable` は付け替えられる）。（済）
+3. PR の CI で、今の状態が通ることを確かめる。（WSL で Docker が使えないため、ローカルでは確かめていない）
+4. `Security.md`（ZAP 指摘の扱い）と `docs/CICD.md`（ZAP）を更新する。（済）
 
 👤 開発者
-1. 本番のルールとリポジトリの `firestore.rules` が同じであることを Firebase コンソールで確かめる。
-2. ルールの本番への反映は手で行う（`firebase deploy --only firestore:rules`）。エージェントには実行させない。
+- PR の CI の `OWASP ZAP Baseline Scan` が通ることを確かめる。失敗したら、ログの `WARN-NEW:` の行（指摘の名前と ID）を Claude に伝える。直すか、理由を付けて `.zap/rules.tsv` に加えるかを決める。
 
-### Step 1-7: Semgrep と gitleaks（T7-1、T8-1、T8-5）
+### Step 1-6: `firestore.rules` の管理とテスト（T6-2）（🤖 済）
 
 🤖 Claude
-1. `ci.yml` に `semgrep` のジョブを加える（Community Edition。TypeScript と Next.js のルールセット）。最初の実行で出た指摘は、直すか、理由を付けて除外する。
+1. 全拒否の `firestore.rules` を作り、`firebase.json` から参照する。（済。Emulator（`make`、`npm run test:emulator`）もこのルールで起動する。サーバー・シード・匿名化は Admin SDK なので影響しない）
+2. `tests/emulator/firestoreRules.test.ts` に、Client SDK（ログインあり・なし）から `guestInfoV2`、`dailyInfo`、ほかのコレクションの読み取り・一覧・作成・更新・削除が `permission-denied` になることと、Admin SDK は読み書きできることのテストを加える。（済。依存を増やさないよう、`@firebase/rules-unit-testing` ではなく今の `firebase` で書いた（公式の 6.x は firebase 13 専用で、firebase を上げる理由もないため。2026-11-02 決定）。ルールを一時的に全許可にするとテストが失敗することを確かめた）
+
+👤 開発者
+1. 本番のルールとリポジトリの `firestore.rules` が同じであることを Firebase コンソール（Firestore → ルール）で確かめる。違えば、リポジトリの内容を手で反映する。
+2. ルールの本番への反映は手で行う（`firebase deploy --only firestore:rules --project ryokan-system`）。エージェントには実行させない。
+
+### Step 1-7: Semgrep と gitleaks（T7-1、T8-1、T8-5）（🤖 済）
+
+🤖 Claude
+1. `ci.yml` に `semgrep` のジョブを加える（Community Edition。TypeScript と Next.js のルールセット）。最初の実行で出た指摘は、直すか、理由を付けて除外する。（済。`p/nextjs` は無料版では空だったので、`p/default`・`p/typescript`・`p/react` にした。公式の Docker イメージ v1.182.1 を digest で固定。最初の実行の指摘は10件で、すべて誤検知。`src/proxy.ts` と `deploy.yml` の2か所は理由を付けて `nosemgrep` で除外し、`p/nodejsscan` の8件（`scripts/localdev/` の Emulator 用の固定値と単純な正規表現）はルールセットごと使わないことにした）
 2. `ci.yml` に `gitleaks` のジョブ（`secret-scan`）を加える。（済。PR の差分ではなく毎回全履歴を検査する。数秒で終わり、差分の範囲の扱いが要らないため。本体はバージョン固定でダウンロードし、チェックサムを確かめる。`.gitleaks.toml` は不要で、誤検知は `.gitleaksignore` で除外する）
-3. `docs/CICD.md` を更新する。
+3. `docs/CICD.md` を更新する。（済。`T7.md` も更新）
 
 👤 開発者
 1. gitleaks で全履歴を一度だけ検査する（`gitleaks git .`）。見つかったら、履歴から消すより先にキーを無効化する。（済。443 コミットで1件。以前の `ci.yml` の E2E 用のダミー値で誤検知だったので、`.gitleaksignore` で除外した。2026-11-01）
@@ -240,7 +244,7 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 
 コミットの単位: Semgrep と gitleaks で2つ。
 
-### Step 1-8: レビューの観点と運用のルール（T7-2、T7-3、T8-2、T8-3）
+### Step 1-8: レビューの観点と運用のルール（T7-2、T7-3、T8-2、T8-3）（🤖 済）
 
 🤖 Claude
 1. `docs/Review.md` のセキュリティ観点に加える。
@@ -249,7 +253,8 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
    - 新しい入口（Route、外部サービス）を加えたら、`SecurityPolicy.md` の §5 と §7 を更新する
    - 新しい Route は `tests/integration/fuzz/routes.fuzz.test.ts` の `ROUTES` に加える（T7-3）
    - テストデータは `seed` か `anonymize` から作り、実データを `tests/`、`e2e/`、`docs/`、Issue、PR、エージェントへの指示に貼らない（T8-2）
-2. `docs/LocalDevelopment.md` の `anonymize` の手順に「実行中は AI エージェントを動かさない」を加える（T8-3）。
+   （済。外部の接続先を加えたときの CSP・COEP・CORP の更新も加えた）
+2. `docs/LocalDevelopment.md` の `anonymize` の手順に「実行中は AI エージェントを動かさない」を加える（T8-3）。（済。要件 ANON-12 として実行条件の表に加え、§8.1 の使い方にも書いた）
 
 ### Step 1-9: 予約 API の上限（T7-4）
 

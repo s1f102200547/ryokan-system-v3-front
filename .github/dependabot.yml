@@ -7,6 +7,8 @@ updates:
   - package-ecosystem: "npm"
     directory: "/"
     target-branch: "development"
+    # 既定の5件だと、上限に達して作られない PR が出る（見逃さないよう多めにする）
+    open-pull-requests-limit: 20
     schedule:
       interval: "weekly"
       day: "monday"
@@ -28,6 +30,8 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     target-branch: "development"
+    # 既定の5件だと、上限に達して作られない PR が出る（見逃さないよう多めにする）
+    open-pull-requests-limit: 20
     schedule:
       interval: "weekly"
       day: "monday"
@@ -44,6 +48,8 @@ updates:
   - package-ecosystem: "docker"
     directory: "/"
     target-branch: "development"
+    # 既定の5件だと、上限に達して作られない PR が出る（見逃さないよう多めにする）
+    open-pull-requests-limit: 20
     schedule:
       interval: "weekly"
       day: "monday"
