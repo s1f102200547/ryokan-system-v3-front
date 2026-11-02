@@ -26,6 +26,20 @@ AI エージェントには push・デプロイ・本番の操作をさせない
 - 対策が終わったら、今の実装の説明を `docs/Security/Security.md` に移し、`Tx.md` の該当の行に「済」と書く（`README.md` のルール）。
 - ライブラリ・GitHub Actions・GCP の設定の書き方は、着手時に Context7 か公式 docs で確かめる。
 
+## 後回しにした作業
+
+P0 は 2026-11-01 にいったん完了とした。次の作業は後回しにしたので、条件がそろったら行う。
+
+| 作業 | 後回しにした理由・始める条件 | 詳細 |
+|---|---|---|
+| `main` と `development` のルールセット（T5-1）。必須チェックに `Secret Scan` も加える | 非公開リポジトリでは GitHub Pro が要る。Student Developer Pack の承認を待つ | Step P0-1、Step 1-7 |
+| Environment `production` を作り、デプロイ用の secrets を移す（T5-2） | 同上 | Step 1-2 |
+| WIF の条件に `assertion.environment == 'production'` を加える | Environment を作ったあと | Step P0-2 の 3 |
+| ルールセットと Environment の確認（`main` への直接 push の拒否、ほかのブランチから secrets を読めないこと） | 同上 | Step P0-1 の 3、Step 1-2 |
+| GitHub Pro で Secret scanning が使えるようになるかの確認（T5-10） | 同上 | `T5.md` |
+| オーナー権限の分離とパスキー（T5-5、T5-6） | 時間のあるときに行う。オーナーを外す前に、オーナー用のアカウントで操作できることを確かめる | Step P0-4 |
+| `firebase-admin` を 13 から 14 に上げる（T6） | 内部の `uuid@9` などの moderate の脆弱性（Dependabot の警告）が消える。大きな版の変更なので、API の変更点の確認と、Emulator のテスト・E2E での確認が要る。今の脆弱性は、このアプリでは脆弱なコードが実行されない見込みなので後回しにした（2026-11-02） | `docs/KnownIssues.md` |
+
 ---
 
 ## Step 0: 文書の整理（🤖）（済）
@@ -41,7 +55,7 @@ AI エージェントには push・デプロイ・本番の操作をさせない
 
 ---
 
-## P0: 設定の変更（ほぼ 👤）
+## P0: 設定の変更（ほぼ 👤）（いったん完了。残りは「後回しにした作業」）
 
 SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 
@@ -64,12 +78,12 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 ### Step P0-2: WIF の条件を絞る（T5-3）
 
 👤 開発者
-1. 今の provider の設定を確認する（`gcloud iam workload-identity-pools providers describe github-provider --location=global --workload-identity-pool=github-pool`）。属性の対応付けと条件を控える。
-2. 属性の対応付けに `attribute.ref=assertion.ref`、`attribute.workflow_ref=assertion.workflow_ref` を加え、条件を設定する。
+1. 今の provider の設定を確認する（`gcloud iam workload-identity-pools providers describe github-provider --location=global --workload-identity-pool=github-pool`）。属性の対応付けと条件を控える。（済）
+2. 属性の対応付けに `attribute.ref=assertion.ref`、`attribute.workflow_ref=assertion.workflow_ref` を加え、条件を設定する。（済）
    `assertion.repository == '<owner>/<repo>' && assertion.ref == 'refs/heads/main' && assertion.workflow_ref.startsWith('<owner>/<repo>/.github/workflows/deploy.yml@')`
-   - `workflow_run` で動く deploy の `workflow_ref` と `ref` が実際に何になるかは、1回デプロイして Cloud Audit Logs で確かめてから条件を確定する（大文字・小文字も合わせる）。
-3. P1-2（Environment）のあとに `&& assertion.environment == 'production'` を加える。
-4. 確認は P1-2 の確認とまとめて行う。
+   - `workflow_run` で動く deploy の `workflow_ref` と `ref` が実際に何になるかは、1回デプロイして確かめる（大文字・小文字も合わせる）。（済。条件を付けたあとの `main` のデプロイが成功した）
+3. P1-2（Environment）のあとに `&& assertion.environment == 'production'` を加える。（GitHub Pro を待って保留）
+4. ほかのブランチのワークフローが GCP に入れないことを確かめる（`T5.md` の確認方法 2・3）。Environment がなくても、WIF の条件の確認はできる。（済。`test/wif-check` ブランチの確認用ワークフローが `The given credential is rejected by the attribute condition` で拒否された。ファイル名を `deploy.yml` にした場合（ブランチの条件だけで止める場合）も同じく拒否された。2026-11-01）
 
 🤖 Claude
 - `GCP_SETUP.md` §6 の provider 作成コマンドを、新しい属性の対応付けと条件に書き直す。（済）
@@ -87,14 +101,14 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 3. `github-actions-deployer` から、プロジェクト全体の `roles/run.admin` と `roles/artifactregistry.writer` を外す。（済）
 4. 確認
    - プロジェクト全体のロールが残っていないこと（`gcloud projects get-iam-policy`）。（済）
-   - 次のデプロイが成功すること。P0-2 の WIF の条件の確認と同じデプロイで行う。
-   - 本番の URL をログインしていないブラウザで開き、ログイン画面が出ること（公開の設定が残っていること）。
+   - 次のデプロイが成功すること。P0-2 の WIF の条件の確認と同じデプロイで行う。（済）
+   - 本番の URL をログインしていないブラウザで開き、ログイン画面が出ること（公開の設定が残っていること）。（済）
 
 🤖 Claude
 - `GCP_SETUP.md` §4 を、リソースごとの付与に書き直す。（済）
 - `deploy.yml` から `--allow-unauthenticated` を外す（`run.developer` は公開の設定を変えられないので、渡すと失敗するおそれがある）。（済）
 
-### Step P0-4: オーナー権限の分離とパスキー（T5-5、T5-6）
+### Step P0-4: オーナー権限の分離とパスキー（T5-5、T5-6）（後回し）
 
 👤 開発者
 1. オーナー用の Google アカウントを別に用意し、GCP プロジェクトのオーナーにする。
@@ -105,16 +119,16 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 ### Step P0-5: 開発 PC の設定（T5-8）
 
 👤 開発者
-1. VS Code の `security.workspace.trust.enabled` が `true` であることを確認する。
-2. SSH 鍵にパスフレーズを付ける（`ssh-keygen -p -f ~/.ssh/<鍵>`）。
-3. 素性の分からないリポジトリは Dev Container か Codespaces で開く、と決めておく。
+1. VS Code の `security.workspace.trust.enabled` が `true` であることを確認する。信頼済みのフォルダーに広い親フォルダー（ホームなど）がないかも見直す。`task.allowAutomaticTasks` を `off` にする。（済）
+2. SSH 鍵にパスフレーズを付ける（`ssh-keygen -p -f ~/.ssh/<鍵>`）。（済）
+3. 素性の分からないリポジトリは Dev Container か Codespaces で開く、と決めておく。（済）
 
-### Step P0-6: その他の P0（T5-10、T1、README の P0）
+### Step P0-6: その他の P0（T5-10、T1、README の P0）（済）
 
 👤 開発者
-1. GitHub → Settings → Code security で Secret scanning を有効にする（T5-10）。
-2. Firebase Authentication で新規登録が API レベルで無効になっていることを確認する（Authentication → Settings → User actions の「Enable create (sign-up)」がオフ）。確認として、公開の API キーで `accounts:signUp` を呼び、拒否されることを確かめる。
-3. GCP の予算アラートを設定する（DDoS の請求額を抑える。`SecurityPolicy.md` §8）。
+1. ~~Secret scanning を有効にする（T5-10）~~ 非公開リポジトリでは使えないので、Step 1-7 の gitleaks で代わりにする。
+2. Firebase Authentication で新規登録が API レベルで無効になっていることを確認する（Authentication → Settings → User actions の「Enable create (sign-up)」がオフ）。確認として、公開の API キーで `accounts:signUp` を呼び、拒否されることを確かめる。（済）
+3. GCP の予算アラートを設定する（DDoS の請求額を抑える。`SecurityPolicy.md` §8）。（済）
 
 ---
 
@@ -124,12 +138,12 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 
 🤖 Claude
 1. `ci.yml` の全体の `permissions` を `contents: read` にし、`zap-scan` のジョブにだけ `issues: write` を付ける。（済。非公開リポジトリで checkout が失敗したため先に行った）
-2. `ci.yml` と `deploy.yml` の全アクションをコミット SHA に固定し、行末にバージョンをコメントで残す（`pinact` を使うか手で調べる。`pinact` を開発 PC に入れるかは着手時に相談する）。
-3. `npx wait-on` と `npm install -g firebase-tools@15` を、正確なバージョンに固定する。
-4. `docs/CICD.md` を更新する。
+2. `ci.yml` と `deploy.yml` の全アクションをコミット SHA に固定し、行末にバージョンをコメントで残す。（済。`pinact` は入れず、GitHub の API でタグの SHA を調べた。メジャー版は今のまま（同じメジャー版の中の最新版）にし、メジャー版を上げるのは Dependabot に任せる）
+3. `npx wait-on` と `npm install -g firebase-tools@15` を、正確なバージョンに固定する。（済。`firebase-tools@15.34.1`（公開から7日以上の最新）。`wait-on` は `curl` のループに置き換えて依存をなくした）
+4. `docs/CICD.md` を更新する。（済）
 
 👤 開発者
-- GitHub → Settings → Actions → General で、アクションを SHA に固定することを必須にする（設定項目の名前は着手時に確認）。
+- GitHub → Settings → Actions → General で、アクションを SHA に固定することを必須にする（「Require actions to be pinned to a full-length commit SHA」。無料プランの非公開リポジトリで使えるかを確かめる）。
 
 コミットの単位: 1つ（CI の変更）。
 
@@ -207,11 +221,11 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 
 🤖 Claude
 1. `ci.yml` に `semgrep` のジョブを加える（Community Edition。TypeScript と Next.js のルールセット）。最初の実行で出た指摘は、直すか、理由を付けて除外する。
-2. `ci.yml` に `gitleaks` のジョブを加える。PR の差分を検査する。設定ファイル（`.gitleaks.toml`）が要るかは最初の実行で判断する。
+2. `ci.yml` に `gitleaks` のジョブ（`secret-scan`）を加える。（済。PR の差分ではなく毎回全履歴を検査する。数秒で終わり、差分の範囲の扱いが要らないため。本体はバージョン固定でダウンロードし、チェックサムを確かめる。`.gitleaks.toml` は不要で、誤検知は `.gitleaksignore` で除外する）
 3. `docs/CICD.md` を更新する。
 
 👤 開発者
-1. gitleaks で全履歴を一度だけ検査する（`gitleaks git .`）。見つかったら、履歴から消すより先にキーを無効化する。
+1. gitleaks で全履歴を一度だけ検査する（`gitleaks git .`）。見つかったら、履歴から消すより先にキーを無効化する。（済。443 コミットで1件。以前の `ci.yml` の E2E 用のダミー値で誤検知だったので、`.gitleaksignore` で除外した。2026-11-01）
 2. P0-1 のルールセットの必須チェックに、2つのジョブを加える。
 3. リポジトリを公開に切り替える前には、もう一度全履歴を検査する（T8-5）。
 
