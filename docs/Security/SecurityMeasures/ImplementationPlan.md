@@ -209,13 +209,16 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 - Dependabot の PR を Slack に通知する。Slack の GitHub アプリで `#notif-git` に `/github subscribe s1f102200547/ryokan-system-v3-front pulls +label:"dependencies"` を設定した。（済。2026-11-02）GitHub アプリが読めるリポジトリが、このリポジトリだけであることを確かめる。
 - マージのあと、Insights → Dependency graph → Dependabot で、3つの対象が読み込まれてエラーがないことを確かめる。最初の月曜に `development` 宛ての PR が来て、Slack に通知され、CI が通ることを確かめる。
 
-### Step 1-5: ZAP の指摘で CI を失敗させる（T6-9）
+### Step 1-5: ZAP の指摘で CI を失敗させる（T6-9）（🤖 済。CI での確認待ち）
 
 🤖 Claude
-1. `.zap/rules.tsv` を作り、`Security.md` で対応不要と決めた指摘（10055、10109、Non-Storable Content）を `IGNORE` にする。
-2. `ci.yml` の ZAP のステップに `rules_file_name` を渡し、`fail_action` を変えて、新しい指摘で失敗させる。WARN でも失敗するかなど、action の挙動は着手時に README で確かめる。
-3. ローカルか PR の CI で、今の状態が通ることを確かめる。
-4. `Security.md`（ZAP 指摘の扱い）と `docs/CICD.md` を更新する。
+1. `.zap/rules.tsv` を作り、`Security.md` で対応不要と決めた指摘（10055、10109、10049 Non-Storable Content）を `IGNORE` にする。（済。ZAP のコンテナで読めるよう ASCII だけで書く。10055 を除外すると CSP 全体の検査が外れるが、本番の CSP は `tests/unit/lib/csp.test.ts` で固定している）
+2. `ci.yml` の ZAP のステップに `rules_file_name` を渡し、`fail_action` を `true` にする。（済。action のソースで確かめた: ZAP が WARN（終了コード 2）でも FAIL（1）でも失敗にする。これまでの `fail_action: warn` は受け付けない値で、何が見つかっても失敗しなかった）。ZAP のイメージを版と digest で固定する（2.17.0。既定の `:stable` は付け替えられる）。（済）
+3. PR の CI で、今の状態が通ることを確かめる。（WSL で Docker が使えないため、ローカルでは確かめていない）
+4. `Security.md`（ZAP 指摘の扱い）と `docs/CICD.md`（ZAP）を更新する。（済）
+
+👤 開発者
+- PR の CI の `OWASP ZAP Baseline Scan` が通ることを確かめる。失敗したら、ログの `WARN-NEW:` の行（指摘の名前と ID）を Claude に伝える。直すか、理由を付けて `.zap/rules.tsv` に加えるかを決める。
 
 ### Step 1-6: `firestore.rules` の管理とテスト（T6-2）
 

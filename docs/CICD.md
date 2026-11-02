@@ -92,7 +92,14 @@ E2E の開発サーバーは `playwright.config.ts` の `webServer.env` で、Em
 
 現在の例外（2027-01-31 まで）: `@grpc/grpc-js` の GHSA-m9gg-hp2v-232j（high 4件はすべてこの advisory 由来）。ブラウザ用 `firebase` パッケージの `@firebase/firestore` が grpc-js を `~1.9.0` に固定しており、firebase 最新版でも解消しない。ブラウザでは `firebase/firestore` を import しておらず、脆弱性は gRPC サーバー側の問題のため、このアプリでは実行されない。
 
-ZAP Baseline Scan は `http://localhost:3000/login` を対象にし、`fail_action: warn` のため検出だけでは CI を fail させない。
+### ZAP
+
+ZAP Baseline Scan は `http://localhost:3000/login` を対象にする（T6-9）。
+
+- 対応不要と決めた指摘は `.zap/rules.tsv` で IGNORE にする（一覧と理由は `docs/Security/Security.md`「ZAP 指摘の扱い」）。
+- それ以外の指摘（WARN 以上）が1件でもあれば、`fail_action: true` で CI を失敗させる。
+- 結果は artifact `zap_scan` と、Issue「ZAP Scan Baseline Report」に残る（Dependabot の PR では Issue に書かない）。
+- ZAP のイメージは `docker_name` で版と digest を固定する（今は 2.17.0）。Dependabot は更新しないので、ZAP の新しい版が出たら手で上げる。上げると新しいルールの指摘で CI が失敗することがあるので、PR で確かめてから入れる。
 
 ## Deploy
 
