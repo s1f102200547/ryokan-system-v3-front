@@ -61,21 +61,22 @@ ZAP Baseline Scan は `http://localhost:3000/login` を対象にし、`fail_acti
 
 ## Deploy
 
-`deploy.yml` は `workflow_run` で `CI` workflow の完了を監視し、対象 branch が `main`、かつ conclusion が `success` の場合のみ実行される。
+`deploy.yml` は `workflow_run` で `CI` workflow の完了を監視し、対象 branch が `main`、conclusion が `success`、かつ CI が `push` で動いた場合のみ実行される（PR の CI では動かない。T6-8）。
 
 Deploy job の流れ:
 
-1. `actions/checkout`（v4.4.0 の SHA に固定）
+1. `actions/checkout` で **CI が検査したコミット**（`github.event.workflow_run.head_sha`）を取得する。`workflow_run` の `github.sha` は deploy が始まった時点の `main` の最新で、CI のあとに push されたコミットを指すことがあるため使わない
 2. Workload Identity Federation で GCP 認証
 3. Artifact Registry 用に Docker 認証を設定
 4. Buildx をセットアップ
-5. Docker image を build/push
-6. Cloud Run へ deploy
+5. Docker image を build/push。auth が作る `gha-creds-*.json` は `.dockerignore` で build に入れない（T6-10）
+6. Cloud Run へ deploy。実行用の SA は `ryokan-runtime`（Firestore と Session Cookie の発行・確認だけ。`GCP_SETUP.md` §5、T6-1）
+7. 結果（成功・失敗）、コミット、push した人、実行の URL を Slack に通知する（T5-9）
 
 Docker image tag:
 
 ```text
-asia-northeast1-docker.pkg.dev/${GCP_PROJECT_ID}/ryokan/ryokan-system:${github.sha}
+asia-northeast1-docker.pkg.dev/${GCP_PROJECT_ID}/ryokan/ryokan-system:${head_sha}
 ```
 
 Cloud Run settings:
@@ -86,6 +87,7 @@ Cloud Run settings:
 | service | `ryokan-system` |
 | repository | `ryokan` |
 | port | `8080` |
+| service account | `ryokan-runtime@${GCP_PROJECT_ID}.iam.gserviceaccount.com`（`deploy.yml` の `RUNTIME_SA_NAME`） |
 | auth | 公開（`allUsers` に `roles/run.invoker`）。サービスに付けた設定のまま。デプロイ用の SA は `roles/run.developer` で、公開の設定を変えられないので、`deploy.yml` は `--allow-unauthenticated` を渡さない |
 
 ## Required Secrets
@@ -100,7 +102,7 @@ GitHub Actions secrets:
 | `NEXT_PUBLIC_FIREBASE_API_KEY` | build 時にクライアント bundle へ埋め込む Firebase config |
 | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | build 時にクライアント bundle へ埋め込む Firebase config |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | build 時にクライアント bundle へ埋め込む Firebase config |
-| `SLACK_WEBHOOK_URL` | Cloud Run runtime の障害通知用 webhook |
+| `SLACK_WEBHOOK_URL` | Cloud Run runtime の障害通知用 webhook。`deploy.yml` のデプロイの通知にも使う |
 
 Firebase Admin は Cloud Run の Application Default Credentials を使うため、service account key file は使わない。
 

@@ -152,20 +152,20 @@ SSH 鍵1つで本番に届く今の経路を、最初に塞ぐ。
 > Environment `production` に関わる作業（👤 の 3・4、🤖 の `environment: production`、マージ後の 4・5）は、GitHub Pro が使えるようになってから行う（P0-1 の保留を参照）。それ以外は先に進めてよい。
 
 👤 開発者（先に行う）
-1. 実行用のサービスアカウント（例: `ryokan-runtime`）を作り、Firestore と Firebase Auth に必要な権限だけを付ける。候補は `roles/datastore.user` と `roles/firebaseauth.admin`。`createSessionCookie` と `verifySessionCookie(cookie, true)` に必要な権限は、着手時に公式 docs で確かめる。
-2. P0-3 の `roles/iam.serviceAccountUser` を、このサービスアカウントに付ける。
+1. 実行用のサービスアカウント `ryokan-runtime` を作り、`roles/datastore.user` と、カスタムロール `ryokanRuntimeAuth`（`firebaseauth.users.createSession`、`firebaseauth.users.get`）だけを付ける（2026-11-02 決定。`roles/firebaseauth.admin` はユーザーの作成・削除もできるので使わない）。コマンドは `GCP_SETUP.md` §5。
+2. P0-3 の `roles/iam.serviceAccountUser` を、このサービスアカウントに付ける（`GCP_SETUP.md` §5 の最後のコマンド）。
 3. GitHub → Settings → Environments で `production` を作り、Deployment branches を `main` だけにする。
 4. `WORKLOAD_IDENTITY_PROVIDER`、`SERVICE_ACCOUNT`、`GCP_PROJECT_ID`、`SLACK_WEBHOOK_URL`、`NEXT_PUBLIC_FIREBASE_*` を Environment に登録し、リポジトリ全体の secrets から削除する（`NEXT_PUBLIC_FIREBASE_*` は deploy だけが使うので一緒に移す）。
 
 🤖 Claude
 1. `deploy.yml`
-   - `if:` に `github.event.workflow_run.event == 'push'` を加える（T6-8）。
-   - checkout と image の tag を `github.event.workflow_run.head_sha` にする（CI が検査したコミットをデプロイする）。
-   - deploy ジョブに `environment: production` を付ける（T5-2）。
-   - `deploy-cloudrun` に実行用のサービスアカウントを渡す（`--service-account`。名前は Environment の secret か `env:` に置く）（T6-1）。
-   - 最後に Slack への通知のステップを加える（T5-9）。中身はコミットの SHA、コミットした人、ワークフローの実行 URL。値は `run:` に `${{ }}` で直接埋め込まず、`env:` を通して渡す（コミットした人の名前などによるスクリプトの注入を防ぐ）。通知に secret の値を入れない。
-2. `.dockerignore` と `.gitignore` に `gha-creds-*.json` を加える（T6-10）。
-3. `docs/CICD.md`（Deploy、Required Secrets）と `GCP_SETUP.md`（§5 の実行用のサービスアカウント、§7 の secrets の置き場所）を更新する。
+   - `if:` に `github.event.workflow_run.event == 'push'` を加える（T6-8）。（済）
+   - checkout と image の tag を `github.event.workflow_run.head_sha` にする（CI が検査したコミットをデプロイする）。（済）
+   - deploy ジョブに `environment: production` を付ける（T5-2）。（Pro 待ち）
+   - `deploy-cloudrun` に実行用のサービスアカウントを渡す（`--service-account`。名前は `env:` の `RUNTIME_SA_NAME` に置き、プロジェクト ID と組み合わせる）（T6-1）。（済）
+   - 最後に Slack への通知のステップを加える（T5-9）。（済。成功と失敗の両方を通知する）中身はコミットの SHA、コミットした人、ワークフローの実行 URL。値は `run:` に `${{ }}` で直接埋め込まず、`env:` を通して渡す（コミットした人の名前などによるスクリプトの注入を防ぐ）。通知に secret の値を入れない。
+2. `.dockerignore` と `.gitignore` に `gha-creds-*.json` を加える（T6-10）。（済）
+3. `docs/CICD.md`（Deploy、Required Secrets）と `GCP_SETUP.md`（§5 の実行用のサービスアカウント）を更新する。（済。§7 の secrets の置き場所は、Environment を作るときに更新する）
 
 👤 開発者（マージのあと）
 1. デプロイが成功し、Slack に通知が来ることを確かめる。
