@@ -10,7 +10,8 @@
 
 ### §8 後回し
 
-- [ ] `firebase-admin` の 14 への更新
+- [x] `firebase-admin` の 14 への更新
+  - 14.5.0 に更新（2026-11-04）。トークン・セッション Cookie のエラーの code と message は 13.10 と同じで、ログインの 401 / 503 の判定は変えずに済んだ。`uuid` の moderate は消え、代わりに `glob` の moderate が1件増えた（docs/Development.md）
 - [ ] Node.js の 26 LTS への更新：2027 年中
   - メモ: Dockerfile・CI の `node-version`・`@types/node` をそろえる。26 が LTS になり、公開から7日たってから
 

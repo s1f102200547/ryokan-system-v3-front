@@ -7,7 +7,7 @@ import { adminAuth } from '@/lib/firebase/admin'
 import { verifySession } from '@/lib/auth/verifySession'
 
 // auth/ で始まるコードをすべて「未ログイン」にしていた。
-// Auth の内部障害でもログイン画面に戻され、通知されなかった。メッセージは firebase-admin 13.10 が実際に返すもの
+// Auth の内部障害でもログイン画面に戻され、通知されなかった。メッセージは firebase-admin 14.5 が実際に返すもの
 describe('verifySession', () => {
   beforeEach(() => vi.clearAllMocks())
 
@@ -36,6 +36,7 @@ describe('verifySession', () => {
     ['Auth に接続できない', { code: 'app/network-error', message: 'Error while making request: connect ECONNREFUSED 127.0.0.1:9099.' }],
     ['Auth の内部エラー', { code: 'auth/internal-error', message: 'x' }],
     ['公開鍵の取得失敗', { code: 'auth/argument-error', message: 'Error fetching public keys for Google certs: 500' }],
+    ['公開鍵の取得失敗（名前解決）', { code: 'auth/argument-error', message: 'Error while making request: getaddrinfo ENOTFOUND www.googleapis.com. Error code: ENOTFOUND' }],
     ['code なし', new Error('boom')],
   ])('%s は AUTH_UNAVAILABLE（障害 → 503 + 通知）', async (_label, e) => {
     vi.mocked(adminAuth.verifySessionCookie).mockRejectedValue(e)
