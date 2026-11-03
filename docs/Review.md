@@ -32,14 +32,14 @@
 
 ### セキュリティ
 
-- `docs/Security/Security.md` の認証境界、CSP、Cookie、Cloud Run 公開設定と矛盾しないか。
+- `docs/Security.md` の §7（対策）と矛盾しないか。
 - API は session 検証を必ず行っているか。ただし `/api/auth/login` は例外。
 - Cookie は `httpOnly`, `sameSite`, production `secure` を維持しているか。
 - Firebase の秘密情報や実顧客情報がコード・テスト・ログ・ドキュメントに混入していないか。
 - `NEXT_PUBLIC_*` と server-only secret の扱いを混同していないか。
 - 書き込みの入力（Zod のスキーマ）に、文字列の長さと配列の件数の上限があるか（T7-2）。
 - エラーのレスポンス・ログ・Slack 通知に、内部の情報（スタックトレース、Firestore のパス、Zod の詳細）や個人情報（氏名、メール、電話番号、request body）を出していないか（T7-2）。
-- 新しい入口（Route Handler、外部サービス、外部 API）を加えたら、`docs/Security/SecurityPolicy.md` の §5（入口）と §7（脅威と方針）を更新しているか。外部の接続先を加えたら、CSP・COEP・CORP と `docs/Security/Security.md` も更新しているか。
+- 新しい入口（Route Handler、外部サービス、外部 API）を加えたら、`docs/Security.md` の §4（入口）と §6（脅威）を更新しているか。外部の接続先を加えたら、CSP・COEP・CORP と `docs/Security.md` の §7（対策）も更新しているか。
 - 新しい Route は、`tests/integration/fuzz/routes.fuzz.test.ts` の `ROUTES` に加えているか（T7-3。加え忘れると、export された Route と `ROUTES` を突き合わせるテストが失敗する）。
 - テストデータは `npm run seed` の人工データか `npm run anonymize` の匿名化データから作っているか。実データ（本番の予約・顧客の情報）を `tests/`、`e2e/`、`docs/`、Issue、PR、AI エージェントへの指示に貼っていないか（T8-2）。
 

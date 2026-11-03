@@ -1,4 +1,4 @@
-# Security Policy（脅威モデル）
+# Security（脅威モデルと対策）
 
 ## 1. 判断の原則
 
