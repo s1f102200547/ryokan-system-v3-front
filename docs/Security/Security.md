@@ -158,7 +158,7 @@ API 層: `QueryDateSchema`（クエリパラメータ用）・`PathDateSchema`�
 | 通知 | 本番へのデプロイと PR の作成を、Slack の GitHub アプリで `#notif-git` に通知する（`deploy.yml` の外なので、ワークフローを書き換えられても止まらない） | T5-9 |
 | 運用のルール | 実データをテスト・docs・Issue・PR・AI エージェントへの指示に貼らない。`anonymize` の実行中は AI エージェントを動かさない。レビューの観点は `docs/Review.md` | T8-2、T8-3 |
 
-まだ入っていない対策（ブランチ保護、Environment `production`、AI エージェントの権限の制限、バックアップなど）は `docs/Security/SecurityMeasures/ImplementationPlan.md` の「進み具合」を参照。
+まだ入っていない対策（ブランチ保護、Environment `production`、AI エージェントの権限の制限、バックアップなど）は `docs/Security/SecurityPolicy.md` の §8「未実施の対策」を参照。
 
 ## ZAP 指摘の扱い
 

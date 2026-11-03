@@ -58,6 +58,6 @@ updates:
     cooldown:
       default-days: 7
     ignore:
-      # Node の major（26 など）は手で上げる（docs/Security/SecurityMeasures/ImplementationPlan.md「後回しにした作業」）
+      # Node の major（26 など）は手で上げる（docs/Security/SecurityPolicy.md §8「後回しにしたもの」）
       - dependency-name: "node"
         update-types: ["version-update:semver-major"]

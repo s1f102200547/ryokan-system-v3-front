@@ -4,11 +4,11 @@
 
 **状態**: 未修正（対応不要。2026-11-02 確認）
 
-npm audit の moderate は、実体は次の2つの advisory だけで、残りはそれを含む上位のパッケージが数えられたもの。CI（`npm run audit:ci`）は high 以上だけを見るので、どちらも CI を止めない。Dependabot のセキュリティ更新も、今の依存の範囲に直したバージョンがないため失敗する。Dependabot の警告（uuid #1、grpc-js #2・#3、minimatch #4）は、セキュリティの計画（`docs/Security/SecurityMeasures/ImplementationPlan.md`）を実装し終えてから、もう一度分析して Dismiss するかを決める（2026-11-02 決定。それまでは開いたままにする）。
+npm audit の moderate は、実体は次の2つの advisory だけで、残りはそれを含む上位のパッケージが数えられたもの。CI（`npm run audit:ci`）は high 以上だけを見るので、どちらも CI を止めない。Dependabot のセキュリティ更新も、今の依存の範囲に直したバージョンがないため失敗する。Dependabot の警告（uuid #1、grpc-js #2・#3、minimatch #4）は、`docs/Security/SecurityPolicy.md` §8 の残りの対策を実装し終えてから、もう一度分析して Dismiss するかを決める（2026-11-02 決定。それまでは開いたままにする）。
 
 | advisory | 依存の経路 | 対応しない理由 | 解消する方法 |
 |---|---|---|---|
-| `uuid` GHSA-w5hq-g745-h8pq（v3・v5・v6 に `buf` を渡したときの範囲外書き込み） | `firebase-admin` → `@google-cloud/firestore`・`@google-cloud/storage` → `google-gax`・`teeny-request`・`retry-request` → `uuid@9` | これらは ID の生成（v4）に使っていて、`buf` を渡す v3・v5・v6 の呼び出しはない見込み。アプリが直接使う `uuid` は修正済みの 14 | `firebase-admin` を 14 に上げる（大きな版の変更なので後回し。`docs/Security/SecurityMeasures/ImplementationPlan.md` の「後回しにした作業」） |
+| `uuid` GHSA-w5hq-g745-h8pq（v3・v5・v6 に `buf` を渡したときの範囲外書き込み） | `firebase-admin` → `@google-cloud/firestore`・`@google-cloud/storage` → `google-gax`・`teeny-request`・`retry-request` → `uuid@9` | これらは ID の生成（v4）に使っていて、`buf` を渡す v3・v5・v6 の呼び出しはない見込み。アプリが直接使う `uuid` は修正済みの 14 | `firebase-admin` を 14 に上げる（大きな版の変更なので後回し。`docs/Security/SecurityPolicy.md` §8「後回しにしたもの」） |
 | `minimatch` GHSA-g3hv-75wg-m249（パターンによる DoS） | `eslint`・`eslint-config-next` → `minimatch@3` | 開発用のツール（lint）だけが使い、本番のイメージには入らない。攻撃者が作ったパターンを渡されることもない | `eslint` 側の依存の更新を待つ |
 
 - `npm audit fix --force` は使わない。`firebase-admin` や `eslint-config-next` を大きく古い版に下げる案になり、API が壊れる。
