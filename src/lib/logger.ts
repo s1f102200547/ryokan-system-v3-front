@@ -1,7 +1,7 @@
 type LogLevel = 'INFO' | 'WARN' | 'ERROR'
 
 function log(level: LogLevel, message: string, extra?: Record<string, unknown>): void {
-  // extra の message は detail に移す。そのまま展開すると本文（どの処理の何のログか）を上書きする（BugHunting.md #20）
+  // extra の message は detail に移す。そのまま展開すると本文（どの処理の何のログか）を上書きする
   const { message: detail, ...rest } = extra ?? {}
   // Cloud Run は stdout の JSON を Cloud Logging に自動収集する
   console.log(JSON.stringify({

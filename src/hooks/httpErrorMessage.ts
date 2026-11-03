@@ -1,5 +1,5 @@
 // API の失敗（HTTP status）を画面に出す日本語メッセージにする。
-// Slack に通知されるのは 5xx だけなので、400 / 404 では「管理者に通知済み」と言わない（BugHunting.md #18）
+// Slack に通知されるのは 5xx だけなので、400 / 404 では「管理者に通知済み」と言わない
 export type RequestKind = 'fetch' | 'save'
 
 export function httpErrorMessage(status: number, kind: RequestKind, serverErrorMessage: string): string {

@@ -11,13 +11,13 @@ env:
   SERVICE: ryokan-system
   REGISTRY: asia-northeast1-docker.pkg.dev
   REPO: ryokan   # Artifact Registry のリポジトリ名
-  RUNTIME_SA_NAME: ryokan-runtime # Cloud Run の実行用の SA（Firestore と Firebase Auth に必要な権限だけ。T6-1、GCP_SETUP.md §5）
+  RUNTIME_SA_NAME: ryokan-runtime # Cloud Run の実行用の SA（Firestore と Firebase Auth に必要な権限だけ）
 
 jobs:
   deploy:
     name: Build & Deploy
     runs-on: ubuntu-latest
-    # push で動いた CI が成功したときだけデプロイする（PR の CI では動かさない。T6-8）
+    # push で動いた CI が成功したときだけデプロイする（PR の CI では動かさない）
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     permissions:
       contents: read
@@ -25,9 +25,9 @@ jobs:
 
     steps:
       # CI が検査したコミットを取得する。workflow_run の github.sha は「deploy が始まった時点の main の最新」で、
-      # CI のあとに push されたコミットを指すことがあるため、head_sha を使う（T6-8）
+      # CI のあとに push されたコミットを指すことがあるため、head_sha を使う
       # Semgrep は「workflow_run で PR のコードを checkout している」と指摘するが、上の if: で main への push の CI に限っているので、
-      # head_sha は main のコミットで、PR のコードではない（誤検知。docs/CICD.md「Semgrep」）
+      # head_sha は main のコミットで、PR のコードではない（誤検知）
       # nosemgrep: yaml.github-actions.security.workflow-run-target-code-checkout.workflow-run-target-code-checkout
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0 / ソースコードを取得
         with:
@@ -69,5 +69,5 @@ jobs:
           env_vars: |
             SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}
           # 公開の設定（allUsers に run.invoker）はサービスに付いたまま残るので、デプロイのたびには渡さない。
-          # デプロイ用の SA は run.developer で、公開の設定を変えられない（T5-4、GCP_SETUP.md §4）
+          # デプロイ用の SA は run.developer で、公開の設定を変えられない
           flags: --service-account=${{ env.RUNTIME_SA_NAME }}@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com

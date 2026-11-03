@@ -1,4 +1,4 @@
-// 往復検査（BugHunting.md §3.1）
+// 往復検査
 // Route Handler → Command → Infra（トランザクション）→ Firestore Emulator に実際に書き、画面と同じ読み取り経路で読み戻す。
 // モックは認証（verifySession）と Slack だけ。判定は仕様の中身に依存しない:
 //   - Route が受け付けた値は、読み戻しても同じ（fallback に化けない・消えない）
@@ -190,7 +190,7 @@ describe('POST /api/reservations の往復', () => {
 
 // --- キャンセル・復活の操作履歴 ---
 
-// BugHunting.md #25: 同じ日・同じスタッフ・同じ理由で繰り返すと、arrayUnion が同じ内容の要素を追加せず、履歴が消えていた
+// 同じ日・同じスタッフ・同じ理由で繰り返すと、arrayUnion が同じ内容の要素を追加せず、履歴が消えていた
 describe('キャンセル・復活の操作履歴', () => {
   it('同じ内容で繰り返しても、操作のたびに履歴が末尾に増える', async () => {
     const id = await createDoc({ ...baseDoc(), mail_memo: [{ month: '1', day: '1', name: 'gmail', summary: '予約', text: 'x', source: 'booking' }] })
@@ -243,7 +243,7 @@ describe('壊れたドキュメントの隔離', () => {
     const list = await firestoreReservationRepository.fetchByDateRange(CHECK_IN, CHECK_IN)
     expect(list.find((r) => r.id === validId)).toBeDefined()
 
-    // BugHunting.md #10: 読み飛ばしはログ（WARN）だけで、Slack には通知しない
+    // 読み飛ばしはログ（WARN）だけで、Slack には通知しない
     expect(notifySlackFireAndForget).not.toHaveBeenCalled()
 
     const [year, month] = CHECK_IN.split('-').map(Number)

@@ -32,7 +32,7 @@ describe('POST /api/auth/login', () => {
   })
 
   it('有効な idToken がクライアントから来たら 200 と session Cookie を返す', async () => {
-    mockVerifyIdToken.mockResolvedValue({} as never)
+    mockVerifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'pc1@example.com' } as never)
     mockCreateSessionCookie.mockResolvedValue('session-cookie-value')
 
     const response = await POST(makeRequest({ idToken: 'valid-id-token' }))
@@ -76,7 +76,7 @@ describe('POST /api/auth/login', () => {
   })
 
   it('createSessionCookie が失敗した場合 503 を返す', async () => {
-    mockVerifyIdToken.mockResolvedValue({} as never)
+    mockVerifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'pc1@example.com' } as never)
     mockCreateSessionCookie.mockRejectedValue(new Error('Firebase Auth down'))
 
     const response = await POST(makeRequest({ idToken: 'valid-id-token' }))
@@ -84,7 +84,7 @@ describe('POST /api/auth/login', () => {
     expect(response.status).toBe(503)
   })
 
-  // BugHunting.md #1: request.json() を catch しておらず 500 になっていた
+  // request.json() を catch しておらず 500 になっていた
   it.each([
     ['不正な JSON', '{"idToken":'],
     ['空の body', ''],
@@ -98,7 +98,7 @@ describe('POST /api/auth/login', () => {
     expect(notifySlackFireAndForget).not.toHaveBeenCalled()
   })
 
-  // BugHunting.md #2: 形式が不正な idToken で 503 + ALERT になっていた。
+  // 形式が不正な idToken で 503 + ALERT になっていた。
   // firebase-admin は不正なトークンにも公開鍵の取得失敗にも auth/argument-error を返すため、メッセージで分ける
   // （メッセージは firebase-admin 13.10 が実際に返すもの）
   it.each([
@@ -120,5 +120,35 @@ describe('POST /api/auth/login', () => {
     const response = await POST(makeRequest({ idToken: 'x' }))
     expect(response.status).toBe(503)
     expect(notifySlackFireAndForget).toHaveBeenCalled()
+  })
+
+  // ログイン成功は毎回 Slack に通知する（旅館の外からのログインに気付くため）
+  it('ログイン成功で、アカウント・IP・ブラウザを Slack に通知する', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'pc1@example.com' } as never)
+    mockCreateSessionCookie.mockResolvedValue('session-cookie-value')
+
+    const response = await POST(new Request('http://localhost/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-forwarded-for': '<!channel>, 203.0.113.5',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0',
+      },
+      body: JSON.stringify({ idToken: 'valid-id-token' }),
+    }))
+
+    expect(response.status).toBe(200)
+    expect(notifySlackFireAndForget).toHaveBeenCalledTimes(1)
+    const message = vi.mocked(notifySlackFireAndForget).mock.calls[0][0]
+    expect(message).toContain('pc1@example.com')
+    expect(message).toContain('IP ?, 203.0.113.5')
+    expect(message).toContain('Edge on Windows')
+    expect(message).not.toContain('<!channel>')
+  })
+
+  it('ログインに失敗したときは成功の通知をしない', async () => {
+    mockVerifyIdToken.mockRejectedValue({ code: 'auth/invalid-id-token', message: 'invalid token' })
+    await POST(makeRequest({ idToken: 'x' }))
+    expect(notifySlackFireAndForget).not.toHaveBeenCalled()
   })
 })

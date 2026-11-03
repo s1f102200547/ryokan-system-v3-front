@@ -1,5 +1,5 @@
 // @vitest-environment node
-// PBT: 予約データの読み取りと更新の性質（BugHunting.md §3.1・§3.5）
+// PBT: 予約データの読み取りと更新の性質
 import { describe, it, expect } from 'vitest'
 import fc from 'fast-check'
 import { toReservation } from '@/infra/reservation/firestoreReservationRepository'
@@ -67,7 +67,7 @@ describe('toReservation（どんなドキュメントでも）', () => {
   })
 })
 
-// 受け付けたものは消えない（§3.1）: 更新の検査を通った patch を DB の値に重ねて読み直すと、patch の値がそのまま返る
+// 受け付けたものは消えない: 更新の検査を通った patch を DB の値に重ねて読み直すと、patch の値がそのまま返る
 describe('更新の検査（validateReservationPatch）× 読み取り（toReservation）', () => {
   const current = fc.record({
     ci: isoDate,
@@ -132,7 +132,7 @@ describe('泊別配列の伸び縮み', () => {
     }))
   })
 
-  it('記憶（keepLonger）があれば、縮めてから伸ばしても元に戻る（BugHunting.md #19）', () => {
+  it('記憶（keepLonger）があれば、縮めてから伸ばしても元に戻る', () => {
     fc.assert(fc.property(arr, fc.nat(40), (a, s) => {
       const shrunk = resizeNightArray(a, Math.min(s, a.length), 'x')
       expect(resizeNightArray(keepLonger(a, shrunk), a.length, 'x')).toEqual(a)

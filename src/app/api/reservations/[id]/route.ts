@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { updateReservationCommand } from '@/application/guestInfo/updateReservationCommand'
-import { handleRouteError, requireSession } from '@/lib/api/routeHelpers'
+import { handleRouteError, requireSession, invalidInputResponse } from '@/lib/api/routeHelpers'
 import { DocumentIdSchema } from '@/lib/api/documentIdSchema'
 import { ReservationPatchBodySchema } from '@/lib/api/reservationSchemas'
 
@@ -18,7 +18,7 @@ export async function PATCH(
   const body = await request.json().catch(() => null)
   const parsed = ReservationPatchBodySchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'invalid body', details: parsed.error.flatten() }, { status: 400 })
+    return invalidInputResponse('予約更新', 'invalid body', parsed.error)
   }
 
   try {

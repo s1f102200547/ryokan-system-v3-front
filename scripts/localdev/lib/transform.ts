@@ -82,7 +82,7 @@ function transformNode(
   }
 }
 
-// AC-19 の自己検査: 日付と部屋のパスの値が変換前後で一致する件数を数える（値は出力しない）
+// 自己検査: 日付と部屋のパスの値が変換前後で一致する件数を数える（値は出力しない）
 const PRESERVED_FIELDS: Record<AnonymizedCollection, readonly string[]> = {
   guestInfoV2: ['check_in_date', 'check_out_date', 'room'],
   dailyInfo: ['date', 'updated_at', 'migrated_at'],

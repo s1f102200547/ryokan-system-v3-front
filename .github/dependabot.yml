@@ -1,4 +1,4 @@
-# Dependabot の通常の更新（T6-3。docs/CICD.md「Dependabot」）
+# Dependabot の通常の更新
 # - PR は development 宛て（feature → development → main の流れに乗せる）
 # - セキュリティ更新の自動 PR は main 宛てにしか作れないので使わない（Settings で無効。警告だけ受け取り、development で直す）
 # - 公開から7日待つ（.npmrc の min-release-age=7 と揃える）
@@ -58,6 +58,6 @@ updates:
     cooldown:
       default-days: 7
     ignore:
-      # Node の major（26 など）は手で上げる（docs/Security/SecurityMeasures/ImplementationPlan.md「後回しにした作業」）
+      # Node の major（26 など）は手で上げる（docs/Security.md §8「後回し」）
       - dependency-name: "node"
         update-types: ["version-update:semver-major"]

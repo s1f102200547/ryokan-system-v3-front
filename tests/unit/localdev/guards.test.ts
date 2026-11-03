@@ -8,7 +8,7 @@ const EMULATOR_ENV = {
   FIREBASE_PROJECT_ID: 'demo-ryokan',
 }
 
-describe('checkSeedTarget（SEED-1）', () => {
+describe('checkSeedTarget', () => {
   it('Emulator 系の変数と demo project が揃っていれば投入先を返す', () => {
     expect(checkSeedTarget(EMULATOR_ENV)).toEqual({
       success: true,
@@ -28,7 +28,7 @@ describe('checkSeedTarget（SEED-1）', () => {
     if (!result.success) expect(result.error.join('\n')).toContain('FIREBASE_PROJECT_ID')
   })
 
-  it('Emulator 系の変数がまったくない環境では拒否（AC-25）', () => {
+  it('Emulator 系の変数がまったくない環境では拒否', () => {
     expect(checkSeedTarget({ FIREBASE_PROJECT_ID: 'demo-ryokan' }).success).toBe(false)
   })
 
@@ -42,7 +42,7 @@ describe('checkSeedTarget（SEED-1）', () => {
   })
 })
 
-describe('checkAnonymizeEnv（ANON-5, AC-14）', () => {
+describe('checkAnonymizeEnv', () => {
   it('Emulator 系の変数がなければ実行できる', () => {
     expect(checkAnonymizeEnv({ PATH: '/usr/bin' }).success).toBe(true)
   })

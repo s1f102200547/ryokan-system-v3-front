@@ -30,7 +30,7 @@ export function useRestoreReservation() {
       })
       if (!res.ok) {
         setError(
-          // 409: すでにその状態（古い画面からの操作など。BugHunting.md #27）
+          // 409: すでにその状態（古い画面からの操作など）
           res.status === 409
             ? 'この予約はキャンセルされていません。画面を再読み込みしてください。'
             : httpErrorMessage(res.status, 'save', '復活処理に失敗しました。管理者に通知済みです。'),

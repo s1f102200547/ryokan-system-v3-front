@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { setNowJST } from '@tests/utils/timeHelper'
 
 vi.mock('@/lib/firebase/admin', () => ({
-  adminAuth: { verifyIdToken: vi.fn().mockResolvedValue({}), createSessionCookie: vi.fn().mockResolvedValue('cookie') },
+  adminAuth: { verifyIdToken: vi.fn().mockResolvedValue({ uid: 'uid-1' }), createSessionCookie: vi.fn().mockResolvedValue('cookie') },
   adminDb: {},
 }))
 vi.mock('@/lib/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))

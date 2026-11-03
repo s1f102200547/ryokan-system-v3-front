@@ -8,7 +8,7 @@ import { reportSkippedReservations } from '@/lib/skippedReservationReporter'
 
 const doc = (id: string) => ({ id, reason: `broken ${id}` })
 
-// BugHunting.md #10: 壊れた予約は画面から黙って消えていた（console.error だけ）
+// 壊れた予約は画面から黙って消えていた（console.error だけ）
 describe('reportSkippedReservations', () => {
   beforeEach(() => vi.clearAllMocks())
 

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { verifySession } from '@/lib/auth/verifySession'
 import { InfraError } from '@/types/errors'
 import { infraErrorToStatus } from '@/lib/infraErrorToHttpStatus'
@@ -19,7 +20,7 @@ export function parseCookieValue(cookieHeader: string | null, key: string): stri
 
 // 未ログインなら 401、Firebase Auth の障害なら handleRouteError（503 + 通知）の Response を返す。ログイン済みなら null。
 // セッションの確認も handleRouteError を通す。try の外で呼ぶと、Auth の障害で全 API が 500 になり、
-// ログにも Slack にも残らなかった（BugHunting.md #23）
+// ログにも Slack にも残らなかった
 export async function requireSession(request: Request, label: string): Promise<NextResponse | null> {
   try {
     const session = await getSession(request)
@@ -34,17 +35,28 @@ export async function getSession(request: Request) {
   return verifySession(sessionCookie)
 }
 
-// 元の例外を文字列にする。InfraError の message だけでは原因が分からない（例: RangeError が "Firestore unknown error" になる。BugHunting.md #16）
+// 元の例外を文字列にする。InfraError の message だけでは原因が分からない（例: RangeError が "Firestore unknown error" になる）
 function describeCause(cause: unknown): string | undefined {
   if (cause === undefined) return undefined
   return cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause)
+}
+
+// 入力の検証（Zod）に失敗したときの 400。
+// production では、どのフィールドがどの条件に違反したか（details）を返さない。上限や許容値など、スキーマの手がかりになるため。
+// 調べられるよう、ログには場所（path）と違反の種類（code）だけを残す。入力の値とメッセージは出さない（個人情報が入りうる）。
+// development / test では、原因が分かるよう今までどおり details を返す。hooks は details を使っていない
+export function invalidInputResponse(label: string, error: string, zodError: z.ZodError): NextResponse {
+  const issues = zodError.issues.map((i) => ({ path: i.path.map(String).join('.'), code: i.code }))
+  logger.warn(`${label} 入力の検証に失敗`, { issues })
+  if (process.env.NODE_ENV === 'production') return NextResponse.json({ error }, { status: 400 })
+  return NextResponse.json({ error, details: z.flattenError(zodError) }, { status: 400 })
 }
 
 export function handleRouteError(e: unknown, label: string): NextResponse {
   if (e instanceof InfraError) {
     const status = infraErrorToStatus(e.code)
     const cause = describeCause(e.cause)
-    // 存在しないドキュメントへの操作は入力が原因。人が対応する障害ではないので通知しない（BugHunting.md #5）
+    // 存在しないドキュメントへの操作は入力が原因。人が対応する障害ではないので通知しない
     if (e.code === 'FIRESTORE_NOT_FOUND') {
       logger.warn(`${label} 対象なし`, { infraErrorCode: e.code, message: e.message, cause })
       return NextResponse.json({ error: 'not found' }, { status })

@@ -4,6 +4,7 @@ import { adminAuth } from '@/lib/firebase/admin'
 import { logger } from '@/lib/logger'
 import { notifySlackFireAndForget } from '@/lib/slack'
 import { isInvalidIdTokenError } from '@/lib/auth/idTokenError'
+import { buildLoginNotice, describeUserAgent, forwardedIps } from '@/lib/auth/loginNotice'
 import { isOutsideBusinessHours } from '@/lib/businessHours'
 import { BUSINESS_HOURS_END_JST } from '@/constants/date'
 
@@ -30,21 +31,23 @@ function msUntilToday23JST(): number {
 
 export async function POST(request: Request) {
   // 本番は時間外のログインを断る。画面は proxy.ts で時間外に開けないが、API を直接呼ぶと
-  // 深夜でもその日の 23:00 まで有効な Session Cookie が発行されていた（BugHunting.md #14）
+  // 深夜でもその日の 23:00 まで有効な Session Cookie が発行されていた
   if (process.env.NODE_ENV === 'production' && isOutsideBusinessHours()) {
     logger.warn('ログイン拒否: 時間外')
     return NextResponse.json({ error: 'outside_business_hours' }, { status: 403 })
   }
 
-  // 不正な JSON や空の body は 400（BugHunting.md #1）
+  // 不正な JSON や空の body は 400
   const parsed = BodySchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
     return NextResponse.json({ error: 'invalid request' }, { status: 400 })
   }
 
   // idToken の整合性検証（改ざん・期限切れ・無効トークンを弾く）
+  let account: string
   try {
-    await adminAuth.verifyIdToken(parsed.data.idToken)  // このユーザは本当にログイン済みか?
+    const decoded = await adminAuth.verifyIdToken(parsed.data.idToken)  // このユーザは本当にログイン済みか?
+    account = decoded.email ?? decoded.uid
   } catch (e) {
     if (isInvalidIdTokenError(e)) {
       // 認証失敗はビジネスロジックで処理する（インフラ障害ではない）
@@ -61,7 +64,11 @@ export async function POST(request: Request) {
     const expiresIn = msUntilToday23JST()
     const sessionCookie = await adminAuth.createSessionCookie(parsed.data.idToken, { expiresIn }) // ログイン状態を維持するためのセッションCookieを作る
 
-    logger.info('ログイン成功')
+    // 旅館の外からのログインに気付けるよう、毎回 Slack に通知する（ログにも残す。Slack の失敗は気付けないため）
+    const forwardedFor = request.headers.get('x-forwarded-for')
+    const userAgent = request.headers.get('user-agent')
+    logger.info('ログイン成功', { account, forwardedIps: forwardedIps(forwardedFor), client: describeUserAgent(userAgent) })
+    notifySlackFireAndForget(buildLoginNotice({ account, forwardedFor, userAgent, nowMs: Date.now() }))
 
     const response = NextResponse.json({ success: true })
     response.cookies.set('session', sessionCookie, {

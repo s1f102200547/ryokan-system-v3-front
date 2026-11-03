@@ -1,4 +1,4 @@
-// npm audit で high 以上でも CI を止めない脆弱性の例外リスト（docs/CICD.md「audit」）
+// npm audit で high 以上でも CI を止めない脆弱性の例外リスト
 //
 // 追加の条件:
 // - 依存の更新や overrides で解消できない

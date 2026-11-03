@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { setNowJST } from '@tests/utils/timeHelper'
 
 vi.mock('@/lib/firebase/admin', () => ({
-  adminAuth: { verifyIdToken: vi.fn().mockResolvedValue({}), createSessionCookie: vi.fn().mockResolvedValue('cookie') },
+  adminAuth: { verifyIdToken: vi.fn().mockResolvedValue({ uid: 'uid-1' }), createSessionCookie: vi.fn().mockResolvedValue('cookie') },
   adminDb: {},
 }))
 vi.mock('@/lib/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
@@ -16,7 +16,7 @@ const login = () => POST(new Request('http://localhost/api/auth/login', {
   method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: 't' }),
 }))
 
-// BugHunting.md #14: 画面は 6:00〜23:00 JST だけ開けるが、ログイン API は深夜でも Cookie を発行していた
+// 画面は 6:00〜23:00 JST だけ開けるが、ログイン API は深夜でも Cookie を発行していた
 describe('ログイン API の時間帯制限', () => {
   beforeEach(() => {
     vi.clearAllMocks()

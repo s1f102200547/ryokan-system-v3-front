@@ -9,11 +9,32 @@ export const DINNER_CANCEL = 'CANCEL'
 export const DINNER_PENDING = 'PENDING'
 export const DINNER_CLOCK_TIMES = ['17:30', '18:00', '18:30', '19:00', '19:30', '20:00'] as const
 
-// 1件の予約の泊数の上限。画面の取得窓（対象日の前後 30 日の C/I）を超える滞在は表示されないため（BugHunting.md #12）
+// 1件の予約の泊数の上限。画面の取得窓（対象日の前後 30 日の C/I）を超える滞在は表示されないため
 export const MAX_NIGHTS = 30
 
+// --- 予約の書き込みの上限 ---
+// PATCH /api/reservations/[id] の Zod と、画面の入力欄の maxLength が共通で参照する。読み取り（Infra）には使わない。
+// Zod 4 の .max() はコードポイントで、HTML の maxLength は UTF-16 の length で数える。UTF-16 の方が長く数えるので、
+// 画面で入力できる値は必ず Zod を通る。
+// 値は本番データの最大（2026-11-02 の匿名化の大きさのレポート。括弧内）の約 2〜5 倍。すべて上限でも1件は約 0.8 MB
+// （1文字 4 バイトで計算）で、Firestore の 1 MiB に収まる
+export const MAX_ADULT_COUNT = 9
+export const RESERVATION_LIMITS = {
+  otherNoteLength: 2000,      // other_note（337）
+  professionLength: 100,      // profession（12）
+  selectValueLength: 50,      // group_type / purpose / tourism_type / age_groups の要素（12）
+  dinnerInfoLength: 100,      // dinner_info の要素（7）
+  timetableInfoLength: 500,   // timetable_info の要素（109）
+  mailMemoItems: 100,         // mail_memo の件数（19）。キャンセル・復活のたびに1件増える
+  mailMemoMonthDayLength: 2,  // mail_memo の month / day（2）
+  mailMemoNameLength: 100,    // mail_memo の name（13）。キャンセル・復活の staff_name の上限と同じ
+  mailMemoSummaryLength: 500, // mail_memo の summary（258）
+  mailMemoTextLength: 1000,   // mail_memo の text（334）。キャンセル・復活の reason（最大 500）が入る
+  mailMemoSourceLength: 50,   // mail_memo の source（10）
+} as const
+
 // --- 予約フィールドの許容値 ---
-// Route の入口検証と Infra の読み取り検証が共通で参照する（BugHunting.md R1）。
+// Route の入口検証と Infra の読み取り検証が共通で参照する。
 // 読み取りで fallback に置き換えられる値を、書き込みで受け付けないようにするため
 
 // 6:00は許容しない。0 padding想定。
@@ -32,8 +53,8 @@ export const BREAKFAST_TIME_VALUES = [
 export const OPEN_AIR_BATH_TIME_VALUES = [
   // 夕方
   '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00',
-  // 朝
-  '7:30', '8:00', '8:30', '9:00', '9:30',
+  // 朝（タイムテーブルの朝の列 OPEN_AIR_TIMES_MORNING と同じ）
+  '7:30', '8:00', '8:30', '9:00',
 ] as const
 
 // --- Select options ---
@@ -70,7 +91,6 @@ export const rotenOptions = [
   { value: '8:00',  label: '8:00'  },
   { value: '8:30',  label: '8:30'  },
   { value: '9:00',  label: '9:00'  },
-  { value: '9:30',  label: '9:30'  },
 ]
 
 export const breakfastOptions = [

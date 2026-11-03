@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { restoreReservationCommand } from '@/application/guestInfo/restoreReservationCommand'
-import { handleRouteError, requireSession } from '@/lib/api/routeHelpers'
+import { handleRouteError, requireSession, invalidInputResponse } from '@/lib/api/routeHelpers'
 import { DocumentIdSchema } from '@/lib/api/documentIdSchema'
 import { DateSchema } from '@/lib/api/dateSchema'
 
@@ -25,7 +25,7 @@ export async function PATCH(
   const body = await request.json().catch(() => null)
   const parsed = BodySchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'invalid body', details: parsed.error.flatten() }, { status: 400 })
+    return invalidInputResponse('予約復活', 'invalid body', parsed.error)
   }
 
   try {
@@ -36,7 +36,7 @@ export async function PATCH(
       reason: parsed.data.reason,
     })
     if (!result.success) {
-      // すでにその状態（古い画面からの操作など）。履歴も通知も増やさない（BugHunting.md #27）
+      // すでにその状態（古い画面からの操作など）。履歴も通知も増やさない
       return NextResponse.json({ error: 'not_cancelled' }, { status: 409 })
     }
     return NextResponse.json({ ok: true })

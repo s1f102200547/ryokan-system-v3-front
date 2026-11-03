@@ -6,7 +6,7 @@ describe('toInfraError', () => {
   it.each([
     [14, 'FIRESTORE_UNAVAILABLE'],
     [7, 'FIRESTORE_PERMISSION'],
-    // BugHunting.md #5: 存在しない ID への update() は入力が原因。障害（503 + ALERT）にしない
+    // 存在しない ID への update() は入力が原因。障害（503 + ALERT）にしない
     [5, 'FIRESTORE_NOT_FOUND'],
     [13, 'FIRESTORE_UNAVAILABLE'],
   ])('gRPC code %i は %s', (code, expected) => {
@@ -18,7 +18,7 @@ describe('toInfraError', () => {
     expect(toInfraError(e)).toBe(e)
   })
 
-  // BugHunting.md #16: 原因が分からなくならないよう、元の例外を cause に残す
+  // 原因が分からなくならないよう、元の例外を cause に残す
   it('元の例外を cause に残す', () => {
     const cause = new RangeError('Invalid array length')
     expect(toInfraError(cause).cause).toBe(cause)

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { RESERVATION_LIMITS as L } from '../src/constants/guestInfo'
 
 async function suppressPrint(page: Page) {
   await page.addInitScript(() => { window.print = () => {} })
@@ -167,7 +168,7 @@ test.describe('GuestInfo - 予約一覧表示', () => {
   })
 })
 
-// BugHunting.md #11: 同じ部屋・同じ夜に有効な予約が2件あると、清掃ボード・タイムテーブルには1件しか出ない
+// 同じ部屋・同じ夜に有効な予約が2件あると、清掃ボード・タイムテーブルには1件しか出ない
 test.describe('GuestInfo - 部屋の重複の警告', () => {
   test.beforeEach(async ({ page }) => {
     await suppressPrint(page)
@@ -205,7 +206,7 @@ test.describe('GuestInfo - モーダル（auto-save）', () => {
     await page.goto('/daily-dashboard')
   })
 
-  // BugHunting.md #3, #17: C/O 日の直接入力で、C/I 以前の日付や入力途中の値を保存しない
+  // C/O 日の直接入力で、C/I 以前の日付や入力途中の値を保存しない
   test.describe('C/O 日の直接入力', () => {
     async function openCheckOutField(page: Page) {
       const patches: Record<string, unknown>[] = []
@@ -239,7 +240,7 @@ test.describe('GuestInfo - モーダル（auto-save）', () => {
       expect(patches.at(-1)?.check_out_date).toBe('2026-01-30')
     })
 
-    // BugHunting.md #19: 入力途中の短い泊数（01-01 = 1泊）で2泊目の入力が消えていた
+    // 入力途中の短い泊数（01-01 = 1泊）で2泊目の入力が消えていた
     test('1文字ずつ打って途中で泊数が縮んでも、2泊目の入力は消えない', async ({ page }) => {
       await page.route('/api/guest-info*', (route) => route.fulfill({
         status: 200,
@@ -271,7 +272,7 @@ test.describe('GuestInfo - モーダル（auto-save）', () => {
       expect((last?.timetable_info as string[]).slice(0, 2)).toEqual(['night1', 'night2'])
     })
 
-    // BugHunting.md #12: 30 泊を超える日付は保存しない
+    // 30 泊を超える日付は保存しない
     test('31 泊以上になる日付を入力しても保存しない', async ({ page }) => {
       const { patches, month } = await openCheckOutField(page)
       await month.click()
@@ -292,7 +293,7 @@ test.describe('GuestInfo - モーダル（auto-save）', () => {
     })
   })
 
-  // BugHunting.md #24: 通信エラーで保存に失敗した変更が捨てられ、再送されなかった
+  // 通信エラーで保存に失敗した変更が捨てられ、再送されなかった
   test.describe('保存の失敗', () => {
     async function editName(page: Page, name: string) {
       await page.getByTestId('reservation-card').first().click()
@@ -345,7 +346,7 @@ test.describe('GuestInfo - モーダル（auto-save）', () => {
     })
   })
 
-  // BugHunting.md §3.7: 自動保存（500ms の debounce）と閉じる・失敗・遅い応答の組み合わせ
+  // 自動保存（500ms の debounce）と閉じる・失敗・遅い応答の組み合わせ
   test.describe('保存の順序', () => {
     test('入力の直後（debounce 中）に閉じても保存し、一覧の再取得は保存のあと', async ({ page }) => {
       const events: string[] = []
@@ -404,6 +405,83 @@ test.describe('GuestInfo - モーダル（auto-save）', () => {
     })
   })
 
+  // 画面の入力欄にも API と同じ上限（maxLength）を付けている。超えた分は入らず、上限ちょうどで保存できる
+  test.describe('入力の上限', () => {
+    const memo = { month: '1', day: '1', name: '', summary: '', text: '', source: '' }
+
+    async function openWith(page: Page, overrides: Record<string, unknown> = {}) {
+      const patches: Record<string, unknown>[] = []
+      page.on('request', (req) => {
+        if (req.method() === 'PATCH' && req.url().endsWith('/api/reservations/test-id-1')) {
+          patches.push(req.postDataJSON() as Record<string, unknown>)
+        }
+      })
+      await page.route('/api/guest-info*', (route) => route.fulfill({
+        status: 200,
+        json: { normal: [{ ...SAMPLE_RESERVATION, ...overrides }], staying: [], cancelled: [] },
+      }))
+      await page.reload()
+      await page.getByTestId('reservation-card').first().click()
+      return patches
+    }
+
+    test('その他: 上限を超えて貼り付けても上限で切れ、その長さで保存する', async ({ page }) => {
+      const patches = await openWith(page)
+      await page.getByRole('button', { name: 'C/I後' }).click()
+      const field = page.getByRole('textbox', { name: 'その他' })
+      await field.click()
+      await page.keyboard.insertText('あ'.repeat(L.otherNoteLength + 10))   // 貼り付けと同じ入力
+      await expect(field).toHaveValue('あ'.repeat(L.otherNoteLength))
+      await page.keyboard.press('Tab')
+      await expect(page.locator('[data-testid="save-status"][data-status="saved"]')).toBeVisible({ timeout: 3000 })
+      expect((patches.at(-1)?.other_note as string).length).toBe(L.otherNoteLength)
+    })
+
+    test('その他: 上限に達したあとは1文字ずつ打っても増えない', async ({ page }) => {
+      await openWith(page, { other_note: 'あ'.repeat(L.otherNoteLength - 1) })
+      await page.getByRole('button', { name: 'C/I後' }).click()
+      const field = page.getByRole('textbox', { name: 'その他' })
+      await field.click()
+      await page.keyboard.press('ControlOrMeta+End')   // 複数行の欄なので、End（表示上の行末）ではなく全体の末尾へ
+      await page.keyboard.type('xyz')
+      await expect(field).toHaveValue(/^あ+x$/)
+      expect((await field.inputValue()).length).toBe(L.otherNoteLength)
+    })
+
+    test('タイムテーブル: 上限を超えて貼り付けても上限で切れ、その長さで保存する', async ({ page }) => {
+      const patches = await openWith(page)
+      await page.getByText('timeTableMemo', { exact: true }).click()
+      const field = page.getByRole('textbox', { name: 'Day 1' })
+      await field.click()
+      await page.keyboard.insertText('x'.repeat(L.timetableInfoLength + 10))
+      await expect(field).toHaveValue('x'.repeat(L.timetableInfoLength))
+      await page.keyboard.press('Tab')
+      await expect.poll(() => (patches.at(-1)?.timetable_info as string[] | undefined)?.[0]?.length).toBe(L.timetableInfoLength)
+    })
+
+    test('操作履歴: 本文と月は上限で切れる', async ({ page }) => {
+      await openWith(page, { mail_memo: [memo] })
+      const text = page.getByPlaceholder('Text', { exact: true })
+      await text.click()
+      await page.keyboard.insertText('あ'.repeat(L.mailMemoTextLength + 10))
+      await expect(text).toHaveValue('あ'.repeat(L.mailMemoTextLength))
+
+      const month = page.getByPlaceholder('MM', { exact: true })
+      await month.fill('')
+      await month.pressSequentially('123')
+      await expect(month).toHaveValue('12')
+    })
+
+    test('操作履歴: 上限の件数に達すると追加ボタンを押せない', async ({ page }) => {
+      const patches = await openWith(page, { mail_memo: Array(L.mailMemoItems - 1).fill(memo) })
+      const add = page.getByRole('button', { name: '履歴を追加' })
+      await expect(add).toBeEnabled()
+      await add.click()
+      await expect(add).toBeDisabled()
+      await expect.poll(() => (patches.at(-1)?.mail_memo as unknown[] | undefined)?.length).toBe(L.mailMemoItems)
+    })
+  })
+
   test('予約カードクリックでモーダルが開く', async ({ page }) => {
     await page.getByTestId('reservation-card').first().click()
     await expect(page.getByRole('dialog')).toBeVisible()
@@ -447,7 +525,7 @@ test.describe('GuestInfo - キャンセル（非auto-save）', () => {
     await expect(page.getByLabel('キャンセル理由')).toBeVisible()
   })
 
-  // BugHunting.md #27: 古い画面から、すでにキャンセル済みの予約をキャンセルしたとき
+  // 古い画面から、すでにキャンセル済みの予約をキャンセルしたとき
   test('すでにキャンセル済み（409）なら、再読み込みを促す', async ({ page }) => {
     await page.route('**/api/reservations/*/cancel', (route) => route.fulfill({ status: 409, json: { error: 'already_cancelled' } }))
     await page.getByTestId('cancel-button').first().click()

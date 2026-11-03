@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
-import { buildShapeReport, diffShapeReports, DOC_ID_PATH, MAIL_MEMO_MONTH_DAY_PATH } from '../../../scripts/localdev/lib/shapeReport'
+import { buildShapeReport, buildSizeReport, diffShapeReports, DOC_ID_PATH, MAIL_MEMO_MONTH_DAY_PATH } from '../../../scripts/localdev/lib/shapeReport'
 import { isValidIsoDateTime, isValidMonthDay } from '../../../scripts/localdev/lib/dateValidity'
 import type { CollectionDocuments } from '../../../scripts/localdev/lib/transform'
 
@@ -17,7 +17,7 @@ const docs = (): CollectionDocuments => ({
   ],
 })
 
-describe('buildShapeReport（AC-23）', () => {
+describe('buildShapeReport', () => {
   const report = buildShapeReport(docs(), '2026-10-31')
   const g = report.collections.guestInfoV2.fields
   const d = report.collections.dailyInfo.fields
@@ -46,7 +46,7 @@ describe('buildShapeReport（AC-23）', () => {
   })
 })
 
-describe('diffShapeReports（AC-24）', () => {
+describe('diffShapeReports', () => {
   const base = buildShapeReport(docs(), 'prev')
 
   it('前回のレポートがなければ警告しない', () => {
@@ -68,6 +68,31 @@ describe('diffShapeReports（AC-24）', () => {
       expect.stringContaining('guestInfoV2.adult_count: 型の種類が増えた（string）'),
       expect.stringContaining('guestInfoV2.brand_new: 新しいフィールド'),
     ]))
+  })
+})
+
+describe('buildSizeReport', () => {
+  const report = buildSizeReport(docs(), '2026-11-02')
+  const g = report.collections.guestInfoV2
+
+  it('フィールドごとの文字列の最大長と配列の最大件数を数える', () => {
+    expect(g.guest_name).toEqual({ maxLength: 5 }) // '秘密の名前' と ''
+    expect(g.mail_memo).toEqual({ maxItems: 3 })
+    expect(g['mail_memo[].month']).toEqual({ maxLength: 2 })
+    expect(g.check_in_date).toEqual({ maxLength: 10 })
+    expect(g.adult_count).toBeUndefined() // 数値は数えない
+    expect(report.collections.dailyInfo.updated_at).toEqual({ maxLength: 25 })
+  })
+
+  it('文字数は画面の maxLength と同じ UTF-16 の length で数える', () => {
+    const input = docs()
+    input.guestInfoV2[0].data.guest_name = '𠮷野' // 𠮷 はサロゲートペア（length 2）
+    expect(buildSizeReport(input, 'x').collections.guestInfoV2.guest_name).toEqual({ maxLength: 3 })
+  })
+
+  it('レポートに値を含めない', () => {
+    const json = JSON.stringify(report)
+    for (const value of ['秘密の名前', '2026/01/05', '2026-01-05T10:00:00+09:00']) expect(json).not.toContain(value)
   })
 })
 

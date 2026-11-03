@@ -1,11 +1,11 @@
-// 本番 Firestore を読み取り、匿名化データを作る（docs/LocalDevelopment.md §4.3 ANON-5〜11）
+// 本番 Firestore を読み取り、匿名化データを作る
 // 認証の取得と後片付けは anonymize.sh が行う。直接は実行せず `npm run anonymize -- --project <ID> --sa <SA>` を使う
 //
 //   --project <ID>   本番の project ID（閲覧専用 SA の権限で全件を読み取る）
 //   --source <dir>   テスト用: 本番の代わりに保存形式のファイル（<コレクション>.json）を読む
 //   --out <dir>      出力先（既定: .localdev）。data/ と reports/ を作る
 //
-// 変換前のデータはメモリ上だけで扱い、ファイル・ログ・例外メッセージに出さない（ANON-7）
+// 変換前のデータはメモリ上だけで扱い、ファイル・ログ・例外メッセージに出さない
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { applicationDefault, initializeApp } from 'firebase-admin/app'
@@ -15,7 +15,7 @@ import { checkAnonymizeEnv } from './lib/guards'
 import { cryptoRng } from './lib/rng'
 import { serializeDocuments } from './lib/serialize'
 import type { JsonValue } from './lib/serialize'
-import { buildShapeReport, diffShapeReports } from './lib/shapeReport'
+import { buildShapeReport, buildSizeReport, diffShapeReports } from './lib/shapeReport'
 import type { ShapeReport } from './lib/shapeReport'
 import { isJsonObject } from './lib/tagged'
 import { anonymizeCollections, checkPreserved } from './lib/transform'
@@ -27,7 +27,7 @@ const SCRIPT_VERSION = 1
 type Options = { project?: string; source?: string; out: string }
 
 async function main(): Promise<void> {
-  // ANON-5: Emulator 系の変数がある環境では何もしない
+  // Emulator 系の変数がある環境では何もしない
   const envCheck = checkAnonymizeEnv(process.env)
   if (!envCheck.success) fail(['匿名化を中止しました。', ...envCheck.error.map((e) => `  - ${e}`)])
 
@@ -37,12 +37,12 @@ async function main(): Promise<void> {
   // 変換（メモリ上）
   const output = anonymizeCollections(input, cryptoRng)
 
-  // AC-19 の自己検査: 日付と部屋が変わっていないこと。件数だけを出す
+  // 自己検査: 日付と部屋が変わっていないこと。件数だけを出す
   const checks = checkPreserved(input, output)
   for (const c of checks) console.log(`自己検査（日付・部屋）: ${c.collection} ${c.checked - c.mismatched}/${c.checked} 一致`)
   if (checks.some((c) => c.mismatched > 0)) fail(['日付または部屋が変換で変わりました。出力を書かずに中止します。'])
 
-  // ディスクに書くのは匿名化後のデータとレポートだけ（ANON-7, ANON-8）
+  // ディスクに書くのは匿名化後のデータとレポートだけ
   const dataDir = path.join(options.out, 'data')
   const reportDir = path.join(options.out, 'reports')
   mkdirSync(dataDir, { recursive: true })
@@ -51,7 +51,7 @@ async function main(): Promise<void> {
   for (const collection of SEED_COLLECTIONS) {
     writeJson(path.join(dataDir, `${collection}.json`), { docs: output[collection] })
   }
-  // ANON-9: 匿名化した日を記録する
+  // 匿名化した日を記録する
   writeJson(path.join(dataDir, 'meta.json'), {
     anonymizedAt: toJstDate(now),
     scriptVersion: SCRIPT_VERSION,
@@ -59,17 +59,21 @@ async function main(): Promise<void> {
     counts: Object.fromEntries(SEED_COLLECTIONS.map((c) => [c, output[c].length])),
   })
 
-  // ANON-10, ANON-11: 形のレポート（値は含まない）。前回と比べて型の種類が増えたフィールドを警告する
+  // 形のレポート（値は含まない）。前回と比べて型の種類が増えたフィールドを警告する
   const report = buildShapeReport(input, now.toISOString())
   const latestPath = path.join(reportDir, 'shape-latest.json')
   const previous = existsSync(latestPath) ? (JSON.parse(readFileSync(latestPath, 'utf8')) as ShapeReport) : null
   writeJson(path.join(reportDir, `shape-${toTimestampName(now)}.json`), report)
   writeJson(latestPath, report)
   const warnings = diffShapeReports(previous, report)
+  // 大きさのレポート（文字列の最大長・配列の最大件数。値は含まない）。予約 API の上限を決めるのに使う
+  const sizePath = path.join(reportDir, 'size-latest.json')
+  writeJson(sizePath, buildSizeReport(input, now.toISOString()))
 
   console.log(`匿名化データを書き出しました: ${dataDir}`)
   for (const c of SEED_COLLECTIONS) console.log(`  ${c}: ${output[c].length} 件`)
   console.log(`形のレポート: ${latestPath}`)
+  console.log(`大きさのレポート: ${sizePath}`)
   if (previous === null) console.log('  前回のレポートがないため、形の変化は比べていません。')
   for (const w of warnings) console.warn(`  警告（本番データの形が変わった可能性）: ${w}`)
 }
@@ -87,7 +91,7 @@ function parseArgs(args: string[]): Options {
   return options
 }
 
-// ANON-6: 本番に対しては読み取りだけ。全件を読む。整数と小数を区別するため useBigInt を使う
+// 本番に対しては読み取りだけ。全件を読む。整数と小数を区別するため useBigInt を使う
 async function readFromFirestore(projectId: string | undefined): Promise<CollectionDocuments> {
   if (projectId === undefined) fail(['--project が必要です。'])
   const app = initializeApp({ credential: applicationDefault(), projectId }, 'anonymize')
