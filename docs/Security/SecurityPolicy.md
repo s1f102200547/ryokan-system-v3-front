@@ -23,6 +23,7 @@
 - PC の管理（OS、ブラウザ、メール）は旅館側が行い、このアプリからは手を出せない
 - リポジトリは非公開
 - 開発には Claude Code を使う
+- 開発者は１人
 
 ## 3. 守るもの
 
@@ -83,7 +84,6 @@
 - 公開から7日未満の npm パッケージの版のインストールの禁止
 - npm パッケージの install スクリプトの実行の禁止
 - Dependabot による、依存の週1回の更新
-- 悪用が報告された脆弱性の、7日を待たない修正
 - CI での、ZAP による動的検査
 - CI での、Semgrep による静的解析
 - CI での、gitleaks によるリポジトリの全履歴の秘密情報の検査
@@ -99,37 +99,51 @@
 - VS Code の Workspace Trust の有効化と、信頼するフォルダーの限定
 - VS Code のタスクの自動実行の停止
 - github push用のSSH 鍵へのパスフレーズの付与
-- 素性の分からないリポジトリの、Dev Container か Codespaces での利用
+
 ## 8. 未実施の対策
 
-### 条件がそろうのを待っているもの
+### 条件待ち
 
-- `main` と `development` のルールセットによる保護（PR と CI の全ジョブの合格の必須化、force push と削除の禁止、バイパスなし。必須チェックに `Secret Scan` と `Semgrep` も加える）：GitHub Pro 待ち
-- デプロイ用の secrets の、`main` だけが使える Environment `production` への移動（ほかのブランチのワークフローから読めなくする）：GitHub Pro 待ち
-- WIF の属性条件への `assertion.environment == 'production'` の追加：Environment を作ったあと
-- 上の2つの確認（`main` への直接 push が拒否されること、ほかのブランチに置いた確認用のワークフローが GCP の認証に失敗すること）：同上
-- GitHub Pro での Secret scanning・Push protection が使えるかの確認：同上
-- リポジトリを公開に切り替える前の、gitleaks によるリポジトリの全履歴の検査：公開するとき
+- `main` と `development` のルールセットによる保護（PR・CI 合格の必須化、force push と削除の禁止）：GitHub Pro 待ち
+- デプロイ用の secrets の、Environment `production` への移動：GitHub Pro 待ち
+- WIF の属性条件への、Environment `production` の追加：Environment の作成後
+- 上記の保護が効いていることの確認：同上
+- Secret scanning・Push protection の利用可否の確認：同上
+- 公開前の、gitleaks による全履歴の検査：公開するとき
 
-### 後回しにしたもの
+### 後回し
 
-- 普段使う Google アカウントからの GCP のオーナー権限の除去（オーナーは別のアカウントにし、別のブラウザのプロファイルでだけ使う）
-- GitHub・普段の Google・オーナー用の Google のアカウントへのパスキーの登録
-- Slack の Webhook の URL の、Secret Manager への移動と作り直し（今は Cloud Run の環境変数に平文で入っている。2026-11-02 に値が AI エージェントとの会話に渡った）
-- `firebase-admin` の 13 から 14 への更新（内部の `uuid@9` の moderate の脆弱性が消える）
-- 今ある Dependabot の警告4件（uuid、grpc-js ×2、minimatch）の分析のやり直しと、Dismiss するかの判断：残りの対策を実装し終えてから
+- GCP のオーナー権限の、普段使う Google アカウントからの分離
+- GitHub・Google・firebase・slack のアカウントへのパスキー・二段階認証の登録
+- Slack の Webhook の URL の、作り直しと Secret Manager への移動
+- `firebase-admin` の 14 への更新
+- Dependabot の既存の警告の再分析：残りの対策の実装後
 - Node.js の 26 LTS への更新：2027 年中
 
-### 未着手のもの
+### 未着手
 
-- ログインに成功したときの接続元 IP の、Slack への通知（数週間観察し、旅館の IP が固定なら IP 制限を検討する）
-- AI エージェントの権限の設定による制限（`.claude/settings.json` の `permissions.deny` で `git push`、`gcloud`、`firebase deploy`、`~/.ssh`・`~/.config/gcloud` の読み取りを拒否する）
-- Firestore の PITR（過去の時点への復元）・削除保護・定期バックアップの有効化
-- 端末登録（登録した端末の Cookie がなければ、パスワードを見る前にログインを拒否する。初回利用時の自動登録、同じ IP からの新しいブラウザの自動登録と Slack 通知、違う IP の未登録のブラウザの拒否と Slack 通知）
-- ログインのサーバー経由化（Google への問い合わせをサーバーが行う。API キーを作り直してサーバー専用にし、`firebase` パッケージを削除して、CSP と audit の例外を整理する）
-- ログインの失敗回数の制限（アカウントごと・端末ごとに連続5回まで。超えたら15分待たせ、繰り返すたびに延ばす。IP ごとに1時間で20回を超えたら Slack に通知する）
-- ログイン API の入力検証による、パスワードの長さ（10〜100）の確認（範囲外は Google に問い合わせずに、通常の失敗と同じメッセージで拒否する）
-- Terraform による GCP・GitHub の設定のコード化と、ずれの自動検知
-- （任意）スタッフへの周知：「Web ページが『何かを貼り付けて実行して』と言ってきたら、攻撃」
+- ログイン成功時の接続元 IP の、Slack への通知
+- AI エージェントの権限の制限（push、デプロイ、認証情報の読み取りの拒否）
+- Firestore の PITR・削除保護・定期バックアップの有効化
+- 端末登録による、未登録の端末からのログインの拒否
+- ログインのサーバー経由化と、API キーのサーバー専用化
+- ログインの失敗回数の制限
+- ログイン API での、パスワードの長さの確認
+- Terraform による GCP・GitHub の設定のコード化
 
-順番：端末登録をログインのサーバー経由化より先に行う。端末登録はセッション Cookie を発行するログイン API で確認するので、サーバー経由化しなくても効き、パスワードの窃取・盗み見・持ち出しにまとめて効く。サーバー経由化の主な効果は試行回数の制限で、強いパスワードを使っている今は効果が比較的小さい。
+## 9. 採用しなかった対策
+- アプリのログインの MFA
+  - 理由：端末登録で代わりにするため
+  - 見直す条件：端末登録が運用に合わないとき
+- 前段での Google アカウントによる認証（IAP）
+  - 理由：Edge でも使うため、スタッフ用の Google アカウントの運用が必要になる
+  - 見直す条件：端末登録が運用に合わないとき、またはスタッフごとのアカウントを作るとき
+- Trusted Types
+  - 理由：React が自動でエスケープし、`dangerouslySetInnerHTML` も使っていないので効果が小さく、Next.js・MUI・Firebase が動かなくなるおそれがあるため
+  - 見直す条件：HTML を直接扱う機能を追加するとき（試すときは Report-Only から始める）
+- Cookie の PC のハードウェアへの結び付け（DBSC）
+  - 理由：Cookie を数分ごとに更新する仕組みが必要で負担が大きく、対応しているのも Windows 版の Chrome だけのため
+  - 見直す条件：セッションの期限を延ばすとき、または内部の人による不正が実際に起きたとき
+- gitleaks の commit 前のフックでの実行
+  - 理由：CI で止められ、非公開なので push から CI までの間に読まれるおそれが小さいため。フックのために npm の依存を増やしたくない
+  - 見直す条件：開発者が増えたとき、またはリポジトリを公開するとき
