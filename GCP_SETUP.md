@@ -223,7 +223,7 @@ gcloud iam workload-identity-pools providers update-oidc github-provider \
 > - 値は大文字・小文字を区別する。`YOUR_GITHUB_ORG/YOUR_REPO_NAME` は GitHub の表示どおりに書く。
 > - 更新したら `main` で deploy を1回動かし、auth のステップが通ることを確かめる。条件に合わないと、auth のステップが `The given credential is rejected by the attribute condition` で失敗する。そのときは `describe` で控えた条件に戻して原因を調べる。
 > - Environment `production`（T5-2）を使い始めたら、条件の末尾に ` && assertion.environment == 'production'` を加える。
-> - ほかのブランチから deploy できないことの確認は、`docs/Security/SecurityMeasures/T5.md` の「確認方法」の 2・3 で行う。
+> - ほかのブランチから deploy できないことは、適当なブランチに `id-token: write` と `google-github-actions/auth` を使う確認用のワークフローを push し、GCP の認証が失敗することで確かめる（確かめたらブランチを削除する）。
 
 ---
 

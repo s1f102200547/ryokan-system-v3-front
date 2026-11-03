@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// Firestore Security Rules（T6-2。docs/Security/SecurityMeasures/T6.md）
+// Firestore Security Rules（T6-2。docs/Security.md §7）
 // ブラウザ（Client SDK）からの読み書きは、ログインしていてもいなくてもすべて拒否する。
 // サーバー（Route Handler）は Admin SDK を使い、Admin SDK はこのルールの影響を受けない。
 // テスト: tests/emulator/firestoreRules.test.ts。本番への反映は開発者が手で行う（firebase deploy --only firestore:rules）

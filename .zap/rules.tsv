@@ -1,4 +1,4 @@
-# ZAP Baseline Scan rules (T6-9). See docs/Security/Security.md "ZAP" section.
+# ZAP Baseline Scan rules (T6-9). See docs/CICD.md "ZAP" section.
 # Format: <rule id><TAB><IGNORE|INFO|WARN|FAIL><TAB><reason>. Rules not listed are WARN, and WARN fails CI (fail_action: true).
 # Keep this file ASCII only, tab separated, and without blank lines.
 10055	IGNORE	CSP style-src unsafe-inline is required by MUI/Emotion. Production CSP is pinned by tests/unit/lib/csp.test.ts
