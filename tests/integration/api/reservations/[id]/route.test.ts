@@ -62,7 +62,7 @@ describe('PATCH /api/reservations/[id]', () => {
     expect(res.status).toBe(503)
   })
 
-  describe('値の検査（BugHunting.md #6）: Infra が読み取りで fallback に変える値は入口で拒否する', () => {
+  describe('値の検査: Infra が読み取りで fallback に変える値は入口で拒否する', () => {
     it.each([
       ['arrival_time が許容値外', { arrival_time: '6:00' }],
       ['dinner_time の要素が許容値外', { dinner_time: ['18:15'] }],
@@ -87,7 +87,7 @@ describe('PATCH /api/reservations/[id]', () => {
   })
 
   // 全フィールドの上限ちょうど・上限+1 は tests/unit/constraints/reservationLimits.test.ts
-  describe('入力の上限（T7-4）', () => {
+  describe('入力の上限', () => {
     it.each([
       ['other_note が上限+1', { other_note: 'あ'.repeat(RESERVATION_LIMITS.otherNoteLength + 1) }],
       ['timetable_info の件数が上限+1', { timetable_info: Array(MAX_NIGHTS + 1).fill('') }],
@@ -108,7 +108,7 @@ describe('PATCH /api/reservations/[id]', () => {
     })
   })
 
-  describe('C/O 日（BugHunting.md #7, #17）', () => {
+  describe('C/O 日', () => {
     it.each([
       ['入力途中の値', 'Invalid Date'],
       ['実在しない日', '2026-02-30'],
@@ -122,7 +122,7 @@ describe('PATCH /api/reservations/[id]', () => {
     })
   })
 
-  describe('既存の予約との整合（BugHunting.md #3, #6）', () => {
+  describe('既存の予約との整合', () => {
     it('Command が INVALID を返すと400で、Slack に通知しない', async () => {
       mockCommand.mockResolvedValue({
         success: false,
@@ -142,7 +142,7 @@ describe('PATCH /api/reservations/[id]', () => {
     })
   })
 
-  // BugHunting.md #5: [id] を検証しておらず、Firestore が投げる例外が 503 + ALERT になっていた
+  // [id] を検証しておらず、Firestore が投げる例外が 503 + ALERT になっていた
   describe('[id] の検証', () => {
     it.each([
       ['空', ''],

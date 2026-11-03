@@ -168,7 +168,7 @@ test.describe('GuestInfo - 予約一覧表示', () => {
   })
 })
 
-// BugHunting.md #11: 同じ部屋・同じ夜に有効な予約が2件あると、清掃ボード・タイムテーブルには1件しか出ない
+// 同じ部屋・同じ夜に有効な予約が2件あると、清掃ボード・タイムテーブルには1件しか出ない
 test.describe('GuestInfo - 部屋の重複の警告', () => {
   test.beforeEach(async ({ page }) => {
     await suppressPrint(page)
@@ -206,7 +206,7 @@ test.describe('GuestInfo - モーダル（auto-save）', () => {
     await page.goto('/daily-dashboard')
   })
 
-  // BugHunting.md #3, #17: C/O 日の直接入力で、C/I 以前の日付や入力途中の値を保存しない
+  // C/O 日の直接入力で、C/I 以前の日付や入力途中の値を保存しない
   test.describe('C/O 日の直接入力', () => {
     async function openCheckOutField(page: Page) {
       const patches: Record<string, unknown>[] = []
@@ -240,7 +240,7 @@ test.describe('GuestInfo - モーダル（auto-save）', () => {
       expect(patches.at(-1)?.check_out_date).toBe('2026-01-30')
     })
 
-    // BugHunting.md #19: 入力途中の短い泊数（01-01 = 1泊）で2泊目の入力が消えていた
+    // 入力途中の短い泊数（01-01 = 1泊）で2泊目の入力が消えていた
     test('1文字ずつ打って途中で泊数が縮んでも、2泊目の入力は消えない', async ({ page }) => {
       await page.route('/api/guest-info*', (route) => route.fulfill({
         status: 200,
@@ -272,7 +272,7 @@ test.describe('GuestInfo - モーダル（auto-save）', () => {
       expect((last?.timetable_info as string[]).slice(0, 2)).toEqual(['night1', 'night2'])
     })
 
-    // BugHunting.md #12: 30 泊を超える日付は保存しない
+    // 30 泊を超える日付は保存しない
     test('31 泊以上になる日付を入力しても保存しない', async ({ page }) => {
       const { patches, month } = await openCheckOutField(page)
       await month.click()
@@ -293,7 +293,7 @@ test.describe('GuestInfo - モーダル（auto-save）', () => {
     })
   })
 
-  // BugHunting.md #24: 通信エラーで保存に失敗した変更が捨てられ、再送されなかった
+  // 通信エラーで保存に失敗した変更が捨てられ、再送されなかった
   test.describe('保存の失敗', () => {
     async function editName(page: Page, name: string) {
       await page.getByTestId('reservation-card').first().click()
@@ -346,7 +346,7 @@ test.describe('GuestInfo - モーダル（auto-save）', () => {
     })
   })
 
-  // BugHunting.md §3.7: 自動保存（500ms の debounce）と閉じる・失敗・遅い応答の組み合わせ
+  // 自動保存（500ms の debounce）と閉じる・失敗・遅い応答の組み合わせ
   test.describe('保存の順序', () => {
     test('入力の直後（debounce 中）に閉じても保存し、一覧の再取得は保存のあと', async ({ page }) => {
       const events: string[] = []
@@ -405,7 +405,7 @@ test.describe('GuestInfo - モーダル（auto-save）', () => {
     })
   })
 
-  // T7-4: 画面の入力欄にも API と同じ上限（maxLength）を付けている。超えた分は入らず、上限ちょうどで保存できる
+  // 画面の入力欄にも API と同じ上限（maxLength）を付けている。超えた分は入らず、上限ちょうどで保存できる
   test.describe('入力の上限', () => {
     const memo = { month: '1', day: '1', name: '', summary: '', text: '', source: '' }
 
@@ -525,7 +525,7 @@ test.describe('GuestInfo - キャンセル（非auto-save）', () => {
     await expect(page.getByLabel('キャンセル理由')).toBeVisible()
   })
 
-  // BugHunting.md #27: 古い画面から、すでにキャンセル済みの予約をキャンセルしたとき
+  // 古い画面から、すでにキャンセル済みの予約をキャンセルしたとき
   test('すでにキャンセル済み（409）なら、再読み込みを促す', async ({ page }) => {
     await page.route('**/api/reservations/*/cancel', (route) => route.fulfill({ status: 409, json: { error: 'already_cancelled' } }))
     await page.getByTestId('cancel-button').first().click()

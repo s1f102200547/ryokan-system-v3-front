@@ -1,4 +1,4 @@
-// Firestore Security Rules の検査（T6-2。firestore.rules）
+// Firestore Security Rules の検査（firestore.rules）
 // ブラウザと同じ Client SDK（firebase）から、ログインしていてもいなくても、読み書きがすべて拒否されることを確かめる。
 // サーバーは Admin SDK を使い、ルールの影響を受けない（既存のドキュメントは Admin SDK で作り、片付ける）。
 // Emulator は firebase.json の firestore.rules を読み込んで起動する（npm run test:emulator）

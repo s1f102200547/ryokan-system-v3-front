@@ -84,7 +84,7 @@ describe('POST /api/auth/login', () => {
     expect(response.status).toBe(503)
   })
 
-  // BugHunting.md #1: request.json() を catch しておらず 500 になっていた
+  // request.json() を catch しておらず 500 になっていた
   it.each([
     ['不正な JSON', '{"idToken":'],
     ['空の body', ''],
@@ -98,7 +98,7 @@ describe('POST /api/auth/login', () => {
     expect(notifySlackFireAndForget).not.toHaveBeenCalled()
   })
 
-  // BugHunting.md #2: 形式が不正な idToken で 503 + ALERT になっていた。
+  // 形式が不正な idToken で 503 + ALERT になっていた。
   // firebase-admin は不正なトークンにも公開鍵の取得失敗にも auth/argument-error を返すため、メッセージで分ける
   // （メッセージは firebase-admin 13.10 が実際に返すもの）
   it.each([

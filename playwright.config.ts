@@ -22,7 +22,7 @@ export default defineConfig({
     command: 'npm run dev',
     url: 'http://127.0.0.1:3000',
     reuseExistingServer: !process.env.CI,
-    // Emulator 系の変数と demo project で起動し、起動ガード（DEV-2）を通す（DEV-7）。
+    // Emulator 系の変数と demo project で起動し、起動ガードを通す。
     // API はブラウザ側でモックするため Emulator 本体は起動しない。CI も同じ設定を使う。
     // NEXT_PUBLIC_FIREBASE_API_KEY は Firebase SDK の存在チェックを通すためのダミー値
     env: {

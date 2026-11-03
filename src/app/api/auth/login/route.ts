@@ -30,13 +30,13 @@ function msUntilToday23JST(): number {
 
 export async function POST(request: Request) {
   // 本番は時間外のログインを断る。画面は proxy.ts で時間外に開けないが、API を直接呼ぶと
-  // 深夜でもその日の 23:00 まで有効な Session Cookie が発行されていた（BugHunting.md #14）
+  // 深夜でもその日の 23:00 まで有効な Session Cookie が発行されていた
   if (process.env.NODE_ENV === 'production' && isOutsideBusinessHours()) {
     logger.warn('ログイン拒否: 時間外')
     return NextResponse.json({ error: 'outside_business_hours' }, { status: 403 })
   }
 
-  // 不正な JSON や空の body は 400（BugHunting.md #1）
+  // 不正な JSON や空の body は 400
   const parsed = BodySchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
     return NextResponse.json({ error: 'invalid request' }, { status: 400 })

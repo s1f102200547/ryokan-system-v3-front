@@ -17,7 +17,7 @@ const docs = (): CollectionDocuments => ({
   ],
 })
 
-describe('buildShapeReport（AC-23）', () => {
+describe('buildShapeReport', () => {
   const report = buildShapeReport(docs(), '2026-10-31')
   const g = report.collections.guestInfoV2.fields
   const d = report.collections.dailyInfo.fields
@@ -46,7 +46,7 @@ describe('buildShapeReport（AC-23）', () => {
   })
 })
 
-describe('diffShapeReports（AC-24）', () => {
+describe('diffShapeReports', () => {
   const base = buildShapeReport(docs(), 'prev')
 
   it('前回のレポートがなければ警告しない', () => {
@@ -71,7 +71,7 @@ describe('diffShapeReports（AC-24）', () => {
   })
 })
 
-describe('buildSizeReport（T7-4）', () => {
+describe('buildSizeReport', () => {
   const report = buildSizeReport(docs(), '2026-11-02')
   const g = report.collections.guestInfoV2
 

@@ -1,4 +1,4 @@
-// 全 Route Handler のファジング（BugHunting.md §3.3、mock 版）
+// 全 Route Handler のファジング（mock 版）
 // Application / Infra を mock し、入力検証を網羅する。判定: 入力が原因で 5xx を返さない・Slack に通知しない。
 // Firestore のエラー分類まで含めた確認は Emulator 版（tests/emulator/routes.fuzz.test.ts）で行う
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -226,7 +226,7 @@ describe.each(ROUTES.map((r) => [`${r.method} /api/${r.route}`, r] as const))('%
   })
 })
 
-// BugHunting.md #23: セッションの確認が try の外にあり、Firebase Auth の障害（AUTH_UNAVAILABLE）で
+// セッションの確認が try の外にあり、Firebase Auth の障害（AUTH_UNAVAILABLE）で
 // 全 API が 500 になり、ログにも Slack にも残らなかった
 describe.each(ROUTES.filter((r) => r.route !== 'auth/login').map((r) => [`${r.method} /api/${r.route}`, r] as const))(
   '%s: 認証基盤の障害',

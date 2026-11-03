@@ -1,4 +1,4 @@
-// PBT: 日付計算の性質（BugHunting.md §3.5）。tests/time/ にあるので npm run test:tz で3つの TZ で実行される
+// PBT: 日付計算の性質。tests/time/ にあるので npm run test:tz で3つの TZ で実行される
 import { describe, it, expect } from 'vitest'
 import fc from 'fast-check'
 import { addDays, dateDiff, toMonthDay } from '@/lib/dateUtils'

@@ -1,4 +1,4 @@
-// PBT: 部屋の状態・部屋の重複・宿泊税の集計の性質（BugHunting.md §3.5）
+// PBT: 部屋の状態・部屋の重複・宿泊税の集計の性質
 import { describe, it, expect } from 'vitest'
 import fc from 'fast-check'
 import { computeRoomCheckInState } from '@/domain/room/roomState'

@@ -9,7 +9,7 @@ type CspOptions = {
 export function buildCsp({ nonce, isDev, authEmulatorHost }: CspOptions): string {
   // Firebase Auth（signInWithEmailAndPassword）が叩く外部エンドポイントを許可
   const connectSrc = [`'self'`, 'https://identitytoolkit.googleapis.com', 'https://securetoken.googleapis.com']
-  // DEV-5: development のときだけ Auth Emulator を許可する。production の CSP は変えない
+  // development のときだけ Auth Emulator を許可する。production の CSP は変えない
   if (isDev && authEmulatorHost) {
     connectSrc.push(`http://${authEmulatorHost}`)
   }

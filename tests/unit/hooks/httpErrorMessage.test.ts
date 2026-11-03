@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { httpErrorMessage } from '@/hooks/httpErrorMessage'
 
-// BugHunting.md #18: 400 / 404 は Slack に通知されないので「管理者に通知済み」と言わない
+// 400 / 404 は Slack に通知されないので「管理者に通知済み」と言わない
 describe('httpErrorMessage', () => {
   const failure = '保存に失敗しました。管理者に通知済みです。'
 

@@ -1,4 +1,4 @@
-// ファジングの入力（BugHunting.md §3.3）。判定は「入力が原因で 5xx を返さない・Slack に通知しない」。
+// ファジングの入力。判定は「入力が原因で 5xx を返さない・Slack に通知しない」。
 // 入力の一覧はここに1つにまとめ、mock 版（tests/integration/fuzz/）と Emulator 版（tests/emulator/）で共有する
 
 // request.json() に渡す生の body

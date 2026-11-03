@@ -9,7 +9,7 @@ vi.mock('@/lib/slack', () => ({ notifySlackFireAndForget: vi.fn() }))
 import { firestoreReservationRepository } from '@/infra/reservation/firestoreReservationRepository'
 import { addReservationCommand } from '@/application/guestInfo/addReservationCommand'
 
-// BugHunting.md #8: 操作履歴（mail_memo）の月日がサーバーのローカル時刻（Cloud Run は UTC）だった。
+// 操作履歴（mail_memo）の月日がサーバーのローカル時刻（Cloud Run は UTC）だった。
 // JST 0:00〜9:00 の手動追加が前日の日付になる
 describe.each(JST_BOUNDARY_TIMES)('手動追加の操作履歴の月日 JST 2026-06-01 %s', (time) => {
   afterEach(() => vi.useRealTimers())

@@ -28,7 +28,7 @@ describe('toReservation（泊数）', () => {
     expect(r.timetable_info).toHaveLength(2)
   })
 
-  // BugHunting.md #4: 泊数が負だと Array(nights) が RangeError を投げ、範囲取得全体が落ちていた
+  // 泊数が負だと Array(nights) が RangeError を投げ、範囲取得全体が落ちていた
   it('C/O が C/I より前（泊数が負）は FIRESTORE_DATA_CORRUPTION', () => {
     expect(corruptionCode({ ...base, check_out_date: '2026/11/09' })).toBe('FIRESTORE_DATA_CORRUPTION')
   })
@@ -37,7 +37,7 @@ describe('toReservation（泊数）', () => {
     expect(corruptionCode({ ...base, check_out_date: '2026/11/10' })).toBe('FIRESTORE_DATA_CORRUPTION')
   })
 
-  // BugHunting.md #12: 31 泊以上は破損として読み飛ばす（入口でも拒否している）
+  // 31 泊以上は破損として読み飛ばす（入口でも拒否している）
   it('30 泊は正常に読める', () => {
     expect(corruptionCode({ ...base, check_out_date: '2026/12/10' })).toBeUndefined()
   })

@@ -63,7 +63,7 @@ describe('POST /api/reservations', () => {
     expect(res.status).toBe(400)
   })
 
-  // BugHunting.md #7: 書式だけでなく実在日と範囲も見る
+  // 書式だけでなく実在日と範囲も見る
   it.each([
     ['C/I が実在しない日', { check_in_date: '2026-02-30' }],
     ['C/O が実在しない日', { check_out_date: '2026-04-31' }],
@@ -76,7 +76,7 @@ describe('POST /api/reservations', () => {
     expect(mockCommand).not.toHaveBeenCalled()
   })
 
-  // BugHunting.md #12: 30 泊まで
+  // 30 泊まで
   it('30 泊は201、31 泊は400', async () => {
     mockCommand.mockResolvedValue('test-uuid')
     expect((await POST(makeRequest({ ...validBody, check_out_date: '2026-05-01' }))).status).toBe(201)

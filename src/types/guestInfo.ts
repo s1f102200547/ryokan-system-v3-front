@@ -84,5 +84,5 @@ export type UpdateReservationFailure =
   | { kind: 'NOT_FOUND' }
   | { kind: 'INVALID'; violations: ReservationPatchViolation[] }
 
-// キャンセル・復活で、予約がすでにその状態だった（古い画面からの操作や2人同時の操作。BugHunting.md #27）
+// キャンセル・復活で、予約がすでにその状態だった（古い画面からの操作や2人同時の操作）
 export type CancelStateFailure = { kind: 'ALREADY_IN_STATE' }

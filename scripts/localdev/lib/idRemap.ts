@@ -1,7 +1,7 @@
 import { maskString } from './mask'
 import type { Rng } from './rng'
 
-// ID の振り直し（docs/LocalDevelopment.md §4.3 ID の振り直し）
+// ID の振り直し
 // 同じ実行内では、同じ元の値に同じ新しい値を対応させる（コレクションをまたいだ参照関係を保つ）。
 // 対応表は1つだけ持ち、ドキュメント ID・reservation_number・mail_id・todos[].id で共有する。
 // 新しい値: 元が UUID なら UUID v4、それ以外は元と同じ長さ・同じ文字の種類の乱数（Q-4）

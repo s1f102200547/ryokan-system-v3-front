@@ -22,7 +22,7 @@ export async function cancelReservationCommand(input: CancelInput): Promise<Resu
   }
 
   const result = await firestoreReservationRepository.cancelReservation(id, mailMemoEntry)
-  // すでにその状態なら何も変えていないので通知しない（BugHunting.md #27）
+  // すでにその状態なら何も変えていないので通知しない
   if (result.success) notifySlackFireAndForget(`[キャンセル] ${id} - 理由: ${reason}`)
   return result
 }

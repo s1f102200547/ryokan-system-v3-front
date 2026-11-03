@@ -71,7 +71,7 @@ describe('PATCH /api/reservations/[id]/a-tax', () => {
     expect(res.status).toBe(503)
   })
 
-  // BugHunting.md #5: [id] を検証しておらず、Firestore が投げる例外が 503 + ALERT になっていた
+  // [id] を検証しておらず、Firestore が投げる例外が 503 + ALERT になっていた
   describe('[id] の検証', () => {
     it.each([
       ['空', ''],

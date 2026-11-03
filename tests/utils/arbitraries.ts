@@ -1,4 +1,4 @@
-// PBT（fast-check）の入力の生成器（BugHunting.md §3.5）
+// PBT（fast-check）の入力の生成器
 import fc from 'fast-check'
 import { addDays } from '@/lib/dateUtils'
 import { ROOM_NUMBERS } from '@/constants/room'

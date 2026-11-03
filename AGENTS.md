@@ -118,10 +118,6 @@ Next.js 16.4（App Router）/ React 19.2 / MUI 7.3 + X Date Pickers 9 / Emotion 
 | 外部通信の追加 | `src/lib/csp.ts`, `proxy.ts` のヘッダー, `tests/unit/lib/csp.test.ts` |
 | CI/CD | `.github/workflows/*.yml` と [docs/Development.md](docs/Development.md) |
 
-## コード中の古い参照
-
-コメントにある `BugHunting.md #12`、`T6-5`、`DEV-2`、`ANON-8`、`docs/LocalDevelopment.md`、`docs/CICD.md`、`GCP_SETUP.md` などは **削除済みのドキュメント** への参照で、ファイルは存在しない。「なぜこう書いたか」の手がかりとして読むだけでよく、探さなくてよい。コメントの本文は今のコードの説明として正しい。
-
 <!-- BEGIN:nextjs-agent-rules -->
 
 ## This is NOT the Next.js you know

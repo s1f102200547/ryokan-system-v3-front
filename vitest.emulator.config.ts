@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitest/config'
 import path from 'path'
 
-// Firestore Emulator に実際に書いて読む往復検査（BugHunting.md §3.1、tests/emulator/）。
+// Firestore Emulator に実際に書いて読む往復検査（tests/emulator/）。
 // `npm run test:emulator` が firebase emulators:exec で専用の Emulator を起動してから実行する。
 // 接続先は 127.0.0.1 の Emulator と demo project だけ。起動ガード（runtimeEnvGuard）も通す
 export default defineConfig({

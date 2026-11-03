@@ -1,6 +1,6 @@
 // @vitest-environment node
 //
-// 予約の書き込みの上限（T7-4）: 上限ちょうどは通し、上限+1 は拒否する
+// 予約の書き込みの上限: 上限ちょうどは通し、上限+1 は拒否する
 import { describe, it, expect } from 'vitest'
 import { ReservationPatchBodySchema } from '@/lib/api/reservationSchemas'
 import { MAX_ADULT_COUNT, MAX_NIGHTS, RESERVATION_LIMITS as L } from '@/constants/guestInfo'
@@ -36,7 +36,7 @@ const limitCases: [string, (n: number) => Record<string, unknown>, number][] = [
   ['mail_memo の source の文字数', (n) => ({ mail_memo: [mailMemo({ source: text(n) })] }), L.mailMemoSourceLength],
 ]
 
-describe('PATCH の上限（T7-4）', () => {
+describe('PATCH の上限', () => {
   it.each(limitCases)('%s: 上限ちょうどは通す', (_label, build, limit) => {
     expect(ReservationPatchBodySchema.safeParse(build(limit)).success).toBe(true)
   })

@@ -11,7 +11,7 @@ import { dateDiff } from '@/lib/dateUtils'
 
 // --- PATCH /api/reservations/[id] ---
 
-// 文字列と配列の上限は src/constants/guestInfo.ts の RESERVATION_LIMITS（T7-4）。読み取り（Infra）には入れない
+// 文字列と配列の上限は src/constants/guestInfo.ts の RESERVATION_LIMITS。読み取り（Infra）には入れない
 const MailMemoEntrySchema = z.object({
   month:   z.string().max(L.mailMemoMonthDayLength),
   day:     z.string().max(L.mailMemoMonthDayLength),

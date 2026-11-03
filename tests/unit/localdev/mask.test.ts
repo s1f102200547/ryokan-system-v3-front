@@ -19,7 +19,7 @@ const CLASSES: [string, RegExp, (out: string) => boolean][] = [
 
 const KEPT = ['ｰ', 'ゝ', 'ヽ',  '\n', '\t', '　', '-', '@', '.', '(', ')', '、', '。', '「', '」', '！', '？', '・', 'ー', '々', '〆', 'ﾞ', '①', '㉑', '😀', '‍', '️', '́']
 
-describe('maskString（AC-20）', () => {
+describe('maskString', () => {
   const samples = [
     '山田 太郎', 'ヤマダ タロウ', 'ﾔﾏﾀﾞ ﾀﾛｳ', 'Taro YAMADA', 'ＴＡＲＯ　ｙａｍａｄａ',
     '090-1234-5678', '０９０−１２３４−５６７８', 'taro@example.com', 'ご予約ありがとうございます。\n到着は１５時頃です！',

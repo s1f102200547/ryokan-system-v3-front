@@ -47,7 +47,7 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
   useEffect(() => { localDataRef.current = localData })
 
   const pendingPayloadRef = useRef<ReservationPatch>({})
-  // 泊数・大人の人数を縮めても、伸ばし直したときに入力を戻すための記憶（BugHunting.md #19）
+  // 泊数・大人の人数を縮めても、伸ばし直したときに入力を戻すための記憶
   const arrayMemoryRef = useRef<ArrayFieldMemory>({
     dinner_time: reservation.dinner_time,
     dinner_info: reservation.dinner_info,
@@ -63,7 +63,7 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
   const savingRef = useRef<Promise<void>>(Promise.resolve())
 
   // 保留中の変更を送る。通信エラー・サーバーの障害で失敗した変更は保留に戻し、
-  // 次の入力か「閉じる」で送り直す。以前は失敗した変更を捨てていたため、画面には入力が残るのに保存されていなかった（BugHunting.md #24）。
+  // 次の入力か「閉じる」で送り直す。以前は失敗した変更を捨てていたため、画面には入力が残るのに保存されていなかった。
   // 入力の誤り（400）などは送り直しても通らないので捨てる（画面には理由が出ている）
   const save = useCallback((id: string): Promise<void> => {
     savingRef.current = savingRef.current.then(async () => {

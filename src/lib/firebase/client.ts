@@ -15,7 +15,7 @@ export const firebaseApp = getApps().length === 0 //firebaseインスタンス�
   ? initializeApp(firebaseConfig) // 初期化してインスタンスを新規作成
   : getApps()[0] // すでにあるインスタンスを使う
 
-// Auth はすべてここを経由する（DEV-4: サーバーとブラウザで接続先を揃える）
+// Auth はすべてここを経由する（サーバーとブラウザで接続先を揃える）
 // 読み込み時ではなく最初に使うときに初期化する（API キー未設定の build や SSR で throw させないため）
 export function getFirebaseAuth(): Auth {
   const auth = getAuth(firebaseApp)

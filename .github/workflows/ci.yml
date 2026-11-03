@@ -6,7 +6,7 @@ on:
   push: # developmentではCIのみ、mainではdeployのworkflow_runトリガーにもなる
     branches: [development, main]
 
-# 書かなかった権限は none になる。非公開リポジトリでは contents: read がないと checkout できない（T6-7）
+# 書かなかった権限は none になる。非公開リポジトリでは contents: read がないと checkout できない
 permissions:
   contents: read
 
@@ -63,7 +63,7 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
       - run: npm run audit:ci # high 以上で例外リスト（scripts/ci/auditAllowlist.ts）にないものがあれば失敗
 
-  # 秘密情報の検査（T8-1）。GitHub の Secret scanning は非公開リポジトリでは使えないので、その代わり
+  # 秘密情報の検査。GitHub の Secret scanning は非公開リポジトリでは使えないので、その代わり
   # サードパーティの action を増やさないよう、本体をバージョン固定でダウンロードし、チェックサムを確かめて実行する
   # 毎回すべての履歴を検査する（数秒で終わる）。誤検知は .gitleaksignore に Fingerprint で除外する
   secret-scan:
@@ -86,9 +86,9 @@ jobs:
       - name: Run gitleaks
         run: ${{ runner.temp }}/gitleaks git --redact --no-banner -v . # --redact: 見つかった値をログに出さない
 
-  # 静的解析（T7-1）。Semgrep Community Edition のルールセット p/default（GitHub Actions・Dockerfile も含む）・p/typescript・p/react
+  # 静的解析。Semgrep Community Edition のルールセット p/default（GitHub Actions・Dockerfile も含む）・p/typescript・p/react
   # サードパーティの action を増やさないよう、公式の Docker イメージを版と digest で固定して実行する
-  # 指摘が1件でもあれば失敗する（--error）。誤検知は該当行の前に `nosemgrep: <ルールID>` と理由を書いて除外する（docs/CICD.md「Semgrep」）
+  # 指摘が1件でもあれば失敗する（--error）。誤検知は該当行の前に `nosemgrep: <ルールID>` と理由を書いて除外する
   semgrep:
     name: Semgrep
     runs-on: ubuntu-latest
@@ -121,10 +121,10 @@ jobs:
       - run: npm ci
         if: steps.cache.outputs.cache-hit != 'true'
       - run: npm run test
-      - run: npm run test:tz          # tests/time/ を TZ=UTC / Asia/Tokyo / America/Los_Angeles で実行（docs/BugHunting.md §3.4）
+      - run: npm run test:tz          # tests/time/ を TZ=UTC / Asia/Tokyo / America/Los_Angeles で実行
 
   # ── Phase 3: 重いテスト（unit-test 通過後）──────────────────────────────
-  # Firestore Emulator に実際に書いて読む往復検査（tests/emulator/、docs/BugHunting.md §3.1）
+  # Firestore Emulator に実際に書いて読む往復検査（tests/emulator/）
   # Firebase CLI は依存（package.json）に入れず、ここでだけグローバルに入れる（npm audit の対象を増やさない）
   emulator-test:
     name: Emulator Round-trip Test
@@ -146,7 +146,7 @@ jobs:
           key: node-modules-${{ hashFiles('package-lock.json') }}
       - run: npm ci
         if: steps.cache.outputs.cache-hit != 'true'
-      - run: npm install -g firebase-tools@15.34.1 # バージョンを固定する（公開から7日以上たったもの。T6-6）
+      - run: npm install -g firebase-tools@15.34.1 # バージョンを固定する（公開から7日以上たったもの）
       - run: npm run test:emulator    # firebase emulators:exec で専用の Emulator を起動してから vitest を実行
 
   e2e:
@@ -200,17 +200,17 @@ jobs:
       - name: Start server
         run: npm run start &                                   # ローカルでアプリ起動（http://localhost:3000）
       - name: Wait for server
-        # サーバーが立ち上がるまで最大60秒待つ。npx wait-on は実行のたびに最新版を取得するので、curl で依存をなくした（T6-6）
+        # サーバーが立ち上がるまで最大60秒待つ。npx wait-on は実行のたびに最新版を取得するので、curl で依存をなくした
         # / は /login へのリダイレクト（3xx）を返す。-f は 4xx・5xx だけを失敗にする
         run: timeout 60 bash -c 'until curl -fs -o /dev/null http://localhost:3000; do sleep 1; done'
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@7c4deb10e6261301961c86d65d54a516394f9aed # v0.14.0 / zapを実行
         with:
           target: http://localhost:3000/login
-          # ZAP のイメージも digest で固定する（既定の :stable は付け替えられ、新しい版でルールが増えると突然 CI が失敗する。T6-6）
-          # Dependabot はここを更新しないので、手で上げる（docs/CICD.md「ZAP」）
+          # ZAP のイメージも digest で固定する（既定の :stable は付け替えられ、新しい版でルールが増えると突然 CI が失敗する）
+          # Dependabot はここを更新しないので、手で上げる
           docker_name: ghcr.io/zaproxy/zaproxy:2.17.0@sha256:030d3df57735dacbb83464854758e674dd9ad01d79d12a129a8e58b1fd384238
-          # 対応不要と決めた指摘は .zap/rules.tsv で IGNORE にする。それ以外の指摘（WARN 以上）が1件でもあれば CI を失敗させる（T6-9）
+          # 対応不要と決めた指摘は .zap/rules.tsv で IGNORE にする。それ以外の指摘（WARN 以上）が1件でもあれば CI を失敗させる
           rules_file_name: .zap/rules.tsv
           fail_action: true
           # Dependabot の PR では GITHUB_TOKEN が読み取り専用で Issue を書けないので、書かない（結果は artifact に残る）

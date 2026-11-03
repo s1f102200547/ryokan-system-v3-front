@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 // Firestore のドキュメント ID の制約（https://firebase.google.com/docs/firestore/quotas#collections_documents_and_fields）。
-// 満たさない ID を Firestore に渡すと例外になり、障害（503 + 通知）に分類されていた（BugHunting.md #5）
+// 満たさない ID を Firestore に渡すと例外になり、障害（503 + 通知）に分類されていた
 const MAX_DOCUMENT_ID_BYTES = 1500
 
 export const DocumentIdSchema = z

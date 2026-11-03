@@ -1,4 +1,4 @@
-// 状態遷移（BugHunting.md §3.7）: 予約の状態（通常・キャンセル済み）× 操作（編集・キャンセル・復活・宿泊税チェック）。
+// 状態遷移: 予約の状態（通常・キャンセル済み）× 操作（編集・キャンセル・復活・宿泊税チェック）。
 // 同じ操作を2回・キャンセル済みへの操作・存在しない予約への操作を、Emulator に実際に送って確かめる
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest'
 import { adminDb } from '@/lib/firebase/admin'
@@ -73,7 +73,7 @@ const MATRIX: [state: 0 | 1, op: Op, first: number, second: number, cancel: numb
   [1, '宿泊税チェック', 200, 200, 1, [], 0],
 ]
 
-// BugHunting.md #27: すでにその状態のキャンセル・復活でも 200 で、操作履歴と Slack 通知が増えていた
+// すでにその状態のキャンセル・復活でも 200 で、操作履歴と Slack 通知が増えていた
 describe.each(MATRIX)('状態 cancel=%i に「%s」を2回', (state, op, first, second, cancel, memo, slack) => {
   it(`${first} → ${second}、履歴 ${memo.length} 件、通知 ${slack} 回`, async () => {
     const id = await createReservation(state)

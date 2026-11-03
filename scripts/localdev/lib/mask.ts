@@ -4,7 +4,7 @@ import type { JsonValue } from './serialize'
 import { kindOf, mapEntries, toMap } from './tagged'
 import type { JsonObject } from './tagged'
 
-// マスク（docs/LocalDevelopment.md §4.3 マスク）
+// マスク
 // - 文字列: 1文字ずつ、同じ種類・同じ幅の乱数の文字に置き換える。文字数は保つ
 // - 数値: 同じ桁数の乱数。整数か小数か、符号を保つ。0 は 0 のまま。NaN / Infinity はそのまま
 // - '' / null / 真偽値: そのまま。配列・マップ: 要素ごとに再帰

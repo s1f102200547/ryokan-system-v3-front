@@ -8,7 +8,7 @@ export type GuestInfoData = {
   normal: Reservation[]    // cancel !== 1、check_in_date === targetDate
   staying: Reservation[]   // cancel !== 1、check_in_date < targetDate < check_out_date
   cancelled: Reservation[] // cancel === 1、check_in_date === targetDate
-  roomConflicts: RoomConflict[] // 対象日の夜に同じ部屋の有効な予約が2件以上（BugHunting.md #11）
+  roomConflicts: RoomConflict[] // 対象日の夜に同じ部屋の有効な予約が2件以上
 }
 
 export async function getGuestInfoUseCase(targetDate: string): Promise<GuestInfoData> {

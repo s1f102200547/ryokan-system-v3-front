@@ -36,7 +36,7 @@ export async function PATCH(
       reason: parsed.data.reason,
     })
     if (!result.success) {
-      // すでにその状態（古い画面からの操作など）。履歴も通知も増やさない（BugHunting.md #27）
+      // すでにその状態（古い画面からの操作など）。履歴も通知も増やさない
       return NextResponse.json({ error: 'not_cancelled' }, { status: 409 })
     }
     return NextResponse.json({ ok: true })

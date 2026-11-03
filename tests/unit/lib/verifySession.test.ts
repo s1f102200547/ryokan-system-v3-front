@@ -6,7 +6,7 @@ vi.mock('@/lib/firebase/admin', () => ({ adminAuth: { verifySessionCookie: vi.fn
 import { adminAuth } from '@/lib/firebase/admin'
 import { verifySession } from '@/lib/auth/verifySession'
 
-// BugHunting.md #23: auth/ で始まるコードをすべて「未ログイン」にしていた。
+// auth/ で始まるコードをすべて「未ログイン」にしていた。
 // Auth の内部障害でもログイン画面に戻され、通知されなかった。メッセージは firebase-admin 13.10 が実際に返すもの
 describe('verifySession', () => {
   beforeEach(() => vi.clearAllMocks())

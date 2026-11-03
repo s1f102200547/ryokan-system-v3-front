@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# 匿名化の実行（docs/LocalDevelopment.md §4.3 ANON-1〜5）
+# 匿名化の実行
 #   npm run anonymize -- --project <本番の project ID> --sa <閲覧専用 SA のメールアドレス>
 #
-# 1. Emulator 系の変数があれば何もせずに終了する（ANON-5）
-# 2. 前回の認証情報が残っていれば削除する（ANON-4）
-# 3. 閲覧専用 SA の権限を借りて ADC を作る（鍵ファイルは作らない。ANON-1）
+# 1. Emulator 系の変数があれば何もせずに終了する
+# 2. 前回の認証情報が残っていれば削除する
+# 3. 閲覧専用 SA の権限を借りて ADC を作る（鍵ファイルは作らない）
 # 4. anonymize.ts で全件を読み取り、匿名化データを書き出す
-# 5. 終了時（正常終了・エラー・Ctrl+C）に、gcloud・ADC・Firebase CLI の認証情報を削除する（ANON-3）
+# 5. 終了時（正常終了・エラー・Ctrl+C）に、gcloud・ADC・Firebase CLI の認証情報を削除する
 set -euo pipefail
 
 PROJECT=""
@@ -23,7 +23,7 @@ if [ -z "$PROJECT" ] || [ -z "$SA" ]; then
   exit 2
 fi
 
-# ANON-5: ログインを始める前に判定する
+# ログインを始める前に判定する
 EMULATOR_VARS=$(env | cut -d= -f1 | grep -E '(_EMULATOR_HOST|^FIREBASE_EMULATOR_HUB)$' || true)
 if [ -n "$EMULATOR_VARS" ]; then
   echo "匿名化を中止しました（Emulator 系の変数がある環境では実行しません）:" >&2
@@ -53,7 +53,7 @@ cleanup() {
   if [ "$remaining" -eq 0 ]; then
     echo "  認証情報は残っていません（gcloud・ADC・Firebase CLI）"
   else
-    echo "  上の認証情報を手で削除してください（OPS-4）" >&2
+    echo "  上の認証情報を手で削除してください" >&2
   fi
 }
 

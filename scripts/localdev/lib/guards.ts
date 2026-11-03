@@ -13,7 +13,7 @@ export type SeedTarget = {
 // 投入は全データを消すので、自分の PC の Emulator だけを相手にする
 const LOCAL_HOST_PATTERN = /^(127\.0\.0\.1|localhost|\[::1\]):\d+$/
 
-// SEED-1: Emulator 系の変数があり、project ID が demo- で始まるときだけ投入する
+// Emulator 系の変数があり、project ID が demo- で始まるときだけ投入する
 export function checkSeedTarget(env: Env): Result<SeedTarget, string[]> {
   const errors: string[] = []
   const firestoreHost = env.FIRESTORE_EMULATOR_HOST || undefined
@@ -32,7 +32,7 @@ export function checkSeedTarget(env: Env): Result<SeedTarget, string[]> {
   return { success: true, value: { projectId, firestoreHost, authHost } }
 }
 
-// ANON-5: Emulator 系の変数が1つでもある環境では匿名化を拒否する（Emulator を本番と取り違えないため）
+// Emulator 系の変数が1つでもある環境では匿名化を拒否する（Emulator を本番と取り違えないため）
 export function checkAnonymizeEnv(env: Env): Result<null, string[]> {
   const found = Object.keys(env).filter((name) => env[name] !== undefined && isEmulatorEnv(name))
   return found.length === 0
