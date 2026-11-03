@@ -36,7 +36,7 @@ make check             # 上の全部（make で起動中の Emulator / 開発�
 
 ## 技術スタック（インストール済みの版）
 
-Next.js 16.4（App Router）/ React 19.2 / MUI 7.3 + X Date Pickers 9 / Emotion 11 / Firebase 12（ブラウザ: Auth のみ）/ firebase-admin 14.5（サーバー: Firestore・Auth）/ Zod 4 / dayjs / TypeScript 5（strict）/ Vitest 4 + fast-check / Playwright 1.64 / Node 24（Docker・CI）
+Next.js 16.4（App Router）/ React 19.2 / MUI 7.3 + X Date Pickers 9 / Emotion 11 / Firebase 12（ブラウザ: Auth のみ）/ firebase-admin 14.5（サーバー: Firestore・Auth）/ Zod 4 / dayjs / TypeScript 5（strict）/ Vitest 4 + fast-check / Playwright 1.64 / Node 26（Docker・CI）
 
 **どれも学習データより新しい。** 古い知識で書かない:
 - Next.js は同梱ドキュメント `node_modules/next/dist/docs/` を先に読む。例: `middleware.ts` は **`proxy.ts`（関数名 `proxy`）に改名済み**。Route Handler の `params` は `Promise`
