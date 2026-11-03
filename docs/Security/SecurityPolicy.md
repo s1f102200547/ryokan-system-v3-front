@@ -63,3 +63,40 @@
 - npm パッケージ・GitHub Actions の悪性バージョンの混入
 - コードの欠陥
 - Git リポジトリへの機密情報・宿泊客の実データの混入
+
+## 7. 対策
+
+- WIF の属性条件による、このリポジトリの `main` ブランチの `deploy.yml` 以外からの GCP への認証の拒否
+- デプロイ用の SA への、対象の Cloud Run サービス・Artifact Registry・実行用の SA に限った権限の付与
+- `main` への push の CI が成功したときだけのデプロイ
+- CI が検査したコミットだけのデプロイ
+- WIF の認証ファイルの、Docker イメージとリポジトリからの除外
+- 本番へのデプロイと PR の作成の、Slack への通知
+- Cloud Run の、専用の SA での実行
+- 実行用の SA の権限の、Firestore の読み書きと Session Cookie の発行・失効確認だけへの限定
+- Firestore Rules の全拒否による、ブラウザからの Firestore の直接の読み書きの禁止
+- Firestore Rules のコードベースの管理
+- Emulator 上のテストによるFirestore Rules 全拒否の確認
+- ZAP の結果を Issue に書く権限を除いた、CI の権限の読み取りだけへの限定
+- GitHub Actions・CI のツール・Docker イメージの版の固定
+- Node.js などの実行環境の、サポート期間内の版への更新
+- 公開から7日未満の npm パッケージの版のインストールの禁止
+- npm パッケージの install スクリプトの実行の禁止
+- Dependabot による、依存の週1回の更新
+- 悪用が報告された脆弱性の、7日を待たない修正
+- CI での、ZAP による動的検査
+- CI での、Semgrep による静的解析
+- CI での、gitleaks によるリポジトリの全履歴の秘密情報の検査
+- 検査の指摘が1件でもあった場合の、CI の失敗
+- API と画面の入力への、本番データの最大値の約2〜5倍の上限
+- 本番の 400 エラーのレスポンスからの、入力検証の詳細の除外
+- ログへの入力の値の出力の禁止
+- コードレビューでの、入力の上限・個人情報の出力・実データの貼り付けの確認
+- 本番データの匿名化の実行中の、AI エージェントの停止
+- Firebase Auth の新規登録が、API からも無効であることの確認
+- GCP の予算アラートによる、請求額の急な増加の検知
+- Cloud runの予算アラートによる、一定額での上限capの作成
+- VS Code の Workspace Trust の有効化と、信頼するフォルダーの限定
+- VS Code のタスクの自動実行の停止
+- github push用のSSH 鍵へのパスフレーズの付与
+- 素性の分からないリポジトリの、Dev Container か Codespaces での利用
