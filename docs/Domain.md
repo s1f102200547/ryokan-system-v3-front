@@ -12,7 +12,7 @@
 | 部屋 | `"21" "22" "31" "32" "42" "43" "61"`（`constants/room.ts`）。`null` = 未割り当て。清掃ボードだけは予約のない `52 53 54` も行として出す |
 | A税・宿泊税 | 大人1人1泊 200円（`A_TAX_RATE_PER_PERSON_PER_NIGHT`）。子供は対象外。予約サイトが Chillnn の予約は徴収不要 |
 | 締めスタッフ | その C/I 日の宿泊税の金庫残高を確認したスタッフ名。`dailyInfo/{日付}.safeBalanceChecker` |
-| 露天 | 貸切露天風呂の予約時刻。1泊に1つ、夕方（16:00〜22:00）か朝（7:30〜9:30）のどちらか |
+| 露天 | 貸切露天風呂の予約時刻。1泊に1つ、夕方（16:00〜22:00）か朝（7:30〜9:00）のどちらか |
 | レイトアウト | `late_out = 1`。C/O が 11:00 |
 | 連泊 | 2泊以上の滞在。清掃ボードでは「連泊(札置く)」= 部屋に札を置いて清掃を省く |
 | mail_memo | 予約ごとの連絡履歴（メール要約・手動の操作履歴）。キャンセル・復活・手動追加のたびに1件追加される |
@@ -83,7 +83,7 @@
 | `arrival_time` | `"06:00"`〜`"22:00"`（1時間刻み） | `string \| null` | `null` |
 | `dinner_time[]` | `NONE` `CANCEL` `PENDING` `17:30`〜`20:00`（30分刻み） | `string[]` | 要素 → `NONE` |
 | `breakfast_time[]` | `7:30a`〜`9:30b`（a/b はタイムテーブルの上段・下段）/ `null` | `(string\|null)[]` | 要素 → `null` |
-| `open_air_bath_time[]` | 夕 `16:00`〜`22:00`、朝 `7:30`〜`9:30` / `null` | `(string\|null)[]` | 要素 → `null` |
+| `open_air_bath_time[]` | 夕 `16:00`〜`22:00`、朝 `7:30`〜`9:00` / `null`（以前の `9:30` は `null` として読む） | `(string\|null)[]` | 要素 → `null` |
 | `dinner_info[]`, `timetable_info[]` | 文字列 | `string[]` | 要素 → `""` |
 | `age_groups[]` | 年代の文字列 / `null`（長さ = 大人の人数） | `(string\|null)[]` | 長さ違いは全部 `null` |
 | `booking_site` | `chillnn` `booking.com` `expedia`（大文字小文字は無視） | `BookingSite` | `other` |

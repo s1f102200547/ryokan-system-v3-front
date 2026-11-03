@@ -1,6 +1,6 @@
 // @vitest-environment node
 //
-// 制約の突き合わせ（BugHunting.md §3.2、R1）
+// 制約の突き合わせ
 // 予約の1フィールドの制約は「UI の選択肢・Route の Zod・Infra の読み取り検証」に分かれて書かれている。
 // 判定: UI が送る値はすべて Route を通り、Infra の読み取りで fallback に置き換えられない（受け付けたものは消えない）。
 import { describe, it, expect } from 'vitest'
@@ -10,7 +10,9 @@ import { ROOM_NUMBERS } from '@/constants/room'
 import {
   ageOptions, arrivalOptions, bookingSiteOptions, breakfastOptions, countOptions, countryOptions,
   dinnerTimeOptions, groupOptions, lateCOOptions, purposeOptions, rotenOptions, tourismOptions,
+  OPEN_AIR_BATH_TIME_VALUES,
 } from '@/constants/guestInfo'
+import { OPEN_AIR_TIMES_EVENING, OPEN_AIR_TIMES_MORNING } from '@/constants/timetable'
 import type { Reservation } from '@/types/reservation'
 import { setupFakeToday } from '@tests/utils/routeTestHelper'
 
@@ -89,5 +91,18 @@ describe('POST: UI が送る値は Route を通り、Infra の読み取りで消
   it.each(values(bookingSiteOptions))('booking_site = %s', (site) => {
     expect(NewReservationBodySchema.safeParse({ ...body, booking_site: site }).success).toBe(true)
     expect(toReservation('doc1', { ...baseDoc, booking_site: site }).booking_site).toBe(site)
+  })
+})
+
+// 露天の許容値は、タイムテーブルの夕方・朝の列のどちらかに必ず出る（以前は朝の 9:30 を保存できたが、印刷に出なかった）
+describe('露天: 許容値はすべてタイムテーブルの列にある', () => {
+  const columns: readonly string[] = [...OPEN_AIR_TIMES_EVENING, ...OPEN_AIR_TIMES_MORNING]
+
+  it.each([...OPEN_AIR_BATH_TIME_VALUES])('%s', (time) => {
+    expect(columns).toContain(time)
+  })
+
+  it('画面の選択肢は許容値と同じ', () => {
+    expect(values(rotenOptions)).toEqual([...OPEN_AIR_BATH_TIME_VALUES])
   })
 })
