@@ -48,8 +48,19 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 
 - Vitest の既定の設定（`vitest.config.ts`）は Emulator の接続先を **到達できないアドレス**（`127.0.0.1:1`）にしている。誤って Firestore を呼んだテストはすぐ失敗し、本番にも届かない
 - 「今日」は `tests/utils/routeTestHelper.ts` の `setupFakeToday()` で 2026-05-20（JST）に固定する。JST の時刻を指定するときは `tests/utils/timeHelper.ts` の `setNowJST`
-- E2E は本物の Firebase 認証を使わない。`session` Cookie を `context.addCookies` で置いて `proxy.ts` を通し、`/api/**` と Firebase Auth の REST を `page.route` でモックする。Emulator 系の環境変数は `playwright.config.ts` の `webServer.env` にある
+- E2E は本物の Firebase 認証を使わない。`session` Cookie を `context.addCookies` で置いて `proxy.ts` を通し、`/api/**` と Firebase Auth の REST を `page.route` でモックする。Emulator 系の環境変数は `playwright.config.ts` の `webServer.env` にある（Emulator 本体は起動しない。ブラウザの Auth は Auth Emulator の URL に向かうが、`**/identitytoolkit.googleapis.com/**` のモックで捕まる）。URL と Cookie のホストは `localhost` ではなく `127.0.0.1` にそろえる
 - テストデータに実在の人名・本番データを入れない
+
+### テストを書くときの決まり
+
+- **バグを直すときは、最小の再現ケースを回帰テストにし、修正前に落ちることを確かめる。** 置き場所: 純粋関数・Domain・`toReservation` → `tests/unit/`、Route の入力と status → `tests/integration/`、Firestore に書いて読む経路・状態遷移 → `tests/emulator/`、時刻・TZ → `tests/time/`、画面操作・自動保存 → `e2e/`
+- 直したら、同じ原因が他にないか全体を grep する。このプロジェクトで実際にあった原因: 入口の Zod に refine がない（日付の前後・実在日・配列の長さ）、`request.json()` を catch していない、ローカル時刻への依存（`getMonth()` / `getDate()`、`toISOString()`、`new Date('YYYY-MM-DD')`）、外部呼び出しを try の外で行う、失敗した保存を捨てる・応答を待たずに次を送る、`FieldValue.arrayUnion`（同じ内容を足さない）、今の状態を確かめずに状態を変える
+- Route を追加したら `tests/integration/fuzz/routes.fuzz.test.ts` の `ROUTES` に足す（export された Route と突き合わせるので、足さないと落ちる）
+- Emulator のテストで作るドキュメントは `emutest-` などの接頭辞を付け、最後に消す。`make` の Emulator が動いているとポートが衝突する
+- `tests/time/` の期待値は具体的な値で書く。スナップショットは最初に実行した TZ の値で固まるので使わない
+- PBT の性質は仕様（[Domain.md](Domain.md)）から立てる。コードを読んでから立てるとバグに合わせた性質になる。条件を満たす入力だけで確かめる性質は、条件を満たした件数も検査する（少なすぎると何も確かめていない）。生成器は `tests/utils/arbitraries.ts`
+- 空白・NUL 文字・`%2F` は Firestore のドキュメント ID として有効。入口で拒否せず、存在しなければ 404
+- テストはモックの外を見られない。env・認証・DB・SSR・CSP に触れる変更は、`make` で起動して実際に操作して確かめる（`run` スキル）。本番の Firestore には触れない
 
 ## CI（`.github/workflows/ci.yml`）
 
@@ -70,7 +81,11 @@ semgrep ─┘                              └─→ zap-scan
 | semgrep | `p/default` `p/typescript` `p/react`。1件でも失敗 | 該当行の前に `// nosemgrep: <ルールID>` と理由 |
 | zap-scan | 本番ビルドを起動し、ZAP Baseline で `/login` を検査。WARN 以上で失敗 | `.zap/rules.tsv`（ASCII、タブ区切り、空行なし） |
 
-Actions・ツール・Docker イメージは SHA / digest / 版で固定している。上げるときも固定の形を保つ。
+Actions・ツール・Docker イメージは SHA / digest / 版で固定している。上げるときも固定の形を保つ（Actions はタグが指すコミットの SHA を書き、行末に版をコメントで書く。ツールは公開から7日以上たった版）。Dependabot は Semgrep と ZAP のイメージ、CI の `firebase-tools` を更新しないので手で上げる。ZAP を上げると新しいルールで CI が落ちることがある。
+
+Semgrep を手元で試す: `docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:1.182.1 semgrep scan --metrics=off --config p/default --config p/typescript --config p/react`
+
+未実装: PR ごとの staging 環境、CI 失敗時の Slack 通知、ZAP の Full Scan。
 
 ## デプロイ（`.github/workflows/deploy.yml`）
 
@@ -81,9 +96,21 @@ Actions・ツール・Docker イメージは SHA / digest / 版で固定して�
 - Dockerfile は3段（deps → builder → runner）、`output: 'standalone'`、非 root、`PORT=8080`
 - GitHub Secrets: `WORKLOAD_IDENTITY_PROVIDER`, `SERVICE_ACCOUNT`, `GCP_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_API_KEY` / `_AUTH_DOMAIN` / `_PROJECT_ID`（ビルド時にクライアントへ埋め込む。build arg）, `SLACK_WEBHOOK_URL`（Cloud Run の実行時の環境変数）
 - `firestore.rules` は自動では反映されない。変えたら開発者が `firebase deploy --only firestore:rules` を手で実行する
+- デプロイの開始・結果と PR の作成は、Slack の GitHub アプリが通知する（ワークフローの中では通知しない）
+
+GCP 側の権限は最小にしてあるので、次の変更は GCP の設定も変えないと本番で失敗する:
+
+| 変更 | 起きること |
+|---|---|
+| `deploy.yml` のファイル名・ワークフローの移動、`main` 以外からのデプロイ | WIF の属性条件（リポジトリ・`refs/heads/main`・`deploy.yml`）に合わず、auth のステップで拒否される |
+| Firestore・Auth 以外の GCP サービスをアプリから使う（Secret Manager、Storage など） | 実行用 SA `ryokan-runtime` に権限がない。Firebase Auth もカスタムロールで `createSession` と `users.get` だけ（ユーザーの作成・削除はできない）。権限不足は 503 と Slack の `PERMISSION_DENIED` になる |
+| 公開設定（`--allow-unauthenticated`）を `deploy.yml` に足す | デプロイ用 SA は `run.developer` で、公開設定を変えられない。公開（`allUsers` に `run.invoker`）はサービスに付いたまま残っている |
+| 別の Cloud Run サービス・Artifact Registry リポジトリへのデプロイ | デプロイ用 SA の権限は `ryokan-system` と `ryokan` にだけ付いている |
 
 ## 依存の追加・更新
 
-- `.npmrc`: 公開から7日たっていない版は入れない（`min-release-age=7`）。install スクリプトは `package.json` の `allowScripts` に書いたものだけ（書いていないパッケージにスクリプトがあると `npm ci` が失敗する）
-- Dependabot（`.github/dependabot.yml`）: npm・Actions・Docker を毎週月曜、`development` 宛てに PR。minor / patch はまとめる。Node の major と `@types/node` の major は手で上げる
+- `.npmrc`: 公開から7日たっていない版は入れない（`min-release-age=7`）。install スクリプトは `package.json` の `allowScripts` に書いたものだけ（書いていないパッケージにスクリプトがあると `npm ci` が `ESTRICTALLOWSCRIPTS` で失敗する）。出たらそのパッケージのスクリプトを読み、不要なら `npm install-scripts deny <pkg>`、必要なら `npm install-scripts approve <pkg>`。今ある5つはすべて `false`（動かさなくてもアプリとテストは動く）。`npm install -g` は `.npmrc` も `allowScripts` も読まない
+- Node は CI・Docker・`@types/node` の major を 24 にそろえる（npm は Node 24 付属の 11）
+- Dependabot（`.github/dependabot.yml`）: npm・Actions・Docker を毎週月曜、`development` 宛てに PR。minor / patch はまとめる。Node の major と `@types/node` の major は手で上げる。セキュリティ更新の自動 PR は `main` 宛てにしか作れないので無効にしている。実際に悪用されている脆弱性は7日待たず `npm install <pkg>@<修正版> --min-release-age=0` で上げ、数日以内にデプロイする
+- `npm audit` の moderate（22件）と high（4件）は残っている（2026-11-03 確認）。moderate の実体は2つ: `uuid`（`firebase-admin` 経由。`buf` を渡す呼び出しはない。`firebase-admin` 14 で解消）と `minimatch`（`eslint` 経由。開発ツールだけ）。high は例外リストの grpc-js。**`npm audit fix --force` は使わない**（`firebase-admin` や `eslint-config-next` を大きく古い版に下げる）
 - 依存を増やす前に、既存のもので足りないか考える。ブラウザ用の `firebase` は Auth だけを import する（Firestore を import すると CSP・bundle・audit に影響する）

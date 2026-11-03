@@ -33,7 +33,7 @@
 
 - カードは「対象日 C/I の有効な予約」と「滞在中（C/I < 対象日 < C/O）の予約」。滞在中のカードは灰色・クリック不可。キャンセル済みは下に別表示
 - 上部のトグル（到着・露天・夕食・朝食）で、各カードに対象日の泊の値を表示
-- 同じ部屋・同じ夜に有効な予約が2件以上あれば警告（`domain/room/roomConflicts.ts`）。タイムテーブルと清掃ボードは1部屋1件しか出せないため
+- 同じ部屋・同じ夜に有効な予約が2件以上あれば警告（`domain/room/roomConflicts.ts`）。タイムテーブルと清掃ボードは1部屋1件しか出せないため。保存は止めない（予約の大半は `gmail-listener` が書くので、このアプリだけでは防げない）
 - 編集モーダルは **自動保存**。入力ごとに変更を貯め、500ms の debounce か blur で `PATCH /api/reservations/{id}` に送る。保存は直列。通信エラー・5xx の変更は貯め直して次の機会に再送し、閉じるときにも送る。4xx は送り直しても通らないので捨てる（`ReservationModal.tsx`）
 - C/O 日・大人の人数を変えると、泊別配列・`age_groups` を伸縮して一緒に送る。モーダルを開いている間は一番長かったときの値を覚えていて、縮めてから伸ばし直すと戻る（`domain/reservation/nightArrays.ts`）
 - タブ「C/I前」= 名前・部屋・人数・C/O・到着・露天・夕食・朝食・レイトアウト・タイムテーブルメモ・mail_memo。「C/I後」= 宿泊税受領・C/I 担当・国・市・目的・同行者・年代など（統計用）
@@ -68,7 +68,7 @@
 ### `guestInfoV2/{docId}` — 予約
 
 **予約の作成元は2つ。**
-- `gmail-listener`（別リポジトリ）: 予約サイトのメールから作成・更新する。ドキュメント ID = `reservation_number`。`set(..., { merge: true })` で上書きし、キャンセルメールでは `cancel: 1` にする。このアプリが読まないフィールド（`reservation_status`, `room_type`, `stay_plan`, `total_price`, `mail_id`, `updated_at` など）も書く
+- `gmail-listener`（別リポジトリ）: 予約サイトのメールから作成・更新する。ドキュメント ID = `reservation_number`。`set(..., { merge: true })` で上書きし、キャンセルメールでは `cancel: 1` にする。このアプリが読まないフィールド（`reservation_status`, `room_type`, `stay_plan`, `room_count`, `total_price`, `remarks`, `payment`, `mail_id`, `source: 'gmail'`, `updated_at` など）も書く
 - このアプリの手動追加: 自動 ID、`reservation_number` は UUID v7、`source: 'manual'`
 
 読み取り時の正規化（`infra/reservation/firestoreReservationRepository.ts` の `toReservation`）:
@@ -76,7 +76,7 @@
 | フィールド | Firestore | アプリ（`types/reservation.ts`） | 不正・欠損のとき |
 |---|---|---|---|
 | `check_in_date`, `check_out_date` | `YYYY/MM/DD` | `YYYY-MM-DD` | 形式違い・泊数 < 1・泊数 > 30 → **破損として読み飛ばす** |
-| `adult_count`, `child_count` | 0〜9 の整数 | number | 破損 |
+| `adult_count`, `child_count` | 0〜9 の整数（子供だけの宿泊があるので大人 0 も正しい） | number | 破損 |
 | `room` | 部屋番号 / `""` / `null` | `RoomNumber \| null` | `""` は `null`。それ以外の値は破損 |
 | `cancel`, `late_out` | 数値 | `0 \| 1` | 1 以外は 0 |
 | `guest_name` | 文字列 | string | `""` |
@@ -87,7 +87,7 @@
 | `dinner_info[]`, `timetable_info[]` | 文字列 | `string[]` | 要素 → `""` |
 | `age_groups[]` | 年代の文字列 / `null`（長さ = 大人の人数） | `(string\|null)[]` | 長さ違いは全部 `null` |
 | `booking_site` | `chillnn` `booking.com` `expedia`（大文字小文字は無視） | `BookingSite` | `other` |
-| `mail_memo[]` | `{ month, day, name, summary, text, source }`（月日は0埋めなし） | `MailMemoEntry[]` | 形の合わない要素は除外 |
+| `mail_memo[]` | `{ month, day, name, summary, text, source }`（月日は `"1"`〜`"12"` / `"1"`〜`"31"`、0埋めなし）。このアプリが足す履歴は `name` = 操作したスタッフ、`summary` = `手動で新規追加` / `手動キャンセル` / `手動キャンセル復活`、`text` = 理由、`source` = `システム`。メールの要約は `source` = `booking` / `expedia` / `webmail` | `MailMemoEntry[]` | 形の合わない要素は除外 |
 | `a_tax_received` | boolean | boolean | `false` |
 | その他の文字列（`reservation_number`, `a_tax_received_by_staff_name`, `check_in_staff_name`, `city`, `profession`, `other_note`） | 文字列 | string | `""` |
 | `country`, `group_type`, `purpose`, `tourism_type` | 文字列 | `string \| null` | `""` も `null` |
@@ -98,7 +98,7 @@
 
 書き込みの検証:
 1. Route の Zod（`lib/api/reservationSchemas.ts`）: 値の許容範囲は読み取りと同じ定数。文字数・件数の上限は `RESERVATION_LIMITS`（本番データの最大の約2〜5倍）
-2. `PATCH` は Command がトランザクション内で DB の今の C/I・C/O・大人の人数を読み、`domain/reservation/validateReservationPatch.ts` で検査してから書く: C/O > C/I、泊数 ≤ 30、泊数が変わるなら泊別配列5つをすべて送る、送った配列の長さ = 更新後の泊数、大人の人数が変わるなら `age_groups` も送る、`age_groups` の長さ = 大人の人数
+2. `PATCH` は Command がトランザクション内で DB の今の C/I・C/O・大人の人数を読み、`domain/reservation/validateReservationPatch.ts` で検査してから書く: C/O > C/I、泊数 ≤ 30、泊数が変わるなら泊別配列5つをすべて送る、送った配列の長さ = 更新後の泊数、大人の人数が変わるなら `age_groups` も送る、`age_groups` の長さ = 大人の人数。DB の C/O が壊れている（C/I 以前の）予約も、正しい C/O と泊別配列をそろえて送れば直せる（読み飛ばされた予約の修正手段）
 3. キャンセル・復活もトランザクション。状態が同じなら何も書かず 409（履歴と通知を増やさない）。`mail_memo` の末尾に1件足す（`arrayUnion` は同じ内容を足さないので使わない）
 
 更新はフィールド単位の `update`。2台の PC が同じ予約の同じフィールドを編集すると後勝ち。`gmail-listener` の merge set も同じ予約を上書きしうる。
@@ -110,9 +110,12 @@
 | `date` | `YYYY-MM-DD` | ID と同じ |
 | `todos` | `{ id, text }[]` | 最大50件、`text` は1〜100文字。読み取りで形が違えば `FIRESTORE_DATA_CORRUPTION`（500） |
 | `safeBalanceChecker` | string | 締めスタッフ名。文字列でなければ `""` |
-| `updated_at` | ISO 文字列 | 書き込みのたびに更新 |
+| `updated_at` | ISO 文字列 | 書き込みのたびに更新（UTC） |
+| `CleaningBoardUserNotes`, `migrated_at`, `source.collection` / `source.path` / `source.field` | — | 旧システムからの移行で残ったもの。今のコードは読み書きしない |
 
 ドキュメントがなければ空として扱い、更新は `set(..., { merge: true })` で作る。
+
+`cancel` `late_out` は 0/1 の数値、`a_tax_received` は boolean で、型がそろっていない。`gmail-listener` と過去のデータとの互換のため、そのままにしている。
 
 ## 計算のルール
 
@@ -151,3 +154,22 @@
 - Chillnn は受領チェック・受領スタッフ名を出さない（`domain/reservation/bookingSitePolicy.ts`）
 - C/I 日ごとの最後の行に、締めスタッフ名と「大人×泊」の合計（Chillnn か受領済みの予約だけを数える）を出す（`computeProcessedRows`）
 - 受領チェックは画面を先に変えてから保存する。失敗するとエラーを出すが、チェックは戻らない
+
+## 決めた仕様（意図した挙動。バグとして直さない）
+
+| 項目 | 挙動 | 理由 |
+|---|---|---|
+| キャンセル済みの予約 | 編集も宿泊税のチェックもできる（200）。宿泊税の一覧には出ない | キャンセル理由のメモや、復活前の修正に使う |
+| `mail_memo` | 画面から追加・編集・削除（確認あり）でき、システムが足した履歴も消せる | 削除ボタンと確認は意図したもの |
+| 同時編集 | 後勝ち。楽観ロックはない | 7部屋・少人数で、同じ予約を同時に開くことはまれ。問題になったら、読んだときの更新時刻を保存時に送り、その後に書かれていれば 409 にする |
+| 部屋未割り当ての予約 | ダッシュボードには出るが、タイムテーブル（到着・夕食・朝食）と清掃ボードには出ない | 当日までに部屋を割り当てる運用。割り当て忘れると厨房の人数から漏れる |
+| 時間帯制限 | 本番はログイン API だけが時間外に 403。ほかの API は時間で制限しない | Session Cookie が 23:00 に切れる |
+| 書き込みの日付の範囲 | 実在日かつ今日 −100〜+365 日 | 画面から範囲外を開けないので実害はなく、年の打ち間違いを止められる |
+| Slack 通知 | 障害（`[ALERT]`）と、手動の追加・キャンセル・復活の記録だけ | 入力の誤り（4xx）、ログイン失敗、壊れたデータは通知しない（通知が多いと本物の障害が埋もれる） |
+
+## 既知の問題（未対応）
+
+- Slack 通知の送信に失敗しても Cloud Logging に ERROR が出るだけで、誰も気付けない
+- 本番の `guestInfoV2` に 486 泊（2025-04-01 → 2026-07-31、手動追加）の予約が1件あり、泊数の上限で読み飛ばされて毎回 WARN ログに出る。直すか消すかは人が決める（2026-10-31 時点）
+- 予約の手動追加ダイアログ（`components/guestInfo/AddReservationDialog.tsx`）の `Select` に `labelId` がなく、スクリーンリーダーやテストの `getByLabel` で項目名が取れない
+- 清掃ボードの縦書きの列見出しが、実際の用紙で切れずに印刷されるかは未確認

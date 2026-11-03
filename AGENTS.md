@@ -31,7 +31,7 @@ npm run e2e            # Playwright（API はブラウザ側でモック。Emula
 make check             # 上の全部（make で起動中の Emulator / 開発サーバーは止めてから）
 ```
 
-変更後は最低限 `npm run lint`、`npx tsc --noEmit`、`npm run test -- --run` を通す。
+変更後は最低限 `npm run lint`、`npx tsc --noEmit`、`npm run test -- --run` を通す。画面・認証・ルーティング・印刷に触れたら `npm run e2e`、Dockerfile・`next.config.ts`・環境変数に触れたら `npm run build` も。
 
 ## 技術スタック（インストール済みの版）
 
@@ -39,7 +39,7 @@ Next.js 16.4（App Router）/ React 19.2 / MUI 7.3 + X Date Pickers 9 / Emotion 
 
 **どれも学習データより新しい。** 古い知識で書かない:
 - Next.js は同梱ドキュメント `node_modules/next/dist/docs/` を先に読む。例: `middleware.ts` は **`proxy.ts`（関数名 `proxy`）に改名済み**。Route Handler の `params` は `Promise`
-- その他のライブラリは Context7 MCP で公式ドキュメントを確認する（Zod 4 の `z.flattenError`、`.default()` と `.catch()` の挙動、MUI 7 の `slotProps` など）
+- その他のライブラリは Context7 MCP で公式ドキュメントを確認する（Zod 4 の `z.flattenError`、`.default()` と `.catch()` の挙動、MUI 7 の `slotProps` など）。query は具体的に（例: `Firestore transaction firebase-admin node`）、1つの疑問に3回まで。ID（`resolve-library-id` を省ける）: `/vercel/next.js` `/facebook/react` `/mui/material-ui` `/mui/mui-x` `/firebase/firebase-js-sdk` `/firebase/firebase-admin-node` `/colinhacks/zod` `/iamkun/dayjs` `/vitest-dev/vitest` `/microsoft/playwright`
 
 ## アーキテクチャ
 
@@ -92,6 +92,11 @@ Next.js 16.4（App Router）/ React 19.2 / MUI 7.3 + X Date Pickers 9 / Emotion 
 | `AUTH_FAILED` | 401 | — |
 
 コードを追加したら `src/lib/infraErrorToHttpStatus.ts`（網羅性チェックでコンパイルエラーになる）とこの表を更新する。
+
+- 入力が原因の失敗を 5xx・Slack 通知にしない。不正な ID・日付・JSON は Route の入口で 400、存在しないものは 404
+- 外部 SDK のエラーを「`auth/` で始まれば未ログイン」「その他はすべて障害」のように大雑把に分類しない。同じコードが入力の誤りにも障害にも使われる（例: `auth/argument-error`。`src/lib/auth/` はメッセージの先頭で見分けている）
+- ログイン画面では 500 と 503 を出し分けない（監視の存在を見せない）
+- 今は入れないと決めたもの: React Error Boundary の全面導入、深い例外クラスの階層、全 API レスポンスの Zod 検証、Sentry などの外部監視（Cloud Logging + Slack で足りる）
 
 ## 壊してはいけないもの
 
