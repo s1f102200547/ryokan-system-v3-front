@@ -19,7 +19,9 @@
 - [ ] ログイン成功時の接続元 IP の、Slack への通知
   - 実装済み（`src/lib/auth/loginNotice.ts`、ログイン API）。ログインのたびに通知し、Cloud Logging にも INFO で残す
 - [ ] AI エージェントの権限の制限（push、デプロイ、認証情報の読み取りの拒否）
-  - メモ: プロジェクトの `.claude/settings.json` の deny ルールで書ける。ユーザー単位の設定や他のエージェントにも効かせるなら、人が自分の環境にも入れる
+  - 実装済み（`.claude/settings.json`）: push・gcloud・firebase deploy/login・gh・匿名化などのコマンド、`~/.ssh`・gcloud・firebase CLI の認証情報・`.env*`・`.localdev/` の読み取りを拒否。bypass モードを無効化。`.github/workflows/**` の編集は毎回確認
+  - 限界: Bash の deny は書き方を変えると抜けられる（`bash -c 'git push'`、`git -C . push`、スクリプトからのファイル読み取り）。うっかりを止める層で、境界ではない
+  - 残り: GitHub のルールセットで `main` を守る（§8 条件待ち。push されても本番に届かなくする）。
 - [ ] ログインの失敗回数の制限
   - メモ: 今はブラウザが Identity Toolkit を直接呼ぶので、アプリは失敗を数えられない。「ログインのサーバー経由化」（B）の後に行う
 - [ ] ログイン API での、パスワードの長さの確認
