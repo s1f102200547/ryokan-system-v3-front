@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { isInvalidIdTokenError } from '@/lib/auth/idTokenError'
 
-// BugHunting.md #2。メッセージは firebase-admin 13.10 が実際に返すもの
+// メッセージは firebase-admin 13.10 が実際に返すもの
 describe('isInvalidIdTokenError', () => {
   it.each([
     ['期限切れ', { code: 'auth/id-token-expired', message: 'x' }],

@@ -55,7 +55,7 @@ describe('PATCH /api/reservations/[id]/restore', () => {
     expect(res.status).toBe(400)
   })
 
-  // BugHunting.md #7: target_date も実在日と範囲を見る
+  // target_date も実在日と範囲を見る
   it.each([
     ['実在しない日', '2026-02-30'],
     ['範囲外の過去', '2025-01-01'],
@@ -77,7 +77,7 @@ describe('PATCH /api/reservations/[id]/restore', () => {
     expect(res.status).toBe(503)
   })
 
-  // BugHunting.md #5: [id] を検証しておらず、Firestore が投げる例外が 503 + ALERT になっていた
+  // [id] を検証しておらず、Firestore が投げる例外が 503 + ALERT になっていた
   describe('[id] の検証', () => {
     it.each([
       ['空', ''],
@@ -100,7 +100,7 @@ describe('PATCH /api/reservations/[id]/restore', () => {
     expect(notifySlackFireAndForget).not.toHaveBeenCalled()
   })
 
-  // BugHunting.md #27: すでにその状態なら 409（履歴も通知も増やさない）
+  // すでにその状態なら 409（履歴も通知も増やさない）
   it('すでにその状態なら409', async () => {
     mockCommand.mockResolvedValue({ success: false, error: { kind: 'ALREADY_IN_STATE' } })
     const res = await PATCH(makeRequest(), { params })

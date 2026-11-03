@@ -4,7 +4,7 @@ import { getTodayJST, toMonthDay } from '@/lib/dateUtils'
 import type { MailMemoEntry, NewReservationInput } from '@/types/guestInfo'
 
 export async function addReservationCommand(input: NewReservationInput): Promise<string> {
-  // 月日は JST の今日。サーバーのローカル時刻（Cloud Run は UTC）だと JST 0:00〜9:00 が前日になる（BugHunting.md #8）
+  // 月日は JST の今日。サーバーのローカル時刻（Cloud Run は UTC）だと JST 0:00〜9:00 が前日になる
   const initialMailMemo: MailMemoEntry = {
     ...toMonthDay(getTodayJST()),
     name: input.staff_name,

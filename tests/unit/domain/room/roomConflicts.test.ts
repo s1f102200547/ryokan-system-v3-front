@@ -39,7 +39,7 @@ function makeReservation(overrides: Partial<Reservation>): Reservation {
   }
 }
 
-// BugHunting.md #11: 同じ部屋・同じ夜に有効な予約が2件あると、2件目は清掃ボード・タイムテーブルに出ない
+// 同じ部屋・同じ夜に有効な予約が2件あると、2件目は清掃ボード・タイムテーブルに出ない
 describe('findRoomConflicts', () => {
   it('同じ部屋に当日 C/I が2件あれば重複', () => {
     const rs = [makeReservation({ id: 'a' }), makeReservation({ id: 'b' })]

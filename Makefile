@@ -1,4 +1,4 @@
-# ローカル開発用のショートカット（docs/LocalDevelopment.md）
+# ローカル開発用のショートカット（docs/Development.md）
 #   make        Emulator 起動 → データ投入 → 開発サーバー（Ctrl+C で全部止まる）
 #   make help   ターゲット一覧
 

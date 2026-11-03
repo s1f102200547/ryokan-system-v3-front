@@ -6,7 +6,7 @@ import { kindOf, mapEntries } from './tagged'
 import type { JsonObject } from './tagged'
 import type { CollectionDocuments } from './transform'
 
-// 形のレポート（ANON-10）: コレクション・フィールドごとの型の件数だけを数える。値は含めない
+// 形のレポート: コレクション・フィールドごとの型の件数だけを数える。値は含めない
 export type ShapeKind =
   | 'string' | 'emptyString' | 'integer' | 'double' | 'NaN' | 'Infinity' | 'boolean' | 'null'
   | 'missing' | 'array' | 'map' | 'timestamp' | 'geopoint' | 'ref' | 'bytes' | 'corruptedDate'
@@ -107,7 +107,7 @@ function sortKeys<T>(record: Record<string, T>): Record<string, T> {
   return Object.fromEntries(Object.entries(record).sort(([a], [b]) => a.localeCompare(b)))
 }
 
-// 大きさのレポート（Step 1-9 / T7-4 の上限を決めるため）: フィールドごとの文字列の最大長と配列の最大件数だけを数える。値は含めない
+// 大きさのレポート（予約 API の入力の上限を決めるため）: フィールドごとの文字列の最大長と配列の最大件数だけを数える。値は含めない
 // 文字数は UTF-16 の length で数える（画面の maxLength と同じ。Zod 4 のコードポイントの数以上になるので、上限を決めるには安全側）。
 // ID の振り直しやシャッフルで文字数が変わるので、匿名化しても変わらない形のレポートとは分ける
 export type FieldSize = { maxLength?: number; maxItems?: number }
@@ -145,7 +145,7 @@ export function buildSizeReport(collections: CollectionDocuments, generatedAt: s
   return report
 }
 
-// ANON-11: 前回より型の種類が増えたフィールド、新しく現れたフィールドを警告する。件数の増減だけでは警告しない
+// 前回より型の種類が増えたフィールド、新しく現れたフィールドを警告する。件数の増減だけでは警告しない
 export function diffShapeReports(previous: ShapeReport | null, current: ShapeReport): string[] {
   if (previous === null) return []
   const warnings: string[] = []

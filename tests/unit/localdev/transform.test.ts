@@ -33,7 +33,7 @@ function sample(): CollectionDocuments {
   }
 }
 
-describe('許可リスト（AC-17, AC-18）', () => {
+describe('許可リスト', () => {
   it('列挙したパスだけが残す / ID / シャッフルで、それ以外はマスク', () => {
     expect(treatmentOf('guestInfoV2', 'check_in_date')).toBe('keep')
     expect(treatmentOf('guestInfoV2', 'reservation_number')).toBe('id')
@@ -73,7 +73,7 @@ describe('許可リスト（AC-17, AC-18）', () => {
   })
 })
 
-describe('日付と部屋（AC-19）', () => {
+describe('日付と部屋', () => {
   it('日付（破損した日付を含む）と部屋番号は元の値のまま', () => {
     const input = sample()
     const out = anonymizeCollections(input, seededRng(2))
@@ -99,7 +99,7 @@ describe('日付と部屋（AC-19）', () => {
   })
 })
 
-describe('ID の振り直し（AC-21）', () => {
+describe('ID の振り直し', () => {
   it('同じ元の値には同じ新しい値、違う値には違う値。元の値とは一致しない', () => {
     const remapper = createIdRemapper(seededRng(4))
     const a = remapper.remap('RSV-1001')

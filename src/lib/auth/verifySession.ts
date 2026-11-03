@@ -27,7 +27,7 @@ function isInvalidSessionError(e: unknown): boolean {
 
 // 有効なら uid、未ログイン（Cookie がない・無効）なら null。
 // Firebase Auth の障害（接続できない・内部エラーなど）は AUTH_UNAVAILABLE を投げる。
-// 以前は auth/ で始まるコードをすべて未ログインにしていたため、Auth の内部障害でもログイン画面に戻され、通知されなかった（BugHunting.md #23）
+// 以前は auth/ で始まるコードをすべて未ログインにしていたため、Auth の内部障害でもログイン画面に戻され、通知されなかった
 export async function verifySession(
   cookieValue: string | undefined,
 ): Promise<{ uid: string } | null> {

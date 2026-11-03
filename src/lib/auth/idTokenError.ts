@@ -11,7 +11,7 @@ const INVALID_TOKEN_CODES = new Set([
 
 // firebase-admin（13.10 で確認）は、不正なトークンにも Google の公開鍵の取得失敗（障害）にも
 // auth/argument-error を返す。トークンの中身が原因のメッセージは次のどちらかで始まる。
-// 公開鍵の取得失敗は "Error fetching ..." や接続エラーの生のメッセージになるので、ここに当たらず障害側に倒れる（BugHunting.md #2）
+// 公開鍵の取得失敗は "Error fetching ..." や接続エラーの生のメッセージになるので、ここに当たらず障害側に倒れる
 const INVALID_TOKEN_MESSAGE_PREFIXES = ['Decoding Firebase ID token failed', 'Firebase ID token ']
 
 export function isInvalidIdTokenError(e: unknown): boolean {

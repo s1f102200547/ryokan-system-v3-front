@@ -1,4 +1,4 @@
-// 入力の検証に失敗したときの 400（T7-5）: production では Zod の詳細（details）を返さず、ログにだけ場所と種類を残す
+// 入力の検証に失敗したときの 400: production では Zod の詳細（details）を返さず、ログにだけ場所と種類を残す
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { setupFakeToday } from '@tests/utils/routeTestHelper'
 
@@ -56,7 +56,7 @@ function call(handler: Handler, method: string, params: Record<string, string>, 
   return handler(request, { params: Promise.resolve(params) })
 }
 
-describe('入力の検証に失敗したときの 400（T7-5）', () => {
+describe('入力の検証に失敗したときの 400', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(verifySession).mockResolvedValue({ uid: 'user-1' } as Awaited<ReturnType<typeof verifySession>>)

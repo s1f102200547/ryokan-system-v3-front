@@ -62,7 +62,7 @@ describe('resizeNightFields', () => {
   })
 })
 
-// BugHunting.md #19: C/O 日を1文字ずつ打つと、途中の短い泊数で入力が消えていた
+// C/O 日を1文字ずつ打つと、途中の短い泊数で入力が消えていた
 describe('keepLonger', () => {
   it('編集後の配列で先頭を上書きし、それより後ろは覚えていた値を残す', () => {
     expect(keepLonger(['a', 'b', 'c'], ['x'])).toEqual(['x', 'b', 'c'])

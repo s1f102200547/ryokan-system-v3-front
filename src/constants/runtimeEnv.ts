@@ -1,4 +1,4 @@
-// 起動時の環境変数チェック（docs/LocalDevelopment.md の DEV-2, PROD-1, PROD-2）で使う名前
+// 起動時の環境変数チェックで使う名前
 
 // Emulator 専用の project ID の接頭辞。本番リソースに届かない
 export const DEMO_PROJECT_PREFIX = 'demo-'

@@ -79,7 +79,7 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
         <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>
       ) : (
         <>
-          {/* 同じ部屋・同じ夜に有効な予約が2件以上（清掃ボード・タイムテーブルには1件しか出ない。BugHunting.md #11） */}
+          {/* 同じ部屋・同じ夜に有効な予約が2件以上（清掃ボード・タイムテーブルには1件しか出ない） */}
           {(data?.roomConflicts ?? []).length > 0 && (
             <Alert severity="warning" sx={{ mt: 1 }} data-testid="room-conflict-alert">
               {`部屋が重複しています: ${(data?.roomConflicts ?? []).map((c) => `${c.room}号室（${c.reservationIds.length}件）`).join('、')}。`

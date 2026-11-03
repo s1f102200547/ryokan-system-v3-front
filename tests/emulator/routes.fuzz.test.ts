@@ -1,5 +1,5 @@
-// 全 Route Handler のファジング（BugHunting.md §3.3、Emulator 版）
-// 実際の Firestore / Auth（Emulator）に向けて、エラーの分類まで確かめる（R5）。
+// 全 Route Handler のファジング（Emulator 版）
+// 実際の Firestore / Auth（Emulator）に向けて、エラーの分類まで確かめる。
 // 判定: 入力が原因で 5xx を返さない・Slack に通知しない。存在しない ID は 404、不正な ID は 400
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from 'vitest'
 import { RAW_BODIES, FIELD_VALUES, ID_VALUES, DATE_VALUES } from '@tests/utils/fuzzInputs'
@@ -90,7 +90,7 @@ describe.each(ID_ROUTES)('%s の [id]', (_name, handler, suffix, body) => {
   })
 
   it('存在する ID は 200（Emulator に正しく届いている）', async () => {
-    // 復活はキャンセル済みの予約にだけできる（そうでなければ 409。BugHunting.md #27）
+    // 復活はキャンセル済みの予約にだけできる（そうでなければ 409）
     const id = await createReservation(suffix === '/restore' ? 1 : 0)
     const res = await call(handler, `/api/reservations/${id}${suffix}`, 'PATCH', { id }, body)
     expect(res.status, await res.clone().text()).toBe(200)

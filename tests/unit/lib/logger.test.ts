@@ -14,7 +14,7 @@ describe('logger', () => {
     expect(lastLog(spy)).toMatchObject({ level: 'WARN', message: 'ログイン失敗', code: 'auth/x' })
   })
 
-  // BugHunting.md #20: extra の message が本文（どの API の何のログか）を上書きしていた
+  // extra の message が本文（どの API の何のログか）を上書きしていた
   it('extra の message は本文を上書きせず detail に入る', () => {
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
     logger.error('予約更新 InfraError', { message: 'Firestore unknown error' })

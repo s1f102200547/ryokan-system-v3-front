@@ -32,7 +32,7 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# ローカル開発の匿名化データとレポート（Git に含めない。docs/LocalDevelopment.md ANON-8）
+# ローカル開発の匿名化データとレポート（Git に含めない）
 /.localdev/
 
 # firebase emulators
@@ -51,5 +51,5 @@ ui-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# google-github-actions/auth が作業ディレクトリに作る GCP の認証ファイル。Docker build や Git に入れない（T6-10）
+# google-github-actions/auth が作業ディレクトリに作る GCP の認証ファイル。Docker build や Git に入れない
 gha-creds-*.json

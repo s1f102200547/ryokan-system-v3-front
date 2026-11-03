@@ -12,7 +12,7 @@ import type {
   RuntimeMode,
 } from '@/types/runtimeEnv'
 
-// 起動時の環境変数チェック（docs/LocalDevelopment.md の DEV-2, PROD-1, PROD-2）
+// 起動時の環境変数チェック
 // development / test: Emulator にだけ接続できる設定でなければ拒否
 // それ以外（production、未設定など）: Emulator 系・demo project が混ざっていれば拒否
 export function checkRuntimeEnv(env: RuntimeEnv, nodeEnv: string | undefined): RuntimeEnvCheckResult {
@@ -106,14 +106,14 @@ function isProductionCredentialEnv(name: string): boolean {
 export function formatRuntimeEnvViolations(violations: RuntimeEnvViolation[]): string {
   const lines = violations.map((v) => `  - ${v.code}: ${v.envName}`)
   return [
-    '環境変数の設定が docs/LocalDevelopment.md の起動条件を満たしていないため、起動を拒否しました。',
+    '環境変数の設定が起動条件（docs/Development.md「起動ガード」）を満たしていないため、起動を拒否しました。',
     ...lines,
   ].join('\n')
 }
 
 // process.env を検査用に読み出す。
 // NEXT_PUBLIC_* は build 時にインライン化され、production では process.env を走査しても見えない。
-// 名前を直接書いて参照することで、build 時に埋め込まれた値も検査の対象にする（PROD-1）
+// 名前を直接書いて参照することで、build 時に埋め込まれた値も検査の対象にする
 function readRuntimeEnv(): RuntimeEnv {
   return {
     ...process.env,

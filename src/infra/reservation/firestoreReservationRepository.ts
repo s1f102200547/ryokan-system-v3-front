@@ -114,7 +114,7 @@ export const firestoreReservationRepository: ReservationRepository = {
   },
 
   // 読み取り・検査・書き込みを1つのトランザクションで行う。
-  // 検査と書き込みの間に別の更新で泊数が変わっても、古い泊数で検査した配列を書き込まない（BugHunting.md #3, #6）
+  // 検査と書き込みの間に別の更新で泊数が変わっても、古い泊数で検査した配列を書き込まない
   async updateReservation(id, patch: ReservationPatch, validate) {
     return withFirestoreError(async () => {
       const ref = adminDb.collection('guestInfoV2').doc(id)
@@ -207,7 +207,7 @@ const isStringOrNull = (v: unknown): v is string | null => v === null || typeof 
 
 // キャンセル・復活の状態を変え、操作履歴（mail_memo）の末尾に1件追加する。
 // FieldValue.arrayUnion は同じ内容の要素を追加しないため、同じ日・同じスタッフ・同じ理由で
-// キャンセルと復活を繰り返すと履歴が残らなかった。トランザクションで読んで末尾に足す（BugHunting.md #25）。
+// キャンセルと復活を繰り返すと履歴が残らなかった。トランザクションで読んで末尾に足す。
 // すでにその状態なら何も書かない。古い画面からの操作で、状態が変わらないのに履歴と通知が増えていた（#27）
 async function setCancelWithMemo(
   id: string,
@@ -230,7 +230,7 @@ async function setCancelWithMemo(
   })
 }
 
-// 取得したドキュメントを予約に変換する。破損したものは読み飛ばし、他の予約の取得を巻き込まない（BugHunting.md #4, #10）
+// 取得したドキュメントを予約に変換する。破損したものは読み飛ばし、他の予約の取得を巻き込まない
 function toReservations(docs: FirebaseFirestore.QueryDocumentSnapshot[]): Reservation[] {
   const skipped: SkippedReservation[] = []
   const reservations = docs.flatMap((doc) => {
@@ -273,14 +273,14 @@ export function toReservation(id: string, data: FirebaseFirestore.DocumentData):
     const checkIn = toIsoDate(parsed.check_in_date)
     const checkOut = toIsoDate(parsed.check_out_date)
     const nights = dateDiff(checkIn, checkOut)
-    // 泊数 0 以下は泊別配列を作れない（負だと Array(nights) が RangeError）。破損として読み飛ばさせる（BugHunting.md #4）
+    // 泊数 0 以下は泊別配列を作れない（負だと Array(nights) が RangeError）。破損として読み飛ばさせる
     if (nights < 1) {
       throw new InfraError(
         'FIRESTORE_DATA_CORRUPTION',
         `Schema validation failed for doc ${id} [check_out_date: not after check_in_date (nights: ${nights})]`,
       )
     }
-    // 上限を超える滞在は画面の取得窓に収まらない。入口でも拒否している（BugHunting.md #12）
+    // 上限を超える滞在は画面の取得窓に収まらない。入口でも拒否している
     if (nights > MAX_NIGHTS) {
       throw new InfraError(
         'FIRESTORE_DATA_CORRUPTION',

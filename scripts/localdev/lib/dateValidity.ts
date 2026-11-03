@@ -1,4 +1,4 @@
-// 形のレポートで「破損日付」として数える基準（docs/LocalDevelopment.md §4.3 出力）。値は変えず、数えるだけに使う
+// 形のレポートで「破損日付」として数える基準。値は変えず、数えるだけに使う
 
 function isRealDate(year: number, month: number, day: number): boolean {
   if (month < 1 || month > 12 || day < 1) return false

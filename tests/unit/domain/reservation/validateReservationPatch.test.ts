@@ -44,7 +44,7 @@ describe('validateReservationPatch', () => {
       expect(violationCodes(current, { check_out_date: '2026-11-01', ...nightFields(1) })).toEqual([])
     })
 
-    // BugHunting.md #12: 長期滞在の上限は 30 泊（取得窓が前後 30 日のため、31 泊以上は画面に出ない）
+    // 長期滞在の上限は 30 泊（取得窓が前後 30 日のため、31 泊以上は画面に出ない）
     it('30 泊は通る', () => {
       expect(violationCodes(current, { check_out_date: '2026-11-30', ...nightFields(30) })).toEqual([])
     })

@@ -1,4 +1,4 @@
-// Firebase Emulator へデータを投入する（docs/LocalDevelopment.md §4.4 SEED-1〜4）
+// Firebase Emulator へデータを投入する
 //   npm run seed               # .localdev/data/ の匿名化データ
 //   npm run seed -- --fixture  # tests/fixtures/localdev/ の人工データ
 // Emulator は停止するとデータとユーザーを失うので、起動のたびに実行する
@@ -22,7 +22,7 @@ import {
 } from './constants'
 
 async function main(): Promise<void> {
-  // SEED-1: Emulator と demo project でなければ何もしない
+  // Emulator と demo project でなければ何もしない
   const target = checkSeedTarget(process.env)
   if (!target.success) {
     fail(['投入を中止しました（Emulator 以外には書き込みません）。', ...target.error.map((e) => `  - ${e}`)])
@@ -51,15 +51,15 @@ async function main(): Promise<void> {
     docs: parseDocumentFile(JSON.parse(readFileSync(file, 'utf8')), (refPath) => db.doc(refPath)),
   }))
 
-  // SEED-2: 全データと全ユーザーを削除する（2回続けて投入しても重複しない）
+  // 全データと全ユーザーを削除する（2回続けて投入しても重複しない）
   await clearEmulators(target.value)
 
-  // SEED-3: 値を変えずに投入する（日付もずらさない。表示範囲外のデータもそのまま）
+  // 値を変えずに投入する（日付もずらさない。表示範囲外のデータもそのまま）
   for (const { collection, docs } of datasets) {
     await writeAll(db, collection, docs)
   }
 
-  // SEED-4: 開発用ログインユーザー
+  // 開発用ログインユーザー
   await auth.createUser({ email: DEV_USER_EMAIL, password: DEV_USER_PASSWORD, displayName: DEV_USER_DISPLAY_NAME })
 
   console.log(`投入しました（project: ${projectId}, Firestore: ${firestoreHost}, Auth: ${authHost}, データ: ${dataDir}）`)

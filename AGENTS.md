@@ -1,90 +1,122 @@
-# Ryokan System V3 (Must read this MD first)
+# Ryokan System V3 front
 
-## Project 概要
-小規模旅館（7部屋）の業務効率化webアプリ。
+小規模旅館（客室7部屋）のスタッフが日々の業務に使う Web アプリ。予約の確認・編集、タイムテーブルと清掃ボードの印刷、宿泊税（A税）の受領管理を行う。
 
-## 技術スタック
+このファイルは毎セッション読み込まれる。詳細は必要になったときに読む:
 
-- **Framework**: Next.js 16 (App Router想定)
-- **UI Library**: MUI v7 (Material UI + Icons + X Date Pickers v9 + Next.js Integration)
-- **Styling**: Emotion (MUIのデフォルト) v11
-- **Backend**: Firebase v12 (Firestore, Auth) + firebase-admin v13
-- **Language**: TypeScript 5 + React 19.2
-- **Validation**: Zod v4
-- **Date**: dayjs v1
-- **Testing**: Vitest v4 (unit) + Playwright v1 (E2E) + Testing Library
-- **Linter**: ESLint v9 (eslint-config-next)
-- **Deployment**: GCP Cloud Run (Docker)
+| ファイル | 読むとき |
+|---|---|
+| [docs/Domain.md](docs/Domain.md) | 業務用語、画面と API、Firestore のデータ構造、予約の正規化と検証、画面ごとの計算ロジックに触れるとき |
+| [docs/Development.md](docs/Development.md) | ローカル起動、テストの追加、CI/CD・デプロイ・依存の更新に触れるとき |
+| [docs/Security.md](docs/Security.md) | 認証・ヘッダー・権限・依存・秘密情報に触れるとき。**このファイルは編集しない** |
 
-> 注意: React 19, Next.js 16, MUI v7, Firebase v12, Zod v4 はいずれも比較的新しいバージョンであり、LLMの学習データに古い情報が含まれている可能性が高い。必ずContext7で最新ドキュメントを参照すること。
+## 前提（コードからは読み取れないこと）
 
-## 実装方針
+- 利用者は旅館スタッフ約10名、PC 4〜5台。Firebase Auth のアカウントは **人ではなく PC 単位**。新規登録は無効、ロールなし（ログインできれば全機能を使える）。人単位の認可・監査・MFA は作らない
+- 利用時間は 6:00〜23:00 JST。本番はこの時間外に画面もログインも使えない
+- **Firestore は別リポジトリ `gmail-listener`（予約メールの取り込み）と共有している。** `guestInfoV2` の大半はそちらが書く。フィールド名・形式を変えると向こうが壊れる（[docs/Domain.md](docs/Domain.md)「予約の作成元」）
+- 本番 DB には過去のシステムが書いた **形の崩れたデータ** が残っている。読み取りは「壊れていても落ちない」ことを前提に書かれている
+- 開発者は1人。Git の commit・push はユーザーが行う。ブランチは `development` から切る（`feature/*` → `development` → `main`）
 
- 機能ごとに E2E → domainの unit test -> domain → infra → application → hooks → integration test -> UI の順で縦断実装
+## コマンド
 
-## Rules
+```bash
+make                 # Emulator 起動 → データ投入 → 開発サーバー（http://127.0.0.1:3000、dev@example.com / dev-password）
+npm run lint
+npx tsc --noEmit
+npm run test -- --run  # unit / integration / PBT / fuzz（Vitest。Emulator 不要）
+npm run test:tz        # tests/time/ を3つの TZ で実行
+npm run test:emulator  # Firestore/Auth Emulator への往復検査（Java と firebase-tools が必要）
+npm run e2e            # Playwright（API はブラウザ側でモック。Emulator 不要）
+make check             # 上の全部（make で起動中の Emulator / 開発サーバーは止めてから）
+```
 
-- コンポーネントは named export を使う
-- `any` 型を使わない。必要なら `unknown` + type guard
-- Import alias: `@/*` → `./src/*`
-- 必要な時に適宜`docs/*`, `docs/Schema/*` を参照
-- 定数は`constants/`に書け
+変更後は最低限 `npm run lint`、`npx tsc --noEmit`、`npm run test -- --run` を通す。画面・認証・ルーティング・印刷に触れたら `npm run e2e`、Dockerfile・`next.config.ts`・環境変数に触れたら `npm run build` も。
 
-## hooks層の注意事項
-- React 19 で新しく強化されたルールで、useEffect の中で setState を直接呼ぶのはアンチパターン
+## 技術スタック（インストール済みの版）
 
-## Architecture
-- レイヤーは UI(`app/`, `components/`, `hooks/`) → Route Handler(`app/api/`) → Application → Domain + Infra。
-- `domain/` と `constants/` は純粋 TS。React、Next.js、Firebase、infra 実装へ依存しない。
-- `infra/` は Firestore/Auth など外部 SDK と `domain/ports/` の実装を担当し、UI/Application へ逆依存しない。
-- `application/` は UseCase/Command の手順を表現する。読み取りは UseCase、状態変更は Command。
-- `components/` は表示とイベント通知、`hooks/` は API 呼び出し・loading/error・日本語メッセージ変換を担当する。
-- Route Handler は session 検証、Zod 入力検証、Application/Infra 呼び出し、HTTP response 変換を担当する。
-- テストは `src/` 外の `tests/` に分離する。`tests/unit/` は Domain 層、`tests/integration/` は Route Handler、`tests/emulator/` は Firestore Emulator への往復検査（`npm run test:emulator`）、`tests/utils/` は共通ヘルパー（`routeTestHelper` 等）、`tests/setup/` は Vitest グローバルセットアップ。`@tests/*` エイリアスで `tests/` 配下を絶対 import する。
+Next.js 16.4（App Router）/ React 19.2 / MUI 7.3 + X Date Pickers 9 / Emotion 11 / Firebase 12（ブラウザ: Auth のみ）/ firebase-admin 13.10（サーバー: Firestore・Auth）/ Zod 4 / dayjs / TypeScript 5（strict）/ Vitest 4 + fast-check / Playwright 1.64 / Node 24（Docker・CI）
 
-## CI/CD
-- CI は `pull_request` to `main` と `push` to `main` で `lint`、`typecheck`、`audit`、`unit-test`、`e2e`、`zap-scan` を実行する。
-- Deploy は `main` の CI workflow 成功後に `workflow_run` で Cloud Run へ実行する。
-- Docker は `output: 'standalone'` 前提。Cloud Run は `PORT=8080`、Artifact Registry は `asia-northeast1-docker.pkg.dev`。
-- `NEXT_PUBLIC_FIREBASE_*` は build arg、`SLACK_WEBHOOK_URL` は Cloud Run runtime env。
-- CI/CD 変更時は `.github/workflows/*.yml` と `docs/CICD.md` を同時に更新する。
+**どれも学習データより新しい。** 古い知識で書かない:
+- Next.js は同梱ドキュメント `node_modules/next/dist/docs/` を先に読む。例: `middleware.ts` は **`proxy.ts`（関数名 `proxy`）に改名済み**。Route Handler の `params` は `Promise`
+- その他のライブラリは Context7 MCP で公式ドキュメントを確認する（Zod 4 の `z.flattenError`、`.default()` と `.catch()` の挙動、MUI 7 の `slotProps` など）。query は具体的に（例: `Firestore transaction firebase-admin node`）、1つの疑問に3回まで。ID（`resolve-library-id` を省ける）: `/vercel/next.js` `/facebook/react` `/mui/material-ui` `/mui/mui-x` `/firebase/firebase-js-sdk` `/firebase/firebase-admin-node` `/colinhacks/zod` `/iamkun/dayjs` `/vitest-dev/vitest` `/microsoft/playwright`
 
-## Security
-- `proxy.ts` の Cookie 存在確認は UX ナビゲーションであり、セキュリティ境界ではない。保護対象 API は各 Route Handler で `verifySession()` を呼ぶ。
-- Session Cookie は Firebase Admin SDK で発行・検証し、`httpOnly`, production `secure`, `sameSite: 'strict'`, `path: '/'`。
-- セッション期限と本番時間帯制限は当日 23:00 JST に揃える（`src/constants/date.ts` の `BUSINESS_HOURS_*`）。時間外の画面は `/time-restricted`、ログイン API は 403。
-- CSP は nonce ベース。MUI/Emotion 互換のため `style-src 'unsafe-inline'` は残し、MUI style tag には nonce を渡す。
-- 外部 API、画像 CDN、analytics、iframe を追加する場合は CSP、COEP、CORP、Security doc を更新する。
-- development / test は Firebase Emulator にだけ接続し、本番の鍵を置かない。起動ガード（`src/instrumentation.ts`, `src/lib/firebase/runtimeEnvGuard.ts`）を外さない。開発サーバーと Emulator は `127.0.0.1` に bind する（`docs/LocalDevelopment.md`）。
+## アーキテクチャ
 
-## Test
-- Unit test は Domain 層を最厚にし、日付・部屋状態・予約状態・配列長・境界値を固定する。
-- Integration test は Route Handler の認証、validation、正常系、主要 InfraError、想定外エラーを確認する。
-- E2E はログイン、routing、daily dashboard、guest info、a-tax など重要フローに限定する。
-- E2E は実 Firebase 認証に依存しない。Playwright route mock と、`playwright.config.ts` の `webServer.env`（Emulator 系の変数・demo project・dummy API key）を使う。
-- Vitest は `test.env` で到達不能な Emulator を向く。テストから本番や ADC に届く経路を作らない。
-- 実データ・実認証情報をテストへ入れない。
+```
+ブラウザ: app/(page) → components/ → hooks/ ──fetch──┐
+サーバー: proxy.ts（全ページ: CSP・ヘッダー・時間帯・Cookie 有無）  │
+          app/api/**/route.ts ←───────────────────────┘
+            → application/（UseCase=読み取り / Command=変更）
+                → domain/（純粋な計算・検証）
+                → infra/（Firestore。domain/ports の実装）
+```
 
-## ErrorHandling
-- Domain は例外ではなく Result 型や戻り値で失敗を表現する。
-- Infra は Firebase/gRPC/ZodError を `InfraError` に変換して throw する。
-- Application は原則 catch せず伝搬する。
-- Route Handler は `InfraError` を HTTP status に変換し、ログと必要な Slack 通知を行う。
-- Hooks は HTTP status と fetch 失敗をユーザー向け日本語メッセージに変換する。
-- `FIRESTORE_UNAVAILABLE` と `AUTH_UNAVAILABLE` は 503、`FIRESTORE_PERMISSION` と `FIRESTORE_DATA_CORRUPTION` は 500、`FIRESTORE_NOT_FOUND` は 404（通知しない）、`AUTH_FAILED` は 401。
-- `InfraErrorCode` 追加時は `src/lib/infraErrorToHttpStatus.ts` と `docs/ErrorHandling.md` を更新する。
+| ディレクトリ | 役割 | 依存してよいもの |
+|---|---|---|
+| `src/app/` | ページと Route Handler。`page.tsx` は default export（Next.js の規約） | すべて |
+| `src/app/api/` | セッション検証 → Zod 検証 → Application 呼び出し → HTTP 変換 | application, infra, lib, domain, types |
+| `src/application/` | 手順の組み立て、Slack 通知。原則 catch しない | domain, infra, lib, types, constants |
+| `src/domain/` | 純粋 TS。部屋の状態、予約の更新検証、泊別配列。失敗は `Result` で返す | types, constants, `lib/dateUtils` だけ |
+| `src/infra/` | Firestore 読み書き、Zod による読み取り検証と正規化、例外の `InfraError` 化 | domain/ports, lib, types, constants |
+| `src/hooks/` | API 呼び出し、loading / error、HTTP status → 日本語メッセージ | lib, types, constants（application は **型だけ**） |
+| `src/components/` | 表示とイベント通知。named export | hooks, domain（純粋関数）, lib, types, constants |
+| `src/lib/` | 横断処理: `api/`（Zod スキーマ・Route 共通処理）, `auth/`, `firebase/`, csp, logger, slack, dateUtils | — |
+| `src/constants/` | 定数（部屋、時刻の許容値、上限値、営業時間）。純粋 TS | — |
+| `src/types/` | 共有型。`Reservation`, `ReservationPatch`, `InfraError`, `Result` | — |
 
-## Context7
-- ライブラリ/フレームワークのコード生成、設定、API 仕様、推奨実装、バージョン固有挙動を扱う前に Context7 の公式 docs を確認する。
-- 既知 ID は `docs/Context7.md` に集約。Next.js v16、React v19.2、MUI v7、Firebase v12/v13、Zod v4 などは古い知識で補完しない。
-- query は具体的にし、1質問あたり最大3回まで。プロジェクト固有の業務ロジックや命名相談では必須ではない。
+既存の例外（真似してよい）: 単純な読み書き（`daily/*`、`reservations/[id]/a-tax`）は Route から infra を直接呼ぶ。ログイン API は `adminAuth` を直接使う。
 
-## Schema
-- `dailyInfo/{YYYY-MM-DD}` は日次データ。`todos` は最大50件、`safeBalanceChecker` は宿泊税テーブルの締めスタッフ名。未存在は空値扱い、更新は merge set。
-- `guestInfoV2` は予約データ。Firestore 上の日付は `YYYY/MM/DD`、アプリ/API 内部は `YYYY-MM-DD`。
-- 予約の部屋は `"21" | "22" | "31" | "32" | "42" | "43" | "61" | null`。空文字は null に正規化する。
-- 予約の泊別配列は泊数と同じ長さに正規化し、不正値は fallback で補完する。
-- DB 読み取り時の破損は Infra 層で Zod 検証し、必要に応じて `FIRESTORE_DATA_CORRUPTION` とする。
+## 実装ルール
+
+- `any` 禁止。`unknown` + 型ガード。Import は `@/*`（= `src/*`）、テストからは `@tests/*`
+- コンポーネントは named export（`page.tsx` / `layout.tsx` などの Next.js 規約ファイルを除く）
+- 定数は `src/constants/` に置く。**同じ値を UI の選択肢・Route の Zod・Infra の読み取り検証の3か所で共有する**（例: `ARRIVAL_TIME_VALUES`, `RESERVATION_LIMITS`, `MAX_NIGHTS`）。片方だけ変えると「保存できたのに読み戻すと消える」が起きる。`tests/unit/constraints/` が突き合わせを検査している
+- hooks: React 19 のルールで **useEffect の中で同期的に setState しない**。既存の hooks は「取得済みのキー（`fetchedDate` など）と今のキーが違えば loading」で表す。新しい取得 hook もこの形に揃える。ログイン必須の API は `fetch` ではなく `fetchWithSession`（401 でログイン画面へ）
+- Route Handler の型: `requireSession(request, label)` → `safeParse` → 失敗は `invalidInputResponse`（本番は検証の詳細を返さない）→ `try { … } catch (e) { return handleRouteError(e, label) }`。すべて `src/lib/api/routeHelpers.ts`
+- ログに入力値・個人情報（ゲスト名、メモ）を出さない。出してよいのはパス・コード・ID・件数
+
+### エラー処理（層ごと）
+
+- Domain: 例外を投げず `Result<T, E>`（`src/types/result.ts`）
+- Infra: Firestore/gRPC/Zod の例外を `InfraError` に変換して throw（`withFirestoreError`, `toInfraError`）
+- Application: catch しない。業務上の失敗（存在しない、すでにキャンセル済み）は `Result` で返す
+- Route: `handleRouteError` が status に変換し、ログと Slack 通知（`FIRESTORE_NOT_FOUND` は通知しない）
+- Hooks: `httpErrorMessage`（`src/hooks/httpErrorMessage.ts`）で日本語化。「管理者に通知済み」は 5xx のときだけ言う
+
+| InfraErrorCode | HTTP | Slack |
+|---|---|---|
+| `FIRESTORE_UNAVAILABLE`, `AUTH_UNAVAILABLE` | 503 | する |
+| `FIRESTORE_PERMISSION`, `FIRESTORE_DATA_CORRUPTION` | 500 | する |
+| `FIRESTORE_NOT_FOUND` | 404 | しない |
+| `AUTH_FAILED` | 401 | — |
+
+コードを追加したら `src/lib/infraErrorToHttpStatus.ts`（網羅性チェックでコンパイルエラーになる）とこの表を更新する。
+
+- 入力が原因の失敗を 5xx・Slack 通知にしない。不正な ID・日付・JSON は Route の入口で 400、存在しないものは 404
+- 外部 SDK のエラーを「`auth/` で始まれば未ログイン」「その他はすべて障害」のように大雑把に分類しない。同じコードが入力の誤りにも障害にも使われる（例: `auth/argument-error`。`src/lib/auth/` はメッセージの先頭で見分けている）
+- ログイン画面では 500 と 503 を出し分けない（監視の存在を見せない）
+- 今は入れないと決めたもの: React Error Boundary の全面導入、深い例外クラスの階層、全 API レスポンスの Zod 検証、Sentry などの外部監視（Cloud Logging + Slack で足りる）
+
+## 壊してはいけないもの
+
+1. **日付の形式**: Firestore 上の `guestInfoV2` は `YYYY/MM/DD`、アプリ・API・`dailyInfo` のドキュメント ID は `YYYY-MM-DD`。変換は infra だけで行う
+2. **「今日」は JST**: Cloud Run は UTC。`new Date()` のローカル日付を使わず `getTodayJST()` を使う。日付計算は `src/lib/dateUtils.ts`（`dateDiff`, `addDays`）。`tests/time/` が TZ を変えて検査する
+3. **泊別配列の長さ = 泊数**（`dinner_time`, `dinner_info`, `breakfast_time`, `open_air_bath_time`, `timetable_info`）、`age_groups` の長さ = 大人の人数。C/O 日や人数を変える更新は配列も一緒に送る。検査は `validateReservationPatch` を **トランザクションの中で** DB の今の値に対して行う
+4. **起動ガード**: development / test は Emulator と `demo-*` project にだけ接続し、本番の鍵があれば起動しない。production は Emulator 系の変数があれば起動しない（`src/instrumentation.ts`, `src/lib/firebase/runtimeEnvGuard.ts`）。外さない・緩めない。開発サーバーと Emulator は `127.0.0.1` に bind
+5. **セキュリティの境界は各 Route Handler の `requireSession`**。`proxy.ts` の Cookie 有無の確認は画面遷移のためで、境界ではない。新しい API には必ず `requireSession` を入れる
+6. **ブラウザから Firestore を直接読まない**（`firestore.rules` は全拒否）。ブラウザの Firebase SDK は Auth だけ
+7. **CSP は nonce ベース**（`src/lib/csp.ts`、`proxy.ts`）。外部の API・画像・フォント・iframe・analytics を足すときは CSP と COEP/CORP を変える必要がある。`tests/unit/lib/csp.test.ts` が本番の CSP を固定している
+8. **本番データ・本物の認証情報をコード・テスト・ログ・会話に入れない**。`npm run anonymize` / `make anonymize`（本番を読む）は **AI エージェントは実行しない**
+
+## 一緒に更新するもの
+
+| 変更 | 一緒に更新 |
+|---|---|
+| 予約フィールドの追加・許容値の変更 | `types/reservation.ts`, `types/guestInfo.ts`（`ReservationPatch`）, `lib/api/reservationSchemas.ts`, infra の `FirestoreReservationSchema`/`toReservation`, `constants/guestInfo.ts`, `scripts/localdev/lib/allowlist.ts`（匿名化。未登録のフィールドはマスクされる）, [docs/Domain.md](docs/Domain.md) |
+| API の追加 | `requireSession`、Zod、`tests/integration/api/` のテスト、`tests/integration/fuzz/routes.fuzz.test.ts` |
+| 外部通信の追加 | `src/lib/csp.ts`, `proxy.ts` のヘッダー, `tests/unit/lib/csp.test.ts` |
+| CI/CD | `.github/workflows/*.yml` と [docs/Development.md](docs/Development.md) |
 
 <!-- BEGIN:nextjs-agent-rules -->
 

@@ -1,4 +1,4 @@
-// npm audit を実行し、high 以上のうち例外リスト（auditAllowlist.ts）にないものがあれば失敗する（docs/CICD.md「audit」）
+// npm audit を実行し、high 以上のうち例外リスト（auditAllowlist.ts）にないものがあれば失敗する
 //   npm run audit:ci
 // npm audit --audit-level=high の代わりに CI で使う。新しい high / critical が出れば従来どおり CI は失敗する
 import { spawnSync } from 'node:child_process'

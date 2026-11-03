@@ -23,7 +23,7 @@ export function resizeNightFields(fields: NightFields, newNights: number): Requi
   }
 }
 
-// --- 縮めた分の記憶（BugHunting.md #19） ---
+// --- 縮めた分の記憶 ---
 // C/O 日を1文字ずつ打つと、入力途中の短い泊数で配列が切り詰められる。
 // モーダルを開いている間は、いちばん長かったときの値を覚えておき、伸ばし直したときに戻す。
 
