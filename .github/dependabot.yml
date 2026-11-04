@@ -17,6 +17,12 @@ updates:
     cooldown:
       default-days: 7
     groups:
+      # vitest と @vitest/* は同じ版でないと動かない（@vitest/ui は vitest の版をちょうどで要求する）。
+      # major も含めて1つの PR にする。先に書いたグループが優先される
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
       # minor と patch はまとめて1つの PR にする。major は1つずつ（変更点を確かめる）
       npm-minor-and-patch:
         update-types:

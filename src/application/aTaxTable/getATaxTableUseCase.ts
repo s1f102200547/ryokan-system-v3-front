@@ -5,7 +5,12 @@ import { dateDiff } from '@/lib/dateUtils'
 import { A_TAX_RATE_PER_PERSON_PER_NIGHT } from '@/constants/guestInfo'
 import type { Reservation } from '@/types/reservation'
 
-export type ATaxTableRow = Reservation & {
+// 宿泊税の表に出す項目だけ。メールメモ・その他メモ・国などの個人情報は返さない
+export type ATaxTableRow = Pick<
+  Reservation,
+  | 'id' | 'cancel' | 'check_in_date' | 'room' | 'guest_name' | 'adult_count'
+  | 'booking_site' | 'a_tax_received' | 'a_tax_received_by_staff_name'
+> & {
   nights: number
   tax: number // その場計算（Firestoreに保存しない）
 }
@@ -22,7 +27,20 @@ export async function getATaxTableUseCase(year: number, month: number): Promise<
   const rows: ATaxTableRow[] = activeReservations.map((r) => {
     const nights = dateDiff(r.check_in_date, r.check_out_date)
     const tax = calcATax(r.adult_count, nights, A_TAX_RATE_PER_PERSON_PER_NIGHT)
-    return { ...r, nights, tax }
+    // 予約をそのまま広げず、項目を1つずつ選ぶ（予約に項目が増えても、ここから漏れない）
+    return {
+      id: r.id,
+      cancel: r.cancel,
+      check_in_date: r.check_in_date,
+      room: r.room,
+      guest_name: r.guest_name,
+      adult_count: r.adult_count,
+      booking_site: r.booking_site,
+      a_tax_received: r.a_tax_received,
+      a_tax_received_by_staff_name: r.a_tax_received_by_staff_name,
+      nights,
+      tax,
+    }
   })
 
   // check_in_date（infra で YYYY-MM-DD に変換済み）は、そのまま dailyInfo のドキュメント ID として使える。

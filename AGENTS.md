@@ -8,7 +8,7 @@
 |---|---|
 | [docs/Domain.md](docs/Domain.md) | 業務用語、画面と API、Firestore のデータ構造、予約の正規化と検証、画面ごとの計算ロジックに触れるとき |
 | [docs/Development.md](docs/Development.md) | ローカル起動、テストの追加、CI/CD・デプロイ・依存の更新に触れるとき |
-| [docs/Security.md](docs/Security.md) | 認証・ヘッダー・権限・依存・秘密情報に触れるとき。**このファイルは編集しない** |
+| [docs/Security.md](docs/Security.md) | 認証・ヘッダー・権限・依存・秘密情報に触れるとき。対策を実装・変更したら §7・§8・§10 も更新する |
 | [docs/SecurityImplementation.md](docs/SecurityImplementation.md) | Security.md §8・§10 の対策を実装するとき（作業一覧） |
 
 ## 前提（コードからは読み取れないこと）
@@ -36,7 +36,7 @@ make check             # 上の全部（make で起動中の Emulator / 開発�
 
 ## 技術スタック（インストール済みの版）
 
-Next.js 16.4（App Router）/ React 19.3 / MUI 7.3 + X Date Pickers 9.16 / Emotion 11 / Firebase 13（ブラウザ: Auth のみ）/ firebase-admin 14.5（サーバー: Firestore・Auth）/ Zod 4 / dayjs / TypeScript 5（strict）/ Vitest 4 + fast-check / Playwright 1.64 / Node 26（Docker・CI）
+Next.js 16.4（App Router）/ React 19.3 / MUI 7.3 + X Date Pickers 9.16 / Emotion 11 / Firebase 13（ブラウザ: Auth のみ）/ firebase-admin 14.5（サーバー: Firestore・Auth）/ Zod 4 / dayjs / TypeScript 6（strict）/ Vitest 5 + fast-check / Playwright 1.64 / Node 26（Docker・CI）
 
 **どれも学習データより新しい。** 古い知識で書かない:
 - Next.js は同梱ドキュメント `node_modules/next/dist/docs/` を先に読む。例: `middleware.ts` は **`proxy.ts`（関数名 `proxy`）に改名済み**。Route Handler の `params` は `Promise`
