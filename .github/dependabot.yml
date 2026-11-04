@@ -23,7 +23,7 @@ updates:
           - "minor"
           - "patch"
     ignore:
-      # Node の型は実行環境（Node 24）の major に合わせる。Node を上げるときに手で上げる
+      # Node の型は実行環境（Node 26）の major に合わせる。Node を上げるときに手で上げる
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
 
@@ -58,6 +58,6 @@ updates:
     cooldown:
       default-days: 7
     ignore:
-      # Node の major（26 など）は手で上げる（docs/Security.md §8「後回し」）
+      # Node の major（28 など）は手で上げる（CI・Docker・@types/node の major をそろえるため。docs/Development.md）
       - dependency-name: "node"
         update-types: ["version-update:semver-major"]

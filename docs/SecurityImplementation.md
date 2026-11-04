@@ -10,15 +10,16 @@
 
 ### §8 後回し
 
-- [ ] `firebase-admin` の 14 への更新
-- [ ] Node.js の 26 LTS への更新：2027 年中
-  - メモ: Dockerfile・CI の `node-version`・`@types/node` をそろえる。26 が LTS になり、公開から7日たってから
+- [x] `firebase-admin` の 14 への更新
+  - 14.5.0 に更新（2026-11-04）。トークン・セッション Cookie のエラーの code と message は 13.10 と同じで、ログインの 401 / 503 の判定は変えずに済んだ。`uuid` の moderate は消え、代わりに `glob` の moderate が1件増えた（docs/Development.md）
+- [x] Node.js の 26 LTS への更新：2027 年中
+  - Node 26.13.0（LTS）に更新（2026-11-04）。Dockerfile の3つの FROM（digest 固定）、CI の `node-version`、`@types/node` をそろえた
 
 ### §8 未着手
 
-- [ ] ログイン成功時の接続元 IP の、Slack への通知
+- [x] ログイン成功時の接続元 IP の、Slack への通知
   - 実装済み（`src/lib/auth/loginNotice.ts`、ログイン API）。ログインのたびに通知し、Cloud Logging にも INFO で残す
-- [ ] AI エージェントの権限の制限（push、デプロイ、認証情報の読み取りの拒否）
+- [x] AI エージェントの権限の制限（push、デプロイ、認証情報の読み取りの拒否）
   - 実装済み（`.claude/settings.json`）: push・gcloud・firebase deploy/login・gh・匿名化などのコマンド、`~/.ssh`・gcloud・firebase CLI の認証情報・`.env*`・`.localdev/` の読み取りを拒否。bypass モードを無効化。`.github/workflows/**` の編集は毎回確認
   - 限界: Bash の deny は書き方を変えると抜けられる（`bash -c 'git push'`、`git -C . push`、スクリプトからのファイル読み取り）。うっかりを止める層で、境界ではない
   - 残り: GitHub のルールセットで `main` を守る（§8 条件待ち。push されても本番に届かなくする）。
@@ -33,8 +34,7 @@
 
 - [ ] §7「参照できる日付の範囲の、過去 100 日・未来 365 日への限定」：宿泊税テーブルの API（`/api/a-tax-table`）は 2020〜2099 年の任意の月を読める。guest-info などは指定日の前後 30 日の C/I も読む
 - [ ] §7「セッションの期限の、当日の 23:00 までへの限定」：Firebase の最低値に合わせて期限を最短 5 分にしているので、22:55 以降のログインでは最長 23:05 まで有効になる
-- [ ] §7「検査の指摘が1件でもあった場合の、CI の失敗」：npm audit は high 以上で、許可リストにないものだけで失敗する（moderate と許可リストの high では失敗しない）
-- [ ] §8「Secret scanning・Push protection の利用可否の確認：同上」：条件は Environment の作成ではなく GitHub Pro
+
 
 ## B. Claude Code だけでは完結しないもの
 
@@ -56,10 +56,10 @@ GitHub・GCP・Firebase・Slack の管理画面や本番での操作、人の判
 ### §8 後回し
 
 - [ ] GCP のオーナー権限の、普段使う Google アカウントからの分離
-- [ ] GitHub・Google・firebase・slack のアカウントへのパスキー・二段階認証の登録
+- [x] GitHub・Google・firebase・slack のアカウントへのパスキー・二段階認証の登録
 - [ ] Slack の Webhook の URL の、作り直しと Secret Manager への移動
   - 人: Webhook の作り直し、Secret Manager への登録、実行用 SA への読み取り権限の付与、古い URL の無効化。Claude: `deploy.yml` を Secret Manager の参照に変更
-- [ ] Dependabot の既存の警告の再分析：残りの対策の実装後
+- [x] Dependabot の既存の警告の再分析：残りの対策の実装後
   - Claude: 警告の内容と、このアプリで脆弱なコードが動くかの分析。人: Dismiss するかの判断と操作
 
 ### §8 未着手

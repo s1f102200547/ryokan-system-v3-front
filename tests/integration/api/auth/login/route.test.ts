@@ -100,7 +100,7 @@ describe('POST /api/auth/login', () => {
 
   // 形式が不正な idToken で 503 + ALERT になっていた。
   // firebase-admin は不正なトークンにも公開鍵の取得失敗にも auth/argument-error を返すため、メッセージで分ける
-  // （メッセージは firebase-admin 13.10 が実際に返すもの）
+  // （メッセージは firebase-admin 14.5 が実際に返すもの）
   it.each([
     ['形式が不正', 'Decoding Firebase ID token failed. Make sure you passed the entire string JWT which represents an ID token.'],
     ['クレームが不正', 'Firebase ID token has incorrect "aud" (audience) claim. Expected "demo-x" but got "other".'],

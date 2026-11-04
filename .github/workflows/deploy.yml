@@ -29,13 +29,13 @@ jobs:
       # Semgrep は「workflow_run で PR のコードを checkout している」と指摘するが、上の if: で main への push の CI に限っているので、
       # head_sha は main のコミットで、PR のコードではない（誤検知）
       # nosemgrep: yaml.github-actions.security.workflow-run-target-code-checkout.workflow-run-target-code-checkout
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0 / ソースコードを取得
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 / ソースコードを取得
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
       # Workload Identity Federation で GCP に認証（キーファイル不要）
       - id: auth
-        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13 / GCP認証
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0 / GCP認証
         with:
           workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.SERVICE_ACCOUNT }}
@@ -45,8 +45,8 @@ jobs:
         run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
 
       # Docker イメージのビルド & プッシュ（GHA キャッシュで高速化）
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0 / DockerBuild
-      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2 / GCPにpush(upload)
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1 / DockerBuild
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0 / GCPにpush(upload)
         with:
           context: .
           push: true
@@ -60,7 +60,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       # Cloud Run へデプロイ
-      - uses: google-github-actions/deploy-cloudrun@251330ba9a8a34bfbc1622895f42e1d53fd14522 # v2.7.6 / 作ったDockerImageをCloudRunに乗せる
+      - uses: google-github-actions/deploy-cloudrun@2028e2d7d30a78c6910e0632e48dd561b064884d # v3.0.1 / 作ったDockerImageをCloudRunに乗せる
         with:
           service: ${{ env.SERVICE }}
           region: ${{ env.REGION }}
