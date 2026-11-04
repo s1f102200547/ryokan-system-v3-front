@@ -7,6 +7,8 @@
 export async function fetchWithSession(input: string, init?: RequestInit): Promise<Response> {
   const res = await fetch(input, init)
   if (res.status === 401 && typeof window !== 'undefined' && window.location.pathname !== '/login') {
+    // コンポーネントの外なので useRouter は使えない。画面の状態も捨てたいので、意図して全体を読み込み直す
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.assign('/login')
     return new Promise<Response>(() => {})
   }

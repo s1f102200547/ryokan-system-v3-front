@@ -9,7 +9,7 @@ const INVALID_SESSION_CODES = new Set([
   'auth/user-not-found', // checkRevoked で、ユーザーが削除されていた
 ])
 
-// firebase-admin（13.10 で確認）は、不正な Cookie にも Google の公開鍵の取得失敗（障害）にも auth/argument-error を返す。
+// firebase-admin（14.5 で確認）は、不正な Cookie にも Google の公開鍵の取得失敗（障害）にも auth/argument-error を返す。
 // Cookie の中身が原因のメッセージは次のどちらかで始まる（src/lib/auth/idTokenError.ts と同じ考え方）
 const INVALID_SESSION_MESSAGE_PREFIXES = ['Decoding Firebase session cookie failed', 'Firebase session cookie ']
 
