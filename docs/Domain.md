@@ -50,7 +50,7 @@
 | `GET /api/guest-info?date=` | 対象日の `normal` / `staying` / `cancelled` / `roomConflicts` | `getGuestInfoUseCase` |
 | `GET /api/timetable?date=` | タイムテーブル印刷用 | `getTimetableUseCase` |
 | `GET /api/cleaning-board?date=` | 清掃ボード印刷用 | `getCleaningBoardUseCase` |
-| `GET /api/a-tax-table?year=&month=` | 月の宿泊税一覧（年は 2020〜2099） | `getATaxTableUseCase` |
+| `GET /api/a-tax-table?year=&month=` | 月の宿泊税一覧。JST の今月と先月だけ（それ以外は 400）。行は表に出す項目だけ（メールメモ・メモ・国などは返さない） | `getATaxTableUseCase` |
 | `POST /api/reservations` | 手動追加 → 201 `{ reservation_number }` | `addReservationCommand` |
 | `PATCH /api/reservations/{id}` | 部分更新。整合しなければ 400 `{ violations }`、なければ 404 | `updateReservationCommand` |
 | `PATCH /api/reservations/{id}/cancel` | キャンセル。すでにキャンセル済みなら 409 | `cancelReservationCommand` |

@@ -8,7 +8,7 @@
 |---|---|
 | [docs/Domain.md](docs/Domain.md) | 業務用語、画面と API、Firestore のデータ構造、予約の正規化と検証、画面ごとの計算ロジックに触れるとき |
 | [docs/Development.md](docs/Development.md) | ローカル起動、テストの追加、CI/CD・デプロイ・依存の更新に触れるとき |
-| [docs/Security.md](docs/Security.md) | 認証・ヘッダー・権限・依存・秘密情報に触れるとき。**このファイルは編集しない** |
+| [docs/Security.md](docs/Security.md) | 認証・ヘッダー・権限・依存・秘密情報に触れるとき。対策を実装・変更したら §7・§8・§10 も更新する |
 | [docs/SecurityImplementation.md](docs/SecurityImplementation.md) | Security.md §8・§10 の対策を実装するとき（作業一覧） |
 
 ## 前提（コードからは読み取れないこと）
