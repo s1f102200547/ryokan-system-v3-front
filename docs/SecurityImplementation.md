@@ -1,12 +1,6 @@
 # Security 対策の実装手順
 
-[Security.md](Security.md) の §8（未実施の対策）と §10（実装と異なる記述）を、このブランチで実装していくための作業一覧。項目の文言は Security.md からそのまま写している。終わったら `[x]` にし、Security.md の該当箇所（§7 への移動、§8・§10 からの削除）を更新する。
-
-前提の変化: GitHub Education が通り、GitHub Pro が使える（2026-11-03）。§8「条件待ち」の「GitHub Pro 待ち」は解消した。
-
 ## A. Claude Code で完結できるもの
-
-コードとリポジトリ内のファイルの変更だけで終わり、テストで確かめられるもの。
 
 ### §8 後回し
 
@@ -22,11 +16,9 @@
 - [x] AI エージェントの権限の制限（push、デプロイ、認証情報の読み取りの拒否）
   - 実装済み（`.claude/settings.json`）: push・gcloud・firebase deploy/login・gh・匿名化などのコマンド、`~/.ssh`・gcloud・firebase CLI の認証情報・`.env*`・`.localdev/` の読み取りを拒否。bypass モードを無効化。`.github/workflows/**` の編集は毎回確認
   - 限界: Bash の deny は書き方を変えると抜けられる（`bash -c 'git push'`、`git -C . push`、スクリプトからのファイル読み取り）。うっかりを止める層で、境界ではない
-  - 残り: GitHub のルールセットで `main` を守る（§8 条件待ち。push されても本番に届かなくする）。
+  - GitHub のルールセットで `main` を守った（2026-11-04）。Claude が push できても、PR と CI を通らないと本番に届かない
 - [ ] ログインの失敗回数の制限
   - メモ: 今はブラウザが Identity Toolkit を直接呼ぶので、アプリは失敗を数えられない。「ログインのサーバー経由化」（B）の後に行う
-- [ ] ログイン API での、パスワードの長さの確認
-  - メモ: 今のログイン API は idToken を受け取り、パスワードを見ない。「ログインのサーバー経由化」（B）の後に行う
 
 ### §10 実装と異なる記述
 
@@ -41,13 +33,13 @@
 
 ## B. Claude Code だけでは完結しないもの
 
-GitHub・GCP・Firebase・Slack の管理画面や本番での操作、人の判断、旅館の PC での作業が要るもの。Claude Code は、コード・ワークフロー・コマンド・手順の用意までを行い、本番や管理画面の設定は人が行う。
-
 ### §8 条件待ち
 
-- [ ] `main` と `development` のルールセットによる保護（PR・CI 合格の必須化、force push と削除の禁止）：GitHub Pro 待ち
-  - 人: GitHub の Settings → Rules で作成。Claude: 必須にする CI のジョブ名の一覧と設定内容を用意
-- [ ] デプロイ用の secrets の、Environment `production` への移動：GitHub Pro 待ち
+- [x] `main` と `development` のルールセットによる保護（PR・CI 合格の必須化、force push と削除の禁止）：GitHub Pro 待ち
+  - 作成済み（2026-11-04、ルールセット `protect-main-dev`、Active、bypass なし）。PR 必須（承認数 0。開発者が1人のため）、CI の9ジョブ（Lint・Type Check・npm audit・Secret Scan・Semgrep・Unit Test・Emulator Round-trip Test・E2E Test・OWASP ZAP Baseline Scan）の合格を必須、force push と削除を禁止
+  - 9ジョブすべてを必須にするのは、前のジョブが落ちて後ろがスキップされると、スキップは合格として扱われるため
+  - 「最新の状態でのマージ」と linear history は使わない（Dependabot の PR のたびに CI のやり直しが要る／merge commit で取り込んでいるため）
+- [ ] デプロイ用の secrets の、Environment `production` への移動：GitHub Pro で可能になった（未着手）
   - 人: Environment の作成と secrets の移動。Claude: `deploy.yml` に `environment: production` を追加
 - [ ] WIF の属性条件への、Environment `production` の追加：Environment の作成後
   - 人: `gcloud iam workload-identity-pools providers update-oidc` を実行。Claude: コマンドを用意

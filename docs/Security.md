@@ -70,6 +70,7 @@
 - WIF の属性条件による、このリポジトリの `main` ブランチの `deploy.yml` 以外からの GCP への認証の拒否
 - デプロイ用の SA への、対象の Cloud Run サービス・Artifact Registry・実行用の SA に限った権限の付与
 - `main` への push の CI が成功したときだけのデプロイ
+- `main` と `development` のルールセットによる、直接の push・force push・削除の禁止と、PR と CI の全ジョブの合格の必須化
 - CI が検査したコミットだけのデプロイ
 - WIF の認証ファイルの、Docker イメージとリポジトリからの除外
 - 本番へのデプロイと PR の作成の、Slack への通知
@@ -119,10 +120,9 @@
 
 ### 条件待ち
 
-- `main` と `development` のルールセットによる保護（PR・CI 合格の必須化、force push と削除の禁止）：GitHub Pro 待ち
-- デプロイ用の secrets の、Environment `production` への移動：GitHub Pro 待ち
+- デプロイ用の secrets の、Environment `production` への移動：GitHub Pro で可能になった（未着手）
 - WIF の属性条件への、Environment `production` の追加：Environment の作成後
-- 上記の保護が効いていることの確認：同上
+- ルールセットと Environment の保護が効いていることの確認：Environment の作成後
 - Secret scanning・Push protection の利用可否の確認：同上
 
 ### 後回し
