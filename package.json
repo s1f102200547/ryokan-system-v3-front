@@ -22,7 +22,7 @@
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.9",
     "@mui/material": "^7.3.9",
-    "@mui/material-nextjs": "^7.3.9",
+    "@mui/material-nextjs": "^9.5.0",
     "@mui/x-date-pickers": "^9.16.0",
     "dayjs": "^1.11.23",
     "firebase": "^13.1.0",
