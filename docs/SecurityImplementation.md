@@ -1,77 +1,54 @@
-# Security 対策の実装手順
+# Security 対策の TODO
 
-[Security.md](Security.md) の §8（未実施の対策）と §10（実装と異なる記述）を、このブランチで実装していくための作業一覧。項目の文言は Security.md からそのまま写している。終わったら `[x]` にし、Security.md の該当箇所（§7 への移動、§8・§10 からの削除）を更新する。
+[Security.md](Security.md) §8 を実装する。終わったら Security.md §7 に移し、ここから消す。【人】は本番の権限・管理画面の操作。
 
-前提の変化: GitHub Education が通り、GitHub Pro が使える（2026-11-03）。§8「条件待ち」の「GitHub Pro 待ち」は解消した。
+順番: 1 → 2 → 3 → 4。5 はいつでも。
 
-## A. Claude Code で完結できるもの
+## 1. 手作業
 
-コードとリポジトリ内のファイルの変更だけで終わり、テストで確かめられるもの。
+- [ ] 【人】Environment `production` を作る（ブランチは `main` だけ）。`deploy.yml` の secrets をそこへ移す
+- [ ] `deploy.yml` の job に `environment: production` を足す
+- [ ] 【人】WIF の属性条件に ` && assertion.environment == 'production'` を足す（今の条件を控えてから `update-oidc`）
+- [ ] 【人】保護を確かめる: 直接 push・force push・削除・CI 失敗の PR のマージ・`main` 以外からの GCP 認証が拒否される
+- [ ] 【人】Secret scanning・Push protection が非公開リポジトリで使えるか確かめ、結果を Security.md §8 に書く
+- [ ] 【人】GCP のオーナーを管理専用の Google アカウントに移し、普段のアカウントから外す
+- [ ] 【人】Slack の Webhook を作り直し、Secret Manager（`slack-webhook-url`）に置く。`ryokan-runtime` にその secret の `secretAccessor` を付ける
+- [ ] `deploy.yml` の `SLACK_WEBHOOK_URL` を `env_vars` から `secrets:` に替える
+- [ ] 【人】通知を確かめてから、古い Webhook と GitHub Secrets の `SLACK_WEBHOOK_URL` を消す
+- [ ] 【人】Firestore の PITR・削除保護・毎日のバックアップを有効にする（`gcloud firestore databases update --enable-pitr --delete-protection`、`gcloud firestore backups schedules create --recurrence=daily`）。restore を別の database で1回試す
 
-### §8 後回し
+## 2. SMS による MFA
 
-- [x] `firebase-admin` の 14 への更新
-  - 14.5.0 に更新（2026-11-04）。トークン・セッション Cookie のエラーの code と message は 13.10 と同じで、ログインの 401 / 503 の判定は変えずに済んだ。`uuid` の moderate は消え、代わりに `glob` の moderate が1件増えた（docs/Development.md）
-- [x] Node.js の 26 LTS への更新：2027 年中
-  - Node 26.13.0（LTS）に更新（2026-11-04）。Dockerfile の3つの FROM（digest 固定）、CI の `node-version`、`@types/node` をそろえた
+- [ ] 【人】SMS を受け取る携帯電話を決める（例: フロントの業務用携帯＋予備に責任者の携帯）
+- [ ] 【人】Identity Platform にアップグレードし、SMS 多要素認証を有効にする。SMS の送り先は日本だけにする
+- [ ] 開発用ユーザーを `emailVerified: true` にし、MFA の電話番号を登録する（seed）
+- [ ] ログイン画面: パスワードのあと、invisible の reCAPTCHA で SMS を送り、コードを入力して `resolveSignIn` する。コードの誤り・期限切れ・送りすぎのメッセージ、再送ボタン
+- [ ] ログイン画面の CSP・COEP を reCAPTCHA に合わせる。`csp.test.ts` を更新する
+- [ ] テスト: unit・E2E・Emulator（コードは Emulator の REST で取る）
+- [ ] `scripts/ops/enrollMfa.ts`: PC のアカウントに `emailVerified: true` と電話番号を登録する（既存の登録を残す。dry-run 付き）
+- [ ] 【人】Claude を止めて、本番で `enrollMfa.ts` を実行する
+- [ ] 【人】デプロイし、各 PC（Chrome・Edge）で SMS のコードを入れてログインできるか確かめる
+- [ ] `/api/auth/login` で ID トークンの `firebase.sign_in_second_factor` を確かめ、MFA を通っていないログインを拒否する
+- [ ] 【人】デプロイしてログインを確かめ、Security.md を更新する
 
-### §8 未着手
+## 3. ログインのサーバー経由化と失敗回数の制限
 
-- [x] ログイン成功時の接続元 IP の、Slack への通知
-  - 実装済み（`src/lib/auth/loginNotice.ts`、ログイン API）。ログインのたびに通知し、Cloud Logging にも INFO で残す
-- [x] AI エージェントの権限の制限（push、デプロイ、認証情報の読み取りの拒否）
-  - 実装済み（`.claude/settings.json`）: push・gcloud・firebase deploy/login・gh・匿名化などのコマンド、`~/.ssh`・gcloud・firebase CLI の認証情報・`.env*`・`.localdev/` の読み取りを拒否。bypass モードを無効化。`.github/workflows/**` の編集は毎回確認
-  - 限界: Bash の deny は書き方を変えると抜けられる（`bash -c 'git push'`、`git -C . push`、スクリプトからのファイル読み取り）。うっかりを止める層で、境界ではない
-  - 残り: GitHub のルールセットで `main` を守る（§8 条件待ち。push されても本番に届かなくする）。
-- [ ] ログインの失敗回数の制限
-  - メモ: 今はブラウザが Identity Toolkit を直接呼ぶので、アプリは失敗を数えられない。「ログインのサーバー経由化」（B）の後に行う
-- [ ] ログイン API での、パスワードの長さの確認
-  - メモ: 今のログイン API は idToken を受け取り、パスワードを見ない。「ログインのサーバー経由化」（B）の後に行う
+- [ ] 2 のあとに、やるかを決める
+- [ ] 失敗回数の制限: Firestore（例: `loginAttempts`）にメールと IP ごとの失敗を記録し、上限で 429 と Slack 通知
+- [ ] サーバーから `accounts:signInWithPassword`（MFA は `mfaSignIn:start` / `:finalize`）を呼ぶ。パスワードの長さの上限を Zod で確かめる
+- [ ] ブラウザから Firebase の SDK と `NEXT_PUBLIC_FIREBASE_*` を外す
+- [ ] 【人】Identity Toolkit だけに制限した新しい API キーをサーバーに置き、ログインを確かめてから古いキーを消す
 
-### §10 実装と異なる記述
+## 4. Terraform
 
-実装を記述に合わせるか、記述を実装に合わせるかを決めてから行う。
+- [ ] GCP・GitHub の設定を Terraform で書く
+- [ ] 【人】`terraform import` し、`plan` で差分がないことを確かめる
 
-- [x] §7「参照できる日付の範囲の、過去 100 日・未来 365 日への限定」：宿泊税テーブルの API（`/api/a-tax-table`）は 2020〜2099 年の任意の月を読める。guest-info などは指定日の前後 30 日の C/I も読む
-  - 宿泊税の API は JST の今月・先月だけを受け付け、行は表に出す項目だけを返すようにした（2026-11-04。`src/lib/aTaxMonths.ts`）
-  - guest-info などは実装を変えない（指定できる日付は範囲内。前後 30 日の検索は滞在中の予約を探すためで、返すのはその日に関係する予約だけ）。Security.md §7 の文言を実装に合わせ、§10 から削除した
-- [x] §7「セッションの期限の、当日の 23:00 までへの限定」：Firebase の最低値に合わせて期限を最短 5 分にしているので、22:55 以降のログインでは最長 23:05 まで有効になる
-  - 実装は変えず、Security.md §7 と `src/constants/date.ts` のコメントを実装に合わせた（2026-11-04）。厳密に 23:00 で切る必要はないと判断
+## 5. 依存のアップグレード
 
-
-## B. Claude Code だけでは完結しないもの
-
-GitHub・GCP・Firebase・Slack の管理画面や本番での操作、人の判断、旅館の PC での作業が要るもの。Claude Code は、コード・ワークフロー・コマンド・手順の用意までを行い、本番や管理画面の設定は人が行う。
-
-### §8 条件待ち
-
-- [ ] `main` と `development` のルールセットによる保護（PR・CI 合格の必須化、force push と削除の禁止）：GitHub Pro 待ち
-  - 人: GitHub の Settings → Rules で作成。Claude: 必須にする CI のジョブ名の一覧と設定内容を用意
-- [ ] デプロイ用の secrets の、Environment `production` への移動：GitHub Pro 待ち
-  - 人: Environment の作成と secrets の移動。Claude: `deploy.yml` に `environment: production` を追加
-- [ ] WIF の属性条件への、Environment `production` の追加：Environment の作成後
-  - 人: `gcloud iam workload-identity-pools providers update-oidc` を実行。Claude: コマンドを用意
-- [ ] 上記の保護が効いていることの確認：同上
-  - 人: 直接 push・force push・CI 失敗の PR のマージ・別ブランチからの GCP 認証が拒否されることを確かめる
-- [ ] Secret scanning・Push protection の利用可否の確認：同上
-  - 人: Settings → Code security で、非公開リポジトリで使えるか確かめる
-
-### §8 後回し
-
-- [ ] GCP のオーナー権限の、普段使う Google アカウントからの分離
-- [x] GitHub・Google・firebase・slack のアカウントへのパスキー・二段階認証の登録
-- [ ] Slack の Webhook の URL の、作り直しと Secret Manager への移動
-  - 人: Webhook の作り直し、Secret Manager への登録、実行用 SA への読み取り権限の付与、古い URL の無効化。Claude: `deploy.yml` を Secret Manager の参照に変更
-- [x] Dependabot の既存の警告の再分析：残りの対策の実装後
-  - Claude: 警告の内容と、このアプリで脆弱なコードが動くかの分析。人: Dismiss するかの判断と操作
-
-### §8 未着手
-
-- [ ] Firestore の PITR・削除保護・定期バックアップの有効化
-  - 人: 本番の GCP で `gcloud firestore databases update` などを実行。Claude: コマンドと、費用・保持期間の確認事項を用意
-- [ ] 端末登録による、未登録の端末からのログインの拒否
-  - 人: 方式の決定、旅館の PC への登録作業。Claude: 方式の案と実装
-- [ ] ログインのサーバー経由化と、API キーのサーバー専用化
-  - Claude: ログイン API でパスワードを受け取り、サーバーから Identity Toolkit を呼ぶ実装（CSP の `connect-src` も狭める）。人: API キーの制限（GCP の認証情報の画面）と、サーバー用のキーの配置
-- [ ] Terraform による GCP・GitHub の設定のコード化
-  - Claude: Terraform のコード。人: 既存リソースの import と apply（本番の権限が要る）
+- [ ] `@types/node` 26.6.6（#124）
+- [ ] `@mui/material`・`@mui/icons-material`・`@mui/material-nextjs` を一緒に 9.5 へ（#115・#119・#120）。移行ガイドを読み、nonce と印刷の見た目を確かめる
+- [ ] 【人】MUI のあと、画面と印刷の見た目を確かめる
+- [ ] `dependabot.yml` に `@mui/*` のグループを足す
+- [ ] `jsdom` 30・`@testing-library/jest-dom` 7（#116・#118）
+- [ ] 【人】#102（TypeScript 7）と #117（ESLint 10）を閉じる。`typescript-eslint`・`eslint-plugin-react` が対応したら上げ直す

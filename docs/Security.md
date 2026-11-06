@@ -70,6 +70,7 @@
 - WIF の属性条件による、このリポジトリの `main` ブランチの `deploy.yml` 以外からの GCP への認証の拒否
 - デプロイ用の SA への、対象の Cloud Run サービス・Artifact Registry・実行用の SA に限った権限の付与
 - `main` への push の CI が成功したときだけのデプロイ
+- `main` と `development` のルールセットによる、直接の push・force push・削除の禁止と、PR と CI の全ジョブの合格の必須化
 - CI が検査したコミットだけのデプロイ
 - WIF の認証ファイルの、Docker イメージとリポジトリからの除外
 - 本番へのデプロイと PR の作成の、Slack への通知
@@ -80,7 +81,6 @@
 - Emulator 上のテストによるFirestore Rules 全拒否の確認
 - ZAP の結果を Issue に書く権限を除いた、CI の権限の読み取りだけへの限定
 - GitHub Actions・CI のツール・Docker イメージの版の固定
-- Node.js などの実行環境の、サポート期間内の版への更新
 - 公開から7日未満の npm パッケージの版のインストールの禁止
 - npm パッケージの install スクリプトの実行の禁止
 - Dependabot による、依存の週1回の更新
@@ -93,12 +93,14 @@
 - ログへの入力の値の出力の禁止
 - コードレビューでの、入力の上限・個人情報の出力・実データの貼り付けの確認
 - 本番データの匿名化の実行中の、AI エージェントの停止
+- `.claude/settings.json` による、AI エージェントの push・gcloud・デプロイ・匿名化のコマンドと、認証情報（`~/.ssh`・gcloud・firebase CLI・`.env*`）の読み取りの拒否、確認を省くモードの無効化、CI の定義の編集の毎回の確認（コマンドの書き方を変えれば抜けられるので、本番への境界は `main` のルールセット）
 - Firebase Auth の新規登録が、API からも無効であることの確認
 - GCP の予算アラートによる、請求額の急な増加の検知
 - Cloud runの予算アラートによる、一定額での上限capの作成
 - VS Code の Workspace Trust の有効化と、信頼するフォルダーの限定
 - VS Code のタスクの自動実行の停止
 - github push用のSSH 鍵へのパスフレーズの付与
+- GitHub・Google・Slack のアカウントへの、パスキー・二段階認証の登録
 - 本番で開発用（Emulator）の設定が残っているときの、アプリの起動の停止
 - 開発環境で本番の認証情報や接続先があるときの、アプリの起動の停止
 - 開発用のサーバーと Emulator の、自分の PC からだけの接続の許可
@@ -119,39 +121,32 @@
 
 ### 条件待ち
 
-- `main` と `development` のルールセットによる保護（PR・CI 合格の必須化、force push と削除の禁止）：GitHub Pro 待ち
-- デプロイ用の secrets の、Environment `production` への移動：GitHub Pro 待ち
+- デプロイ用の secrets の、Environment `production` への移動：GitHub Pro で可能になった（未着手）
 - WIF の属性条件への、Environment `production` の追加：Environment の作成後
-- 上記の保護が効いていることの確認：同上
+- ルールセットと Environment の保護が効いていることの確認：Environment の作成後
 - Secret scanning・Push protection の利用可否の確認：同上
 
 ### 後回し
 
 - GCP のオーナー権限の、普段使う Google アカウントからの分離
-- GitHub・Google・firebase・slack のアカウントへのパスキー・二段階認証の登録
 - Slack の Webhook の URL の、作り直しと Secret Manager への移動
-- `firebase-admin` の 14 への更新
-- Dependabot の既存の警告の再分析：残りの対策の実装後
-- Node.js の 26 LTS への更新：2027 年中
 
 ### 未着手
 
-- ログイン成功時の接続元 IP の、Slack への通知
-- AI エージェントの権限の制限（push、デプロイ、認証情報の読み取りの拒否）
 - Firestore の PITR・削除保護・定期バックアップの有効化
-- 端末登録による、未登録の端末からのログインの拒否
+- SMS による MFA（PC のアカウントごとに業務用の携帯電話を登録）
 - ログインのサーバー経由化と、API キーのサーバー専用化
 - ログインの失敗回数の制限
 - ログイン API での、パスワードの長さの確認
 - Terraform による GCP・GitHub の設定のコード化
 
 ## 9. 採用しなかった対策
-- アプリのログインの MFA
-  - 理由：端末登録で代わりにするため
-  - 見直す条件：端末登録が運用に合わないとき
+- 端末登録・IP 登録による、未登録の端末・接続元からのログインの拒否
+  - 理由：PC の入れ替えや回線の変更のたびに登録し直す運用の負担が大きく、SMS の MFA のほうが実装も運用も楽なため（2026-11-06 決定）
+  - 見直す条件：SMS の MFA が運用に合わないとき
 - 前段での Google アカウントによる認証（IAP）
   - 理由：Edge でも使うため、スタッフ用の Google アカウントの運用が必要になる
-  - 見直す条件：端末登録が運用に合わないとき、またはスタッフごとのアカウントを作るとき
+  - 見直す条件：SMS の MFA が運用に合わないとき、またはスタッフごとのアカウントを作るとき
 - Trusted Types
   - 理由：React が自動でエスケープし、`dangerouslySetInnerHTML` も使っていないので効果が小さく、Next.js・MUI・Firebase が動かなくなるおそれがあるため
   - 見直す条件：HTML を直接扱う機能を追加するとき（試すときは Report-Only から始める）
