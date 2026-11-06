@@ -46,9 +46,9 @@
 
 ## 5. 依存のアップグレード
 
-- [ ] `@types/node` 26.6.6（#124）
-- [ ] `@mui/material`・`@mui/icons-material`・`@mui/material-nextjs` を一緒に 9.5 へ（#115・#119・#120）。移行ガイドを読み、nonce と印刷の見た目を確かめる
-- [ ] 【人】MUI のあと、画面と印刷の見た目を確かめる
-- [ ] `dependabot.yml` に `@mui/*` のグループを足す
-- [ ] `jsdom` 30・`@testing-library/jest-dom` 7（#116・#118）
+- [x] `@types/node` 26.6.6（#124）
+- [x] `@mui/material`・`@mui/icons-material`・`@mui/material-nextjs` を一緒に 9.5 へ（#115・#119・#120）。移行ガイドを読み、nonce と印刷の見た目を確かめる（nonce は確認済み。見た目は次の【人】）
+- [ ] 【人】MUI のあと、画面と印刷の見た目を確かめる（特に国名の入力、ログイン画面、予約の追加カードとモーダルのアイコン）
+- [x] `dependabot.yml` に `@mui/*` のグループを足す
+- [x] `jsdom` 30・`@testing-library/jest-dom` 7（#116・#118）。31 は公開から7日たっていないので 30.1.3
 - [ ] 【人】#102（TypeScript 7）と #117（ESLint 10）を閉じる。`typescript-eslint`・`eslint-plugin-react` が対応したら上げ直す

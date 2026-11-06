@@ -36,11 +36,11 @@ make check             # 上の全部（make で起動中の Emulator / 開発�
 
 ## 技術スタック（インストール済みの版）
 
-Next.js 16.4（App Router）/ React 19.3 / MUI 7.3 + X Date Pickers 9.16 / Emotion 11 / Firebase 13（ブラウザ: Auth のみ）/ firebase-admin 14.5（サーバー: Firestore・Auth）/ Zod 4 / dayjs / TypeScript 6（strict）/ Vitest 5 + fast-check / Playwright 1.64 / Node 26（Docker・CI）
+Next.js 16.4（App Router）/ React 19.3 / MUI 9.5 + X Date Pickers 9.16 / Emotion 11 / Firebase 13（ブラウザ: Auth のみ）/ firebase-admin 14.5（サーバー: Firestore・Auth）/ Zod 4 / dayjs / TypeScript 6（strict）/ Vitest 5 + fast-check / Playwright 1.64 / Node 26（Docker・CI）
 
 **どれも学習データより新しい。** 古い知識で書かない:
 - Next.js は同梱ドキュメント `node_modules/next/dist/docs/` を先に読む。例: `middleware.ts` は **`proxy.ts`（関数名 `proxy`）に改名済み**。Route Handler の `params` は `Promise`
-- その他のライブラリは Context7 MCP で公式ドキュメントを確認する（Zod 4 の `z.flattenError`、`.default()` と `.catch()` の挙動、MUI 7 の `slotProps` など）。query は具体的に（例: `Firestore transaction firebase-admin node`）、1つの疑問に3回まで。ID（`resolve-library-id` を省ける）: `/vercel/next.js` `/facebook/react` `/mui/material-ui` `/mui/mui-x` `/firebase/firebase-js-sdk` `/firebase/firebase-admin-node` `/colinhacks/zod` `/iamkun/dayjs` `/vitest-dev/vitest` `/microsoft/playwright`
+- その他のライブラリは Context7 MCP で公式ドキュメントを確認する（Zod 4 の `z.flattenError`、`.default()` と `.catch()` の挙動、MUI 9 の `slotProps`（system props と `inputProps`・`PaperProps` などは削除済み）など）。query は具体的に（例: `Firestore transaction firebase-admin node`）、1つの疑問に3回まで。ID（`resolve-library-id` を省ける）: `/vercel/next.js` `/facebook/react` `/mui/material-ui` `/mui/mui-x` `/firebase/firebase-js-sdk` `/firebase/firebase-admin-node` `/colinhacks/zod` `/iamkun/dayjs` `/vitest-dev/vitest` `/microsoft/playwright`
 
 ## アーキテクチャ
 
