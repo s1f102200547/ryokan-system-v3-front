@@ -1,38 +1,54 @@
-# Security 対策の実装手順
+# Security 対策の TODO
 
-## A. Claude Code で完結できるもの
+[Security.md](Security.md) §8 を実装する。終わったら Security.md §7 に移し、ここから消す。【人】は本番の権限・管理画面の操作。
 
-### §8 未着手
+順番: 1 → 2 → 3 → 4。5 はいつでも。
 
-- [ ] ログインの失敗回数の制限
-  - メモ: 今はブラウザが Identity Toolkit を直接呼ぶので、アプリは失敗を数えられない。「ログインのサーバー経由化」（B）の後に行う
+## 1. 手作業
 
-## B. Claude Code だけでは完結しないもの
+- [ ] 【人】Environment `production` を作る（ブランチは `main` だけ）。`deploy.yml` の secrets をそこへ移す
+- [ ] `deploy.yml` の job に `environment: production` を足す
+- [ ] 【人】WIF の属性条件に ` && assertion.environment == 'production'` を足す（今の条件を控えてから `update-oidc`）
+- [ ] 【人】保護を確かめる: 直接 push・force push・削除・CI 失敗の PR のマージ・`main` 以外からの GCP 認証が拒否される
+- [ ] 【人】Secret scanning・Push protection が非公開リポジトリで使えるか確かめ、結果を Security.md §8 に書く
+- [ ] 【人】GCP のオーナーを管理専用の Google アカウントに移し、普段のアカウントから外す
+- [ ] 【人】Slack の Webhook を作り直し、Secret Manager（`slack-webhook-url`）に置く。`ryokan-runtime` にその secret の `secretAccessor` を付ける
+- [ ] `deploy.yml` の `SLACK_WEBHOOK_URL` を `env_vars` から `secrets:` に替える
+- [ ] 【人】通知を確かめてから、古い Webhook と GitHub Secrets の `SLACK_WEBHOOK_URL` を消す
+- [ ] 【人】Firestore の PITR・削除保護・毎日のバックアップを有効にする（`gcloud firestore databases update --enable-pitr --delete-protection`、`gcloud firestore backups schedules create --recurrence=daily`）。restore を別の database で1回試す
 
-### §8 条件待ち
+## 2. SMS による MFA
 
-- [ ] デプロイ用の secrets の、Environment `production` への移動：GitHub Pro で可能になった（未着手）
-  - 人: Environment の作成と secrets の移動。Claude: `deploy.yml` に `environment: production` を追加
-- [ ] WIF の属性条件への、Environment `production` の追加：Environment の作成後
-  - 人: `gcloud iam workload-identity-pools providers update-oidc` を実行。Claude: コマンドを用意
-- [ ] 上記の保護が効いていることの確認：同上
-  - 人: 直接 push・force push・CI 失敗の PR のマージ・別ブランチからの GCP 認証が拒否されることを確かめる
-- [ ] Secret scanning・Push protection の利用可否の確認：同上
-  - 人: Settings → Code security で、非公開リポジトリで使えるか確かめる
+- [ ] 【人】SMS を受け取る携帯電話を決める（例: フロントの業務用携帯＋予備に責任者の携帯）
+- [ ] 【人】Identity Platform にアップグレードし、SMS 多要素認証を有効にする。SMS の送り先は日本だけにする
+- [ ] 開発用ユーザーを `emailVerified: true` にし、MFA の電話番号を登録する（seed）
+- [ ] ログイン画面: パスワードのあと、invisible の reCAPTCHA で SMS を送り、コードを入力して `resolveSignIn` する。コードの誤り・期限切れ・送りすぎのメッセージ、再送ボタン
+- [ ] ログイン画面の CSP・COEP を reCAPTCHA に合わせる。`csp.test.ts` を更新する
+- [ ] テスト: unit・E2E・Emulator（コードは Emulator の REST で取る）
+- [ ] `scripts/ops/enrollMfa.ts`: PC のアカウントに `emailVerified: true` と電話番号を登録する（既存の登録を残す。dry-run 付き）
+- [ ] 【人】Claude を止めて、本番で `enrollMfa.ts` を実行する
+- [ ] 【人】デプロイし、各 PC（Chrome・Edge）で SMS のコードを入れてログインできるか確かめる
+- [ ] `/api/auth/login` で ID トークンの `firebase.sign_in_second_factor` を確かめ、MFA を通っていないログインを拒否する
+- [ ] 【人】デプロイしてログインを確かめ、Security.md を更新する
 
-### §8 後回し
+## 3. ログインのサーバー経由化と失敗回数の制限
 
-- [ ] GCP のオーナー権限の、普段使う Google アカウントからの分離
-- [ ] Slack の Webhook の URL の、作り直しと Secret Manager への移動
-  - 人: Webhook の作り直し、Secret Manager への登録、実行用 SA への読み取り権限の付与、古い URL の無効化。Claude: `deploy.yml` を Secret Manager の参照に変更
+- [ ] 2 のあとに、やるかを決める
+- [ ] 失敗回数の制限: Firestore（例: `loginAttempts`）にメールと IP ごとの失敗を記録し、上限で 429 と Slack 通知
+- [ ] サーバーから `accounts:signInWithPassword`（MFA は `mfaSignIn:start` / `:finalize`）を呼ぶ。パスワードの長さの上限を Zod で確かめる
+- [ ] ブラウザから Firebase の SDK と `NEXT_PUBLIC_FIREBASE_*` を外す
+- [ ] 【人】Identity Toolkit だけに制限した新しい API キーをサーバーに置き、ログインを確かめてから古いキーを消す
 
-### §8 未着手
+## 4. Terraform
 
-- [ ] Firestore の PITR・削除保護・定期バックアップの有効化
-  - 人: 本番の GCP で `gcloud firestore databases update` などを実行。Claude: コマンドと、費用・保持期間の確認事項を用意
-- [ ] 端末登録による、未登録の端末からのログインの拒否
-  - 人: 方式の決定、旅館の PC への登録作業。Claude: 方式の案と実装
-- [ ] ログインのサーバー経由化と、API キーのサーバー専用化
-  - Claude: ログイン API でパスワードを受け取り、サーバーから Identity Toolkit を呼ぶ実装（CSP の `connect-src` も狭める）。人: API キーの制限（GCP の認証情報の画面）と、サーバー用のキーの配置
-- [ ] Terraform による GCP・GitHub の設定のコード化
-  - Claude: Terraform のコード。人: 既存リソースの import と apply（本番の権限が要る）
+- [ ] GCP・GitHub の設定を Terraform で書く
+- [ ] 【人】`terraform import` し、`plan` で差分がないことを確かめる
+
+## 5. 依存のアップグレード
+
+- [ ] `@types/node` 26.6.6（#124）
+- [ ] `@mui/material`・`@mui/icons-material`・`@mui/material-nextjs` を一緒に 9.5 へ（#115・#119・#120）。移行ガイドを読み、nonce と印刷の見た目を確かめる
+- [ ] 【人】MUI のあと、画面と印刷の見た目を確かめる
+- [ ] `dependabot.yml` に `@mui/*` のグループを足す
+- [ ] `jsdom` 30・`@testing-library/jest-dom` 7（#116・#118）
+- [ ] 【人】#102（TypeScript 7）と #117（ESLint 10）を閉じる。`typescript-eslint`・`eslint-plugin-react` が対応したら上げ直す
