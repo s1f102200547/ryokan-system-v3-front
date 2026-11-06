@@ -23,6 +23,11 @@ updates:
         patterns:
           - "vitest"
           - "@vitest/*"
+      # @mui/material・@mui/icons-material・@mui/material-nextjs は同じ版にそろえる（major を別々の PR にすると、
+      # 片方だけ上げた PR は CI が通らない）。@mui/x-* も @mui/material の major に合わせるので一緒にする。major も含めて1つの PR にする
+      mui:
+        patterns:
+          - "@mui/*"
       # minor と patch はまとめて1つの PR にする。major は1つずつ（変更点を確かめる）
       npm-minor-and-patch:
         update-types:

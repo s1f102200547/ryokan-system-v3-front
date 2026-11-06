@@ -502,6 +502,24 @@ test.describe('GuestInfo - モーダル（auto-save）', () => {
     await expect(page.locator('[data-testid="save-status"][data-status="saved"]')).toBeVisible({ timeout: 3000 })
   })
 
+  // MUI 9 で renderInput の params.slotProps を上書きすると入力できなくなった（回帰の検査）
+  test('C/I後タブ: 国名を入力して候補から選ぶと国コードで自動保存される', async ({ page }) => {
+    const patches: Record<string, unknown>[] = []
+    page.on('request', (req) => {
+      if (req.method() === 'PATCH' && req.url().endsWith('/api/reservations/test-id-1')) {
+        patches.push(req.postDataJSON() as Record<string, unknown>)
+      }
+    })
+    await page.getByTestId('reservation-card').first().click()
+    await page.getByRole('button', { name: 'C/I後' }).click()
+    const country = page.getByRole('combobox', { name: '国名' })
+    await country.fill('フランス')
+    await page.getByRole('option', { name: 'フランス', exact: true }).click()
+    await expect(country).toHaveValue('フランス')
+    await expect(page.locator('[data-testid="save-status"][data-status="saved"]')).toBeVisible({ timeout: 3000 })
+    expect(patches).toContainEqual({ country: 'FR' })
+  })
+
   test('モーダルを閉じて再度開いたとき変更が反映されている', async ({ page }) => {
     await page.getByTestId('reservation-card').first().click()
     await page.getByText('name').first().click()

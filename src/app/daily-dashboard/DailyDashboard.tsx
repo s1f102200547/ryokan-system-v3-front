@@ -135,7 +135,7 @@ export function DailyDashboard({ today }: Props) {
               },
             }}
           >
-            <Typography fontSize="1.15rem" data-testid="date-label">{dateLabel.replace('/', ' / ')}</Typography>
+            <Typography sx={{ fontSize: '1.15rem' }} data-testid="date-label">{dateLabel.replace('/', ' / ')}</Typography>
             <Typography variant="body1" color="text.secondary" data-testid="diff-label">
               ( {diffLabel} )
             </Typography>

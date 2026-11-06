@@ -15,9 +15,9 @@ export function LoginPage() {
   }
 
   return (
-    <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
       <Paper elevation={3} sx={{ p: 4, width: 360 }}>
-        <Typography variant="h5" mb={3}>ログイン</Typography>
+        <Typography variant="h5" sx={{ mb: 3 }}>ログイン</Typography>
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -25,7 +25,7 @@ export function LoginPage() {
           </Alert>
         )}
 
-        <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2}>
+        <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <TextField
             id="email"
             label="メールアドレス"
