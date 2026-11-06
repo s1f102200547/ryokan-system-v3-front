@@ -3,7 +3,7 @@
 import Card from '@mui/material/Card'
 import IconButton from '@mui/material/IconButton'
 import Tooltip from '@mui/material/Tooltip'
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
+import AddCircleOutlineOutlinedIcon from '@mui/icons-material/AddCircleOutlineOutlined'
 
 type Props = {
   onClick: () => void
@@ -30,7 +30,7 @@ export function AddReservationCard({ onClick }: Props) {
         }}
       >
         <IconButton size="large" sx={{ p: 0 }} tabIndex={-1}>
-          <AddCircleOutlineIcon fontSize="large" />
+          <AddCircleOutlineOutlinedIcon fontSize="large" />
         </IconButton>
       </Card>
     </Tooltip>

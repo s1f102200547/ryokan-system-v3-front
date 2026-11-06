@@ -71,7 +71,7 @@ const LABELS: Record<SectionKey, string> = {
 const roomOptions = ROOM_NUMBERS.map((r) => ({ value: r, label: r }))
 
 const menuProps = {
-  PaperProps: { sx: { '& .MuiMenuItem-root': { minHeight: 23, py: 0, fontSize: '0.67rem' } } },
+  slotProps: { paper: { sx: { '& .MuiMenuItem-root': { minHeight: 23, py: 0, fontSize: '0.67rem' } } } },
 }
 
 const compactInputSx = {
@@ -176,7 +176,7 @@ export const ReservationEditorList = memo(function ReservationEditorList({ local
               value={localData.guest_name}
               onChange={(e) => onFieldChange('guest_name', e.target.value)}
               size="small" fullWidth variant="standard"
-              inputProps={{ 'aria-label': 'ゲスト名' }}
+              slotProps={{ htmlInput: { 'aria-label': 'ゲスト名' } }}
               sx={compactInputSx}
             />
           </Box>
