@@ -74,7 +74,7 @@ export function ReservationCardSet2({ localData, onFieldChange, onBlurFlush }: P
     >
       {/* ① 宿泊税 */}
       <Box sx={{ width: '95%', p: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
-        <Typography variant="subtitle2" fontWeight={600} mb={2}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
           ① 宿泊税 {!exempt && `¥${tax.toLocaleString()}`}
         </Typography>
         <Box sx={compactGridSx}>
@@ -103,7 +103,7 @@ export function ReservationCardSet2({ localData, onFieldChange, onBlurFlush }: P
           />
         </Box>
         {exempt && (
-          <Typography variant="body2" color="text.secondary" mt={1}>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             Chillnn 予約のため宿泊税不要
           </Typography>
         )}
@@ -113,7 +113,7 @@ export function ReservationCardSet2({ localData, onFieldChange, onBlurFlush }: P
 
       {/* ② マーケティング情報 */}
       <Box sx={{ width: '95%', p: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
-        <Typography variant="subtitle2" fontWeight={600} mb={2}>② マーケティング情報</Typography>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>② マーケティング情報</Typography>
 
         {/* 3列グリッド */}
         <Box sx={compactGridSx}>
@@ -136,7 +136,13 @@ export function ReservationCardSet2({ localData, onFieldChange, onBlurFlush }: P
                 value={selectedCountry}
                 onChange={(_, v) => onFieldChange('country', v?.value || null)}
                 renderInput={(params) => (
-                  <TextField {...params} label="国名" slotProps={{ inputLabel: { shrink: true } }} size="small" />
+                  // MUI 9 は入力の ref・イベントを params.slotProps で渡す。上書きせずにマージする
+                  <TextField
+                    {...params}
+                    label="国名"
+                    slotProps={{ ...params.slotProps, inputLabel: { ...params.slotProps.inputLabel, shrink: true } }}
+                    size="small"
+                  />
                 )}
               />
             </Box>

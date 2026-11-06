@@ -13,7 +13,7 @@ import Typography from '@mui/material/Typography'
 import CloseIcon from '@mui/icons-material/Close'
 import CloudDoneIcon from '@mui/icons-material/CloudDone'
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
+import ErrorOutlinedIcon from '@mui/icons-material/ErrorOutlined'
 import { debounce } from '@/lib/debounce'
 import { dateDiff } from '@/lib/dateUtils'
 import { rememberArrayFields, resizeNightFields, resizeNightArray } from '@/domain/reservation/nightArrays'
@@ -251,6 +251,6 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
 function SaveStatusIcon({ status }: { status: SaveStatus }) {
   if (status === 'saving') return <CloudUploadIcon fontSize="small" sx={{ color: 'text.disabled' }} data-testid="save-status" data-status="saving" />
   if (status === 'saved') return <CloudDoneIcon fontSize="small" sx={{ color: 'success.main' }} data-testid="save-status" data-status="saved" />
-  if (status === 'error') return <ErrorOutlineIcon fontSize="small" sx={{ color: 'error.main' }} data-testid="save-status" data-status="error" />
+  if (status === 'error') return <ErrorOutlinedIcon fontSize="small" sx={{ color: 'error.main' }} data-testid="save-status" data-status="error" />
   return null
 }
