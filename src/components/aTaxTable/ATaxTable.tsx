@@ -11,19 +11,20 @@ import { BalanceDisplay } from './BalanceDisplay'
 import { ReservationTable, computeProcessedRows } from './ReservationTable'
 import type { ATaxTableRow } from '@/application/aTaxTable/getATaxTableUseCase'
 import { getTodayJST } from '@/lib/dateUtils'
+import { aTaxTableMonths } from '@/lib/aTaxMonths'
 
 type MonthOption = 'previous' | 'current'
 
 // 今月・先月は JST の今日（YYYY-MM-DD）から決める。ブラウザのローカル時刻に依存させない
+// API も同じ2か月しか受け付けない（src/lib/aTaxMonths.ts）
 export function monthlyTarget(option: MonthOption, today: string) {
-  const [year, month] = today.split('-').map(Number)
-  const prevMonth = month === 1 ? 12 : month - 1
-  const prevYear = month === 1 ? year - 1 : year
+  const { current, previous } = aTaxTableMonths(today)
+  const target = option === 'current' ? current : previous
   return {
-    targetYear: option === 'current' ? year : prevYear,
-    targetMonth: option === 'current' ? month : prevMonth,
-    previousLabel: `${prevMonth}月`,
-    currentLabel: `${month}月`,
+    targetYear: target.year,
+    targetMonth: target.month,
+    previousLabel: `${previous.month}月`,
+    currentLabel: `${current.month}月`,
   }
 }
 

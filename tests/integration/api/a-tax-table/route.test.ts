@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GET } from '@/app/api/a-tax-table/route'
 import { InfraError } from '@/types/errors'
+import { setupFakeToday } from '@tests/utils/routeTestHelper'
 
 vi.mock('@/application/aTaxTable/getATaxTableUseCase')
 import { getATaxTableUseCase } from '@/application/aTaxTable/getATaxTableUseCase'
@@ -22,6 +23,9 @@ function makeRequest(year?: string, month?: string, withSession = true) {
     headers: withSession ? { cookie: 'session=valid' } : {},
   })
 }
+
+// FIXED_TODAY = 2026-05-20（今月 = 2026年5月、先月 = 2026年4月）
+setupFakeToday()
 
 describe('GET /api/a-tax-table', () => {
   beforeEach(() => {
@@ -57,5 +61,19 @@ describe('GET /api/a-tax-table', () => {
     mockUseCase.mockRejectedValue(new InfraError('FIRESTORE_UNAVAILABLE', 'down'))
     const res = await GET(makeRequest('2026', '4'))
     expect(res.status).toBe(503)
+  })
+
+  // 画面と同じ今月・先月だけ。Session Cookie を盗まれても、過去の宿泊客を月ごとに一覧させない
+  it.each([['2026', '5'], ['2026', '4']])('%s年%s月（今月・先月）は 200', async (year, month) => {
+    mockUseCase.mockResolvedValue({ rows: [], safeBalanceCheckers: {} })
+    const res = await GET(makeRequest(year, month))
+    expect(res.status).toBe(200)
+    expect(mockUseCase).toHaveBeenCalledWith(Number(year), Number(month))
+  })
+
+  it.each([['2026', '3'], ['2026', '6'], ['2025', '5'], ['2020', '1'], ['2099', '12']])('%s年%s月（今月・先月以外）は 400', async (year, month) => {
+    const res = await GET(makeRequest(year, month))
+    expect(res.status).toBe(400)
+    expect(mockUseCase).not.toHaveBeenCalled()
   })
 })
