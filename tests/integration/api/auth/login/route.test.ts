@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { setNowJST } from '@tests/utils/timeHelper'
 import { POST } from '@/app/api/auth/login/route'
 
 // adminAuth の verifyIdToken / createSessionCookie をモック
@@ -41,6 +42,33 @@ describe('POST /api/auth/login', () => {
     expect(response.status).toBe(200)
     expect(body).toEqual({ success: true })
     expect(response.headers.get('set-cookie')).toContain('session=')
+  })
+
+  // Secure（HTTPS のときだけ送る）は本番だけで付ける。ローカルの HTTP では動きを確かめられないので、付く条件だけを見る
+  describe('Cookie の Secure', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs()
+      vi.useRealTimers()
+    })
+
+    async function loginCookie(): Promise<string> {
+      mockVerifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'pc1@example.com' } as never)
+      mockCreateSessionCookie.mockResolvedValue('session-cookie-value')
+      const response = await POST(makeRequest({ idToken: 'valid-id-token' }))
+      expect(response.status).toBe(200)
+      return response.headers.get('set-cookie') ?? ''
+    }
+
+    it('production では Secure を付ける', async () => {
+      vi.useFakeTimers()
+      setNowJST('2026-05-20T12:00') // 本番は時間外のログインを断るので、営業時間内にする
+      vi.stubEnv('NODE_ENV', 'production')
+      expect(await loginCookie()).toMatch(/;\s*Secure(;|$)/i)
+    })
+
+    it('development / test では付けない（HTTP の開発サーバーで Cookie が送られなくなるため）', async () => {
+      expect(await loginCookie()).not.toMatch(/;\s*Secure(;|$)/i)
+    })
   })
 
   it('クライアントからのデータにidToken がない場合 400 を返す', async () => {

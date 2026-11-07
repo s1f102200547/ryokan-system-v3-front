@@ -29,10 +29,12 @@ npm run test -- --run  # unit / integration / PBT / fuzz（Vitest。Emulator 不
 npm run test:tz        # tests/time/ を3つの TZ で実行
 npm run test:emulator  # Firestore/Auth Emulator への往復検査（Java と firebase-tools が必要）
 npm run e2e            # Playwright（API はブラウザ側でモック。Emulator 不要）
+npm run e2e:prod       # 本番ビルドに対する E2E（セキュリティヘッダーが攻撃を止めるか。127.0.0.1:3100）
+npm run e2e:emulator   # 本物のログイン（Auth Emulator）を通す E2E（セッション Cookie の属性・失効。127.0.0.1:3200）
 make check             # 上の全部（make で起動中の Emulator / 開発サーバーは止めてから）
 ```
 
-変更後は最低限 `npm run lint`、`npx tsc --noEmit`、`npm run test -- --run` を通す。画面・認証・ルーティング・印刷に触れたら `npm run e2e`、Dockerfile・`next.config.ts`・環境変数に触れたら `npm run build` も。
+変更後は最低限 `npm run lint`、`npx tsc --noEmit`、`npm run test -- --run` を通す。画面・認証・ルーティング・印刷に触れたら `npm run e2e`（ヘッダー・CSP・`proxy.ts`・`next.config.ts` なら `npm run e2e:prod`、ログイン・Cookie なら `npm run e2e:emulator` も）、Dockerfile・`next.config.ts`・環境変数に触れたら `npm run build` も。
 
 ## 技術スタック（インストール済みの版）
 

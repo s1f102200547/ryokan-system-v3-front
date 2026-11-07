@@ -20,6 +20,13 @@ describe('verifySession', () => {
     expect(await verifySession('cookie')).toEqual({ uid: 'u1' })
   })
 
+  // 第2引数（checkRevoked）がないと、失効させた Cookie や無効化・削除したユーザーの Cookie が期限まで通る
+  it('失効の確認つきで検証する', async () => {
+    vi.mocked(adminAuth.verifySessionCookie).mockResolvedValue({ uid: 'u1' } as never)
+    await verifySession('cookie')
+    expect(adminAuth.verifySessionCookie).toHaveBeenCalledWith('cookie', true)
+  })
+
   it.each([
     ['期限切れ', { code: 'auth/session-cookie-expired', message: 'Firebase session cookie has expired.' }],
     ['失効', { code: 'auth/session-cookie-revoked', message: 'x' }],
