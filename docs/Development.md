@@ -39,6 +39,7 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 |---|---|---|---|
 | Unit | `tests/unit/` | `npm run test` | Domain を最も厚く（日付の境界、部屋の状態、予約の状態、配列の長さ）。infra の `toReservation`、lib、hooks の純粋関数、匿名化の変換 |
 | 制約の突き合わせ | `tests/unit/constraints/` | 同上 | UI の選択肢 → Route の Zod → Infra の読み取りで値が消えないこと。上限ちょうどは通り、+1 は拒否 |
+| 構成の固定 | `tests/unit/config/` | 同上 | ワークフローの `uses:` が SHA、Docker イメージが digest、CI のツールが正確な版、curl で取るバイナリのチェックサム検査。`.claude/settings.json` の拒否・確認の規則が残っていること |
 | Integration | `tests/integration/api/` | 同上 | Route Handler ごとに: 未ログイン 401、入力の検証 400、正常系、主な `InfraError`、想定外のエラー。Application は `vi.mock` |
 | Fuzz | `tests/integration/fuzz/` | 同上 | 全 Route に壊れた入力を送り、5xx を返さない・Slack に通知しないこと |
 | PBT | `tests/pbt/` | 同上 | fast-check。読み取りの正規化、更新の検証、部屋の状態の性質 |
@@ -82,7 +83,7 @@ semgrep ─┘                              └─→ zap-scan
 | semgrep | `p/default` `p/typescript` `p/react`。1件でも失敗 | 該当行の前に `// nosemgrep: <ルールID>` と理由 |
 | zap-scan | 本番ビルドを起動し、ZAP Baseline で `/login` を検査。WARN 以上で失敗 | `.zap/rules.tsv`（ASCII、タブ区切り、空行なし） |
 
-Actions・ツール・Docker イメージは SHA / digest / 版で固定している。上げるときも固定の形を保つ（Actions はタグが指すコミットの SHA を書き、行末に版をコメントで書く。ツールは公開から7日以上たった版）。Dependabot は Semgrep と ZAP のイメージ、CI の `firebase-tools` を更新しないので手で上げる。ZAP を上げると新しいルールで CI が落ちることがある。
+Actions・ツール・Docker イメージは SHA / digest / 版で固定している（`tests/unit/config/pinning.test.ts` が検査する）。上げるときも固定の形を保つ（Actions はタグが指すコミットの SHA を書き、行末に版をコメントで書く。ツールは公開から7日以上たった版）。Dependabot は Semgrep と ZAP のイメージ、CI の `firebase-tools` を更新しないので手で上げる。ZAP を上げると新しいルールで CI が落ちることがある。
 
 Semgrep を手元で試す: `docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:1.182.1 semgrep scan --metrics=off --config p/default --config p/typescript --config p/react`
 
