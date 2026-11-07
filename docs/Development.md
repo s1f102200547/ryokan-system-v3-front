@@ -92,7 +92,22 @@ Actions・ツール・Docker イメージは SHA / digest / 版で固定して�
 
 Semgrep を手元で試す: `docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:1.182.1 semgrep scan --metrics=off --config p/default --config p/typescript --config p/react`
 
-未実装: PR ごとの staging 環境、CI 失敗時の Slack 通知、ZAP の Full Scan。
+### ZAP の能動的な検査（`.github/workflows/zap-full.yml`）
+
+週1回（月曜 10:00 JST）と手動（`workflow_dispatch`）で動く。時間がかかるので PR ごとには動かさない。PR ごとの Baseline（上の zap-scan）は残す。
+
+| 段 | 対象 | 計画 | 見つけるもの |
+|---|---|---|---|
+| A | 本番ビルド・未ログイン | `.zap/full-prod.yaml` | 401 にならない API、エラーに出る内部の情報、ヘッダーの抜け |
+
+- ZAP の Automation Framework を Docker で動かす（`zap.sh -cmd -autorun`）。イメージは zap-scan と同じ digest
+- 全 Route を `requestor` に列挙する。Route を足したら計画にも足す（`tests/unit/config/zapPlans.test.ts` が突き合わせる）
+- `.zap/rules.tsv` で IGNORE にしたものは、計画の `alertFilter` でも除外する（同じテストが確かめる）
+- 指摘が Low 以上なら失敗（`exitStatus`）。responseCode の不一致（401 にならない API）も失敗（`failOnWarning`）
+- レポートは artifact（`zap-full-prod`）。Issue は書かない（permissions は `contents: read` だけ）
+- 本番ビルドは 23:00〜6:00 JST に全ページを `/time-restricted` に回すので、手動で動かすときも営業時間内に
+
+未実装: PR ごとの staging 環境、CI 失敗時の Slack 通知。
 
 ## デプロイ（`.github/workflows/deploy.yml`）
 
