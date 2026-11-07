@@ -41,6 +41,22 @@ jobs:
         newRisk: "False Positive"
       - ruleId: 90004   # Spectre 対策の分離（COOP・COEP・CORP）
         newRisk: "False Positive"
+      # 誤検知（2026-11-07 に確認）。URL を絞り、他の API で同じ指摘が出たら見逃さないようにする
+      # キャンセル・復活は状態を変える（1回目 200、2回目 409）。ZAP は応答の違いを注入の成功と取り違える。
+      # staff_name は操作履歴に文字列で保存するだけで、SQL もファイルのパスも組み立てない
+      - ruleId: 40018   # SQL Injection
+        url: "http://127.0.0.1:3000/api/reservations/[^/]+/(cancel|restore)"
+        urlRegex: true
+        newRisk: "False Positive"
+      - ruleId: 6       # Path Traversal
+        url: "http://127.0.0.1:3000/api/reservations/[^/]+/(cancel|restore)"
+        urlRegex: true
+        newRisk: "False Positive"
+      # 開発サーバーの bundle の中の数値（React の開発版など）。本番ビルド（段A）では出ない
+      - ruleId: 10096   # Timestamp Disclosure - Unix
+        url: "http://127.0.0.1:3000/_next/static/.*"
+        urlRegex: true
+        newRisk: "False Positive"
 
   # すべてのリクエストにログイン済みの Cookie を付ける（ない場合は足す）
   - type: replacer
