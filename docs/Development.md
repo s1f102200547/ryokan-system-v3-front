@@ -99,6 +99,7 @@ Semgrep を手元で試す: `docker run --rm -v "$PWD:/src" -w /src semgrep/semg
 | 段 | 対象 | 計画 | 見つけるもの |
 |---|---|---|---|
 | A | 本番ビルド・未ログイン | `.zap/full-prod.yaml` | 401 にならない API、エラーに出る内部の情報、ヘッダーの抜け |
+| B | 開発サーバー + Emulator + 人工のテストデータ・ログイン済み | `.zap/full-dev-auth.yaml` | ログイン後の全 API で、入力から起きる 5xx・注入・エラーの漏れ。書き込みが起きるので Emulator だけに向ける |
 
 - ZAP の Automation Framework を Docker で動かす（`zap.sh -cmd -autorun`）。イメージは zap-scan と同じ digest
 - 全 Route を `requestor` に列挙する。Route を足したら計画にも足す（`tests/unit/config/zapPlans.test.ts` が突き合わせる）
@@ -106,6 +107,8 @@ Semgrep を手元で試す: `docker run --rm -v "$PWD:/src" -w /src semgrep/semg
 - 指摘が Low 以上なら失敗（`exitStatus`）。responseCode の不一致（401 にならない API）も失敗（`failOnWarning`）
 - レポートは artifact（`zap-full-prod`）。Issue は書かない（permissions は `contents: read` だけ）
 - 本番ビルドは 23:00〜6:00 JST に全ページを `/time-restricted` に回すので、手動で動かすときも営業時間内に
+- 段B の Cookie は `scripts/ci/zapSession.ts` が Auth Emulator の開発用ユーザーで取り、環境変数 `ZAP_SESSION` で計画の `replacer` に渡す（計画には値を書かない）。テストデータは `npm run seed -- --fixture`（人工データ）
+- 段B は開発サーバーなので CSP（`'unsafe-eval'`）とヘッダーが本番と違う。ヘッダー系の指摘は計画の `alertFilter` で除外し、段A と `e2e/prod/` に任せる
 
 未実装: PR ごとの staging 環境、CI 失敗時の Slack 通知。
 

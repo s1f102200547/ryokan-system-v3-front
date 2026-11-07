@@ -26,7 +26,7 @@ function requestNames(plan: string): string[] {
   return [...plan.matchAll(/name:\s*"([A-Z]+ [^"]+)"/g)].map((m) => m[1]).filter((n) => !n.startsWith('PAGE ')).sort()
 }
 
-const PLANS = ['full-prod.yaml'] as const
+const PLANS = ['full-prod.yaml', 'full-dev-auth.yaml'] as const
 
 it('Route を読めている（空振りしていない）', () => {
   expect(EXPORTED.length).toBeGreaterThan(10)
@@ -50,5 +50,19 @@ describe.each(PLANS)('.zap/%s', (file) => {
     const jobs = [...plan.matchAll(/^\s+- type:\s*(\S+)/gm)].map((m) => m[1])
     expect(jobs.at(-1)).toBe('exitStatus')
     expect(plan).toMatch(/errorLevel:\s*Low/)
+  })
+})
+
+describe('.zap/full-dev-auth.yaml（段B）', () => {
+  const plan = readFileSync(path.join(ROOT, '.zap', 'full-dev-auth.yaml'), 'utf8')
+
+  it('Cookie は環境変数から付け、値を計画に書かない', () => {
+    expect(plan).toMatch(/replacementString:\s*"session=\$\{ZAP_SESSION\}"/)
+    expect(plan).not.toMatch(/session=(?!\$\{ZAP_SESSION\})[A-Za-z0-9_-]{20,}/)
+  })
+
+  it('ローカルの開発サーバーだけに向ける', () => {
+    const hosts = [...plan.matchAll(/https?:\/\/([^/"\s]+)/g)].map((m) => m[1].replace(/\.\*$/, '')) // includePaths の正規表現（.*）は外す
+    expect(new Set(hosts)).toEqual(new Set(['127.0.0.1:3000']))
   })
 })
