@@ -46,10 +46,13 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 | 時刻・TZ | `tests/time/` | `npm run test:tz` | JST の境界（0:00〜9:00 は UTC で前日、6:00 / 23:00 は時間帯制限）。TZ=UTC / Asia/Tokyo / America/Los_Angeles で3回 |
 | Emulator | `tests/emulator/` | `npm run test:emulator` | Route → Firestore Emulator に書いて読み戻す往復、状態遷移、Rules の全拒否、Emulator 上の fuzz、Session Cookie の失効（Auth Emulator のユーザーで本物のログイン API を通す） |
 | E2E | `e2e/` | `npm run e2e` | ログイン、ルーティング、ダッシュボード、予約の編集、宿泊税。重要なフローに絞る |
+| E2E（本番ビルド） | `e2e/prod/` | `npm run e2e:prod` | セキュリティヘッダー・CSP が、防ぐはずのこと（外への送信、埋め込み、注入した script、他のサイトからの読み込み・操作、カメラなど）を実際に止めること。各テストに対照実験（そのヘッダーだけを外すと止まらない）を置く |
 
 - Vitest の既定の設定（`vitest.config.ts`）は Emulator の接続先を **到達できないアドレス**（`127.0.0.1:1`）にしている。誤って Firestore を呼んだテストはすぐ失敗し、本番にも届かない
 - 「今日」は `tests/utils/routeTestHelper.ts` の `setupFakeToday()` で 2026-05-20（JST）に固定する。JST の時刻を指定するときは `tests/utils/timeHelper.ts` の `setNowJST`
 - E2E は本物の Firebase 認証を使わない。`session` Cookie を `context.addCookies` で置いて `proxy.ts` を通し、`/api/**` と Firebase Auth の REST を `page.route` でモックする。Emulator 系の環境変数は `playwright.config.ts` の `webServer.env` にある（Emulator 本体は起動しない。ブラウザの Auth は Auth Emulator の URL に向かうが、`**/identitytoolkit.googleapis.com/**` のモックで捕まる）。URL と Cookie のホストは `localhost` ではなく `127.0.0.1` にそろえる
+- 本番ビルドの E2E（`playwright.prod.config.ts`）は毎回 `next build` してから `next start -H 127.0.0.1 -p 3100` で起動する（既存のサーバーは再利用しない）。Emulator 系の変数は渡さないのでログインはできず、API はブラウザ側でモックするか未ログインの応答を見る。本番は 23:00〜6:00 JST に全ページを `/time-restricted` に回すので、どの時刻でも成り立つように書く
+- 攻撃者のサイトは `page.route` で作る別オリジン（`http://localhost:4999`）。Chrome の Local Network Access がそのページから 127.0.0.1 への読み込みを先に止めるので、本番ビルドの E2E のブラウザでは `--disable-features=LocalNetworkAccessChecks` で無効にしている
 - テストデータに実在の人名・本番データを入れない
 
 ### テストを書くときの決まり

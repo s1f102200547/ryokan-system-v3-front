@@ -169,12 +169,16 @@ jobs:
       # 開発サーバーの環境変数（Emulator 系・demo project・ダミーの API キー）は
       # playwright.config.ts の webServer.env に集約し、ローカルと同じ設定で起動する
       - run: npm run e2e
+      # 本番ビルド（next build → next start）に対して、セキュリティヘッダーが目的どおりに効くかを確かめる（playwright.prod.config.ts）
+      - run: npm run e2e:prod
       - name: Upload playwright report
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: playwright-report
-          path: playwright-report/
+          path: |
+            playwright-report/
+            playwright-report-prod/
 
   zap-scan:
     name: OWASP ZAP Baseline Scan
