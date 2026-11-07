@@ -3,7 +3,9 @@
 # 目的: ログイン後の全 API に能動的な検査をかけ、入力から起きる 5xx・注入・エラーの漏れを見つける。
 # 書き込みが起きるので、Emulator とテストデータ（tests/fixtures/localdev/）だけに向ける。
 # 開発サーバーは CSP（'unsafe-eval'）やヘッダーが本番と違うので、ヘッダー系の指摘は段A（full-prod.yaml）に任せて除外する。
-# ${ZAP_SESSION} ${TODAY} ${YEAR} ${MONTH} は scripts/ci/zapSession.ts が出す環境変数
+# ${ZAP_SESSION} ${TODAY} ${YEAR} ${MONTH} は scripts/ci/zapSession.ts が出す環境変数。
+# ZAP 2.17 はヘッダー（replacer・requestor の headers）の中の変数を展開しないので、
+# ワークフローが ZAP に渡す前に展開する（展開した計画は Cookie を含むので、レポートと別の場所に置いて消す）
 env:
   contexts:
     - name: app
@@ -40,7 +42,7 @@ jobs:
       - ruleId: 90004   # Spectre 対策の分離（COOP・COEP・CORP）
         newRisk: "False Positive"
 
-  # すべてのリクエストにログイン済みの Cookie を付ける
+  # すべてのリクエストにログイン済みの Cookie を付ける（ない場合は足す）
   - type: replacer
     parameters:
       deleteAllRules: true

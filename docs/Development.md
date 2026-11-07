@@ -107,7 +107,7 @@ Semgrep を手元で試す: `docker run --rm -v "$PWD:/src" -w /src semgrep/semg
 - 指摘が Low 以上なら失敗（`exitStatus`）。responseCode の不一致（401 にならない API）も失敗（`failOnWarning`）
 - レポートは artifact（`zap-full-prod`）。Issue は書かない（permissions は `contents: read` だけ）
 - 本番ビルドは 23:00〜6:00 JST に全ページを `/time-restricted` に回すので、手動で動かすときも営業時間内に
-- 段B の Cookie は `scripts/ci/zapSession.ts` が Auth Emulator の開発用ユーザーで取り、環境変数 `ZAP_SESSION` で計画の `replacer` に渡す（計画には値を書かない）。テストデータは `npm run seed -- --fixture`（人工データ）
+- 段B の Cookie は `scripts/ci/zapSession.ts` が Auth Emulator の開発用ユーザーで取り、計画の `replacer` で全リクエストに付ける（計画には値を書かない）。ZAP 2.17 はヘッダーの中の `${...}` を展開しないので、ワークフローが `envsubst` で展開した計画を `.zap/run/` に作って渡し、終わったら消す（Cookie を含むので artifact の `.zap/out/` には置かない）。ZAP のプロキシは Firestore Emulator と同じ 8080 を既定で使うので `-port 8090` にする。テストデータは `npm run seed -- --fixture`（人工データ）
 - 段B は開発サーバーなので CSP（`'unsafe-eval'`）とヘッダーが本番と違う。ヘッダー系の指摘は計画の `alertFilter` で除外し、段A と `e2e/prod/` に任せる
 
 未実装: PR ごとの staging 環境、CI 失敗時の Slack 通知。
