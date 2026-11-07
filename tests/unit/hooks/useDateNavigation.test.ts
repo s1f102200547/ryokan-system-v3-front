@@ -30,6 +30,8 @@ function navigations(): string[] {
 
 function setup(query: string) {
   searchParams = new URLSearchParams(query)
+  // ブラウザの URL もそろえる（replaceState は spy していない）
+  window.history.replaceState(null, '', query ? `/daily-dashboard?${query}` : '/daily-dashboard')
   return renderHook(() => useDateNavigation(TODAY))
 }
 
@@ -105,6 +107,19 @@ describe('useDateNavigation', () => {
     const { result } = setup('')
     act(() => result.current.setDate('2030-01-01'))
     expect(navigations()).toEqual(['/daily-dashboard?date=2027-04-12'])
+  })
+
+  it('描き直しの前に翌日を2回押しても、2日進む（押した時点の URL から計算する）', () => {
+    // pushState を本当に動かし、URL だけが先に進む（useSearchParams はまだ前の値）場面を作る
+    pushState.mockRestore()
+    pushState = vi.spyOn(window.history, 'pushState')
+    const { result } = setup('date=2026-04-12&today=2026-04-12')
+    act(() => result.current.goToNextDay())
+    act(() => result.current.goToNextDay())
+    expect(navigations()).toEqual([
+      '/daily-dashboard?date=2026-04-13&today=2026-04-12',
+      '/daily-dashboard?date=2026-04-14&today=2026-04-12',
+    ])
   })
 
   it('Today は ?date= を消し、ほかのクエリを残す', () => {

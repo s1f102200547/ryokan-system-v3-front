@@ -7,19 +7,22 @@ import AddCircleOutlineOutlinedIcon from '@mui/icons-material/AddCircleOutlineOu
 
 type Props = {
   onClick: () => void
+  // 一覧の取り直し中。押しても何もしない
+  disabled?: boolean
 }
 
-export function AddReservationCard({ onClick }: Props) {
+export function AddReservationCard({ onClick, disabled = false }: Props) {
   return (
-    <Tooltip title="新規追加する" placement="top">
+    <Tooltip title={disabled ? '' : '新規追加する'} placement="top">
       <Card
-        onClick={onClick}
+        onClick={disabled ? undefined : onClick}
+        aria-disabled={disabled}
         data-testid="add-reservation-card"
         sx={{
           width: 120,
           height: 120,
           m: 1,
-          cursor: 'pointer',
+          cursor: disabled ? 'default' : 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

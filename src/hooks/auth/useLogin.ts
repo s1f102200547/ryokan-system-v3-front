@@ -18,6 +18,7 @@ export function useLogin() {
   const login = async (credentials: { email: string; password: string }) => {
     setIsPending(true)
     setError(null)
+    let succeeded = false
     try {
       // Step 1: Firebase Client SDK で認証
       let idToken: string
@@ -41,7 +42,10 @@ export function useLogin() {
         body: JSON.stringify({ idToken }),
       })
       if (response.ok) {
-        router.push('/')
+        // ダッシュボードへ直接移る（/ を経由すると proxy.ts の転送で1往復増える）。
+        // 移り終わるまで isPending のままにし、ボタンを押せない「ログイン中…」にしておく（画面が移ればこの hook ごと捨てられる）
+        succeeded = true
+        router.push('/daily-dashboard')
         return
       }
       if (response.status === 403) {
@@ -53,7 +57,7 @@ export function useLogin() {
     } catch {
       setError('通信エラーが発生しました。ネットワーク接続を確認してください')
     } finally {
-      setIsPending(false)
+      if (!succeeded) setIsPending(false)
     }
   }
 

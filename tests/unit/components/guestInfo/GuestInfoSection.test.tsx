@@ -155,6 +155,70 @@ describe('GuestInfoSection', () => {
     })
   })
 
+  // 同じ日の取り直し中は、前のカードを薄く出したまま操作を止める（古いデータから編集・キャンセル・追加させない）
+  describe('取り直し中の表示', () => {
+    async function closeModalAndStartRefetch() {
+      await show('2026-04-12', {
+        ...empty,
+        normal: [makeReservation({ id: 'a', room: '21', guest_name: '前の名前' })],
+        cancelled: [makeReservation({ id: 'x', room: '22', cancel: 1, guest_name: '取消' })],
+      })
+      fireEvent.click(cards()[0])
+      await act(async () => {
+        fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '閉じる' }))
+      })
+      const refetch = net.pending(isGuestInfo('2026-04-12'))
+      expect(refetch).toHaveLength(1)
+      return refetch[0]
+    }
+
+    it('前のカードを出したまま、取り直し中であることを示す', async () => {
+      await closeModalAndStartRefetch()
+      expect(cardTexts().join()).toContain('前の名前')
+      expect(screen.getByTestId('guest-info-refreshing')).toBeInTheDocument()
+      expect(screen.queryByTestId('guest-info-loading')).toBeNull()
+    })
+
+    it('取り直し中はカードを押してもモーダルを開かず、キャンセル・追加もできない', async () => {
+      await closeModalAndStartRefetch()
+      // 編集モーダルは閉じるとすぐに外れる（ReservationModal は reservation が null なら何も出さない）
+      expect(screen.queryAllByRole('dialog')).toHaveLength(0)
+      fireEvent.click(cards()[0])
+      fireEvent.click(within(screen.getByTestId('cancelled-section')).getByTestId('reservation-card'))
+      fireEvent.click(screen.getByTestId('add-reservation-card'))
+      fireEvent.click(screen.getByTestId('cancel-button'))
+      expect(screen.queryAllByRole('dialog')).toHaveLength(0)
+      expect(screen.getByTestId('cancel-button')).toBeDisabled()
+      for (const c of cards()) expect(c).toHaveAttribute('aria-disabled', 'true')
+      expect(screen.getByTestId('add-reservation-card')).toHaveAttribute('aria-disabled', 'true')
+    })
+
+    it('新しいデータが届いたら入れ替え、また操作できる', async () => {
+      const refetch = await closeModalAndStartRefetch()
+      await refetch.resolve(200, { ...empty, normal: [makeReservation({ id: 'a', room: '21', guest_name: '新しい名前' })] })
+      expect(cardTexts().join()).toContain('新しい名前')
+      expect(screen.queryByTestId('guest-info-refreshing')).toBeNull()
+      expect(screen.getByTestId('cancel-button')).not.toBeDisabled()
+      fireEvent.click(screen.getByTestId('add-reservation-card'))
+      expect(screen.getByText('新規予約追加（C/I: 2026-04-12）')).toBeInTheDocument()
+    })
+
+    it('取り直しに失敗したら、前のカードを残さずエラーを出す', async () => {
+      const refetch = await closeModalAndStartRefetch()
+      await refetch.resolve(503)
+      expect(cards()).toHaveLength(0)
+      expect(screen.getByRole('alert')).toHaveTextContent('一時的に通信に失敗しました')
+    })
+
+    it('日付を切り替えたら、取り直し中の表示ではなく仮の表示にする（前の日のカードを出さない）', async () => {
+      const view = await show('2026-04-12', { ...empty, normal: [makeReservation({ id: 'a', guest_name: '12日の客' })] })
+      view.rerender(ui('2026-04-13'))
+      expect(screen.getByTestId('guest-info-loading')).toBeInTheDocument()
+      expect(screen.queryByTestId('guest-info-refreshing')).toBeNull()
+      expect(cards()).toHaveLength(0)
+    })
+  })
+
   describe('キャンセルのダイアログ', () => {
     it('失敗したエラーは、閉じて別の予約で開き直したら消えている', async () => {
       await show('2026-04-12', {

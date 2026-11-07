@@ -4,7 +4,8 @@ import type { ReactNode } from 'react'
 import { useState, useCallback } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
-import CircularProgress from '@mui/material/CircularProgress'
+import LinearProgress from '@mui/material/LinearProgress'
+import Skeleton from '@mui/material/Skeleton'
 import Snackbar from '@mui/material/Snackbar'
 import Typography from '@mui/material/Typography'
 import { useGuestInfo } from '@/hooks/guestInfo/useGuestInfo'
@@ -45,7 +46,7 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null)
 
-  const { data, isLoading, error, loadedDate } = useGuestInfo(selectedDate, refreshKey)
+  const { data, isLoading, isRefreshing, error, loadedDate } = useGuestInfo(selectedDate, refreshKey)
 
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), [])
 
@@ -72,8 +73,16 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
       {topContent}
 
       {isLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 180, mt: topContent ? 3 : 10 }}>
-          <CircularProgress />
+        // その日のデータがない（初回・日付の切り替え）。前の日のカードは出さず、カードの形の仮表示にする
+        <Box
+          data-testid="guest-info-loading"
+          aria-busy="true"
+          aria-label="予約を読み込んでいます"
+          sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', mt: topContent ? 3 : 10 }}
+        >
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} variant="rounded" width={120} height={120} sx={{ m: 1 }} />
+          ))}
         </Box>
       ) : error ? (
         <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>
@@ -87,8 +96,20 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
             </Alert>
           )}
 
+          {/* 同じ日の取り直し中（閉じる・追加・キャンセルの後）。前のカードを薄く出し、押せないようにする */}
+          <Box sx={{ height: 4, mt: topContent ? 3 : 10, mb: -0.5 }}>
+            {isRefreshing && <LinearProgress data-testid="guest-info-refreshing" aria-label="予約を取り直しています" />}
+          </Box>
+
           {/* アクティブな予約カード列（当日CI + 滞在中） */}
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0, justifyContent: 'center', mt: topContent ? 3 : 10 }}>
+          <Box
+            aria-busy={isRefreshing}
+            sx={{
+              display: 'flex', flexWrap: 'wrap', gap: 0, justifyContent: 'center',
+              opacity: isRefreshing ? 0.5 : 1,
+              transition: 'opacity 0.15s',
+            }}
+          >
             {allActive.map(({ reservation, isStaying }) => (
               <Box
                 key={reservation.id}
@@ -101,10 +122,11 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
                   isStaying={isStaying}
                   selectedToggle={selectedToggle}
                   targetDate={displayDate}
+                  disabled={isRefreshing}
                 />
               </Box>
             ))}
-            <AddReservationCard onClick={() => setAddDialogOpen(true)} />
+            <AddReservationCard onClick={() => setAddDialogOpen(true)} disabled={isRefreshing} />
           </Box>
 
         {(cancelled.length > 0 || sideContent) && (
@@ -137,6 +159,7 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
                     onRestore={() => undefined}
                     showRestoreAction={false}
                     hideTitle
+                    disabled={isRefreshing}
                   />
                 )}
               </Box>

@@ -79,6 +79,50 @@ describe('useGuestInfo', () => {
     expect(result.current.data?.normal[0].guest_name).toBe('3回目')
   })
 
+  it('日付を切り替えた直後は、前の日のデータを返さない', async () => {
+    const { result, rerender } = setup()
+    await net.last(forDate('2026-04-12')).resolve(200, body('12日'))
+    rerender({ date: '2026-04-13', refreshKey: 0 })
+    expect(result.current.isLoading).toBe(true)
+    expect(result.current.isRefreshing).toBe(false)
+    expect(result.current.data).toBeNull()
+  })
+
+  it('同じ日の取り直し中は、前のデータを返したまま isRefreshing。届いたら入れ替える', async () => {
+    const { result, rerender } = setup()
+    await net.last(forDate('2026-04-12')).resolve(200, body('1回目'))
+    expect(result.current.isRefreshing).toBe(false)
+    rerender({ date: '2026-04-12', refreshKey: 1 })
+    expect(result.current.isLoading).toBe(false)
+    expect(result.current.isRefreshing).toBe(true)
+    expect(result.current.data?.normal[0].guest_name).toBe('1回目')
+    await net.last(forDate('2026-04-12')).resolve(200, body('2回目'))
+    expect(result.current.isRefreshing).toBe(false)
+    expect(result.current.data?.normal[0].guest_name).toBe('2回目')
+  })
+
+  it('A → B → A と戻ったら、戻った A は取り直しが終わるまで isRefreshing（前の A を最新として扱わない）', async () => {
+    const { result, rerender } = setup()
+    await net.last(forDate('2026-04-12')).resolve(200, body('12日 古い'))
+    rerender({ date: '2026-04-13', refreshKey: 0 })
+    rerender({ date: '2026-04-12', refreshKey: 0 })
+    expect(result.current.isRefreshing).toBe(true)
+    expect(result.current.isLoading).toBe(false)
+    const requests = net.requests.filter(forDate('2026-04-12'))
+    expect(requests).toHaveLength(2)
+    await requests[1].resolve(200, body('12日 新しい'))
+    expect(result.current.isRefreshing).toBe(false)
+    expect(result.current.data?.normal[0].guest_name).toBe('12日 新しい')
+  })
+
+  it('前のエラーは、取り直しの間は返さない', async () => {
+    const { result, rerender } = setup()
+    await net.last().resolve(500)
+    rerender({ date: '2026-04-12', refreshKey: 1 })
+    expect(result.current.isLoading).toBe(true)
+    expect(result.current.error).toBeNull()
+  })
+
   it.each([
     [400, 'この日付は表示できません。日付を選び直してください。'],
     [500, 'データの取得に失敗しました。管理者に通知済みです。'],

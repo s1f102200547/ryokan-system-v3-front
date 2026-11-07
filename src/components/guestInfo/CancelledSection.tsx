@@ -11,6 +11,7 @@ type Props = {
   onRestore: (reservation: Reservation) => void
   showRestoreAction?: boolean
   hideTitle?: boolean
+  disabled?: boolean
 }
 
 export function CancelledSection({
@@ -19,6 +20,7 @@ export function CancelledSection({
   onRestore,
   showRestoreAction = true,
   hideTitle = false,
+  disabled = false,
 }: Props) {
   if (reservations.length === 0) return null
 
@@ -38,6 +40,7 @@ export function CancelledSection({
             onCancelOrRestore={() => onRestore(r)}
             isCancelled
             showRestoreAction={showRestoreAction}
+            disabled={disabled}
           />
         ))}
       </Box>

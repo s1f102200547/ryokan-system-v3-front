@@ -40,6 +40,7 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 | Unit | `tests/unit/` | `npm run test` | Domain を最も厚く（日付の境界、部屋の状態、予約の状態、配列の長さ）。infra の `toReservation`、lib、hooks の純粋関数、匿名化の変換 |
 | 制約の突き合わせ | `tests/unit/constraints/` | 同上 | UI の選択肢 → Route の Zod → Infra の読み取りで値が消えないこと。上限ちょうどは通り、+1 は拒否 |
 | 構成の固定 | `tests/unit/config/` | 同上 | ワークフローの `uses:` が SHA、Docker イメージが digest、CI のツールが正確な版、curl で取るバイナリのチェックサム検査。`.claude/settings.json` の拒否・確認の規則が残っていること |
+| UI（hooks・components） | `tests/unit/hooks/`, `tests/unit/components/` | `npm run test` | API 呼び出しの hook と画面の部品を、Domain.md の仕様から書く。応答の順序・取り直し・日付の切り替え中の保存、自動保存の debounce・直列・再送・閉じるときの確認。`fetchWithSession` は `tests/utils/controlledFetch.ts` でモックし、応答を好きな順・好きな時に返す |
 | Integration | `tests/integration/api/` | 同上 | Route Handler ごとに: 未ログイン 401、入力の検証 400、正常系、主な `InfraError`、想定外のエラー。Application は `vi.mock` |
 | Fuzz | `tests/integration/fuzz/` | 同上 | 全 Route に壊れた入力を送り、5xx を返さない・Slack に通知しないこと |
 | PBT | `tests/pbt/` | 同上 | fast-check。読み取りの正規化、更新の検証、部屋の状態の性質 |
@@ -47,6 +48,7 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 | Emulator | `tests/emulator/` | `npm run test:emulator` | Route → Firestore Emulator に書いて読み戻す往復、状態遷移、Rules の全拒否、Emulator 上の fuzz、Session Cookie の失効（Auth Emulator のユーザーで本物のログイン API を通す） |
 | E2E | `e2e/` | `npm run e2e` | ログイン、ルーティング、ダッシュボード、予約の編集、宿泊税。重要なフローに絞る |
 | E2E（本番ビルド） | `e2e/prod/` | `npm run e2e:prod` | セキュリティヘッダー・CSP が、防ぐはずのこと（外への送信、埋め込み、注入した script、他のサイトからの読み込み・操作、カメラなど）を実際に止めること。各テストに対照実験（そのヘッダーだけを外すと止まらない）を置く |
+| 表示までの時間 | `e2e/perf/` | `npm run perf` | ゲストカードが出るまでの時間を場面ごとに測る（合否なし）。下の「表示までの時間を測る」 |
 | E2E（Emulator） | `e2e/emulator/` | `npm run e2e:emulator` | 本物のログイン（Auth Emulator）で受け取ったセッション Cookie の HttpOnly・SameSite=Strict・Max-Age が目的どおりに働くこと（属性を外す対照実験つき）。失効・無効化のあと、Cookie が残っていても画面がログインに戻ること |
 
 - Vitest の既定の設定（`vitest.config.ts`）は Emulator の接続先を **到達できないアドレス**（`127.0.0.1:1`）にしている。誤って Firestore を呼んだテストはすぐ失敗し、本番にも届かない
@@ -54,8 +56,17 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 - E2E は本物の Firebase 認証を使わない。`session` Cookie を `context.addCookies` で置いて `proxy.ts` を通し、`/api/**` と Firebase Auth の REST を `page.route` でモックする。Emulator 系の環境変数は `playwright.config.ts` の `webServer.env` にある（Emulator 本体は起動しない。ブラウザの Auth は Auth Emulator の URL に向かうが、`**/identitytoolkit.googleapis.com/**` のモックで捕まる）。URL と Cookie のホストは `localhost` ではなく `127.0.0.1` にそろえる
 - Emulator の E2E（`playwright.emulator.config.ts`）は `firebase emulators:exec` の中で、開発サーバーを `127.0.0.1:3200` で起動する。`make` の Emulator が動いているとポートが衝突する。Next.js は同じディレクトリで開発サーバーを1つしか起動できないので、`make` の開発サーバー（3000 番）が動いていても起動に失敗する
 - 本番ビルドの E2E（`playwright.prod.config.ts`）は毎回 `next build` してから `next start -H 127.0.0.1 -p 3100` で起動する（既存のサーバーは再利用しない）。Emulator 系の変数は渡さないのでログインはできず、API はブラウザ側でモックするか未ログインの応答を見る。本番は 23:00〜6:00 JST に全ページを `/time-restricted` に回すので、どの時刻でも成り立つように書く
+- 開発サーバーは React の StrictMode で最初の表示の effect を2回動かす。E2E で API の呼び出し回数を数えるときは、最初の表示の回数を決め打ちしない（`e2e/guestCardRefresh.spec.ts` の `expectLatest`）
 - 攻撃者のサイトは `page.route` で作る別オリジン（`http://localhost:4999`）。Chrome の Local Network Access がそのページから 127.0.0.1 への読み込みを先に止めるので、本番ビルドの E2E のブラウザでは `--disable-features=LocalNetworkAccessChecks` で無効にしている
 - テストデータに実在の人名・本番データを入れない
+
+### 表示までの時間を測る（`npm run perf`）
+
+本番ビルド（`127.0.0.1:3300`）に対して、ゲストカードが出るまでの時間を測る：初回表示、翌日・前日、ブラウザの戻る、カレンダー、モーダルを閉じる。
+- 条件を固定する：ページ・JS の往復に 100ms（CDP）、guest-info 300ms・todos 150ms・PATCH 300ms（モックで待つ）
+- 時間はページの中で測る（`performance.now` と requestAnimationFrame）。各場面 10 回（`PERF_RUNS` で変える）の中央値・p90 と、カードが1枚も出ていなかった時間を `perf-results/<PERF_LABEL>.json` に書く
+- 変更前に `PERF_LABEL=baseline npm run perf`、変更後に `PERF_LABEL=after npm run perf`。after のときは baseline と並べて出す。`--grep` で一部の場面だけ測り直すと、同じ label の前の結果に足す
+- 時間はマシンの負荷でぶれるので、`make check` と CI には入れない。本番ビルドは 23:00〜6:00 JST に画面を開けないので、利用時間内に実行する
 
 ### テストを書くときの決まり
 
