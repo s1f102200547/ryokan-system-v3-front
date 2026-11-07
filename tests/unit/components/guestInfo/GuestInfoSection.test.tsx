@@ -175,7 +175,7 @@ describe('GuestInfoSection', () => {
     it('前のカードを出したまま、取り直し中であることを示す', async () => {
       await closeModalAndStartRefetch()
       expect(cardTexts().join()).toContain('前の名前')
-      expect(screen.getByTestId('guest-info-refreshing')).toBeInTheDocument()
+      expect(screen.getByTestId('guest-info-cards')).toHaveAttribute('data-refreshing', 'true')
       expect(screen.queryByTestId('guest-info-loading')).toBeNull()
     })
 
@@ -197,7 +197,7 @@ describe('GuestInfoSection', () => {
       const refetch = await closeModalAndStartRefetch()
       await refetch.resolve(200, { ...empty, normal: [makeReservation({ id: 'a', room: '21', guest_name: '新しい名前' })] })
       expect(cardTexts().join()).toContain('新しい名前')
-      expect(screen.queryByTestId('guest-info-refreshing')).toBeNull()
+      expect(screen.queryByTestId('guest-info-cards')?.getAttribute('data-refreshing') ?? 'false').toBe('false')
       expect(screen.getByTestId('cancel-button')).not.toBeDisabled()
       fireEvent.click(screen.getByTestId('add-reservation-card'))
       expect(screen.getByText('新規予約追加（C/I: 2026-04-12）')).toBeInTheDocument()
@@ -214,7 +214,7 @@ describe('GuestInfoSection', () => {
       const view = await show('2026-04-12', { ...empty, normal: [makeReservation({ id: 'a', guest_name: '12日の客' })] })
       view.rerender(ui('2026-04-13'))
       expect(screen.getByTestId('guest-info-loading')).toBeInTheDocument()
-      expect(screen.queryByTestId('guest-info-refreshing')).toBeNull()
+      expect(screen.queryByTestId('guest-info-cards')?.getAttribute('data-refreshing') ?? 'false').toBe('false')
       expect(cards()).toHaveLength(0)
     })
   })

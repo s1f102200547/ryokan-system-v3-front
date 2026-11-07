@@ -22,7 +22,8 @@ const TIMEOUT_MS = 15_000
 // 本番ビルドは ?today= を無視するので、JST の今日を基準にする
 const TODAY = getTodayJST()
 
-type Sample = { ms: number; hiddenMs: number }
+// hiddenMs: カードが1枚も出ていなかった時間。blankMs: カードもスピナーも出ていなかった時間（何も変化が見えない時間）
+type Sample = { ms: number; hiddenMs: number; blankMs: number }
 const results: Record<string, Sample[]> = {}
 
 function record(name: string, sample: Sample) {
@@ -108,16 +109,18 @@ async function setup(page: Page): Promise<Counter> {
 type Trigger = { kind: 'click'; selector: string } | { kind: 'back' }
 
 // trigger を実行してから、expectText を含むカードが出るまでの時間。
-// hiddenMs は、その間カードが1枚も出ていなかった時間（スピナーに置き換わっていた時間）
+// hiddenMs は、その間カードが1枚も出ていなかった時間。blankMs は、カードもスピナーも出ていなかった時間
 async function measure(page: Page, trigger: Trigger, expectText: string): Promise<Sample> {
   return page.evaluate(
     ({ trigger, expectText, timeout }) =>
-      new Promise<{ ms: number; hiddenMs: number }>((resolve, reject) => {
+      new Promise<{ ms: number; hiddenMs: number; blankMs: number }>((resolve, reject) => {
         const cards = () => Array.from(document.querySelectorAll('[data-testid="reservation-card"]'))
+        const spinnerShown = () => document.querySelector('[role="progressbar"]') !== null
         const found = () => cards().some((el) => (el.textContent ?? '').includes(expectText))
         const t0 = performance.now()
         let last = t0
         let hiddenMs = 0
+        let blankMs = 0
         if (trigger.kind === 'click') {
           const el = document.querySelector<HTMLElement>(trigger.selector)
           if (!el) return reject(new Error(`not found: ${trigger.selector}`))
@@ -127,9 +130,11 @@ async function measure(page: Page, trigger: Trigger, expectText: string): Promis
         }
         const tick = () => {
           const now = performance.now()
-          if (cards().length === 0) hiddenMs += now - last
+          const noCards = cards().length === 0
+          if (noCards) hiddenMs += now - last
+          if (noCards && !spinnerShown()) blankMs += now - last
           last = now
-          if (found()) return resolve({ ms: now - t0, hiddenMs })
+          if (found()) return resolve({ ms: now - t0, hiddenMs, blankMs })
           if (now - t0 > timeout) return reject(new Error(`timeout: ${expectText}`))
           requestAnimationFrame(tick)
         }
@@ -169,7 +174,7 @@ test('初回表示: ページを開いてからカードが出るまで', async 
   for (let i = 0; i < RUNS; i++) {
     await openDashboard(page, TODAY)
     const ms = await page.evaluate(() => (window as unknown as { __perfCardAt?: number }).__perfCardAt ?? NaN)
-    record('初回表示', { ms, hiddenMs: NaN })
+    record('初回表示', { ms, hiddenMs: NaN, blankMs: NaN })
   }
 })
 
@@ -241,7 +246,7 @@ test('モーダルを閉じる: 変更なし・変更あり', async ({ page }) =
   }
 })
 
-type Summary = { runs: number; medianMs: number; p90Ms: number; hiddenMedianMs: number | null }
+type Summary = { runs: number; medianMs: number; p90Ms: number; hiddenMedianMs: number | null; blankMedianMs?: number | null }
 
 function quantile(values: number[], q: number): number {
   const sorted = [...values].sort((a, b) => a - b)
@@ -253,11 +258,13 @@ test.afterAll(() => {
   const summary: Record<string, Summary> = {}
   for (const [name, samples] of Object.entries(results)) {
     const hidden = samples.map((s) => s.hiddenMs).filter((v) => !Number.isNaN(v))
+    const blank = samples.map((s) => s.blankMs).filter((v) => !Number.isNaN(v))
     summary[name] = {
       runs: samples.length,
       medianMs: quantile(samples.map((s) => s.ms), 0.5),
       p90Ms: quantile(samples.map((s) => s.ms), 0.9),
       hiddenMedianMs: hidden.length > 0 ? quantile(hidden, 0.5) : null,
+      blankMedianMs: blank.length > 0 ? quantile(blank, 0.5) : null,
     }
   }
   const dir = path.resolve(__dirname, '../../perf-results')
@@ -284,6 +291,7 @@ test.afterAll(() => {
           '中央値(ms)': s.medianMs,
           'p90(ms)': s.p90Ms,
           'カードが消えていた(ms)': s.hiddenMedianMs ?? '-',
+          '何も出ていなかった(ms)': s.blankMedianMs ?? '-',
           ...(baseline?.[name]
             ? { 'baseline 中央値(ms)': baseline[name].medianMs, '差(ms)': s.medianMs - baseline[name].medianMs }
             : {}),

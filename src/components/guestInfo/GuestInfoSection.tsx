@@ -4,11 +4,10 @@ import type { ReactNode } from 'react'
 import { useState, useCallback } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
-import LinearProgress from '@mui/material/LinearProgress'
-import Skeleton from '@mui/material/Skeleton'
 import Snackbar from '@mui/material/Snackbar'
 import Typography from '@mui/material/Typography'
 import { useGuestInfo } from '@/hooks/guestInfo/useGuestInfo'
+import { DelayedSpinner } from '@/components/DelayedSpinner'
 import { ReservationListCard } from './ReservationListCard'
 import { AddReservationCard } from './AddReservationCard'
 import { ReservationModal } from './ReservationModal'
@@ -26,6 +25,24 @@ type Props = {
 }
 
 type DisplayEntry = { reservation: Reservation; isStaying: boolean }
+
+// カード1枚分の高さ（120px + 上下の余白 8px × 2）。待っている間もこの高さを取っておき、届いたときに下がずれないようにする
+const CARD_ROW_HEIGHT = 136
+
+// 届いたカードを少しずつずらしてフェードインさせる。待ちが 1 秒未満でも「読み込んだ → 出た」がつながって見える
+const FADE_IN_MS = 180
+const FADE_IN_STAGGER_MS = 25
+// fill-mode は backwards（ずらしている間は透明にし、終わったら要素自身のスタイルに戻す）。
+// both にすると終わりの opacity: 1 が残り、取り直し中に薄くする opacity を上書きする
+const fadeInSx = (index: number) => ({
+  animation: `guestCardIn ${FADE_IN_MS}ms ease-out backwards`,
+  animationDelay: `${index * FADE_IN_STAGGER_MS}ms`,
+  '@keyframes guestCardIn': {
+    from: { opacity: 0, transform: 'translateY(4px)' },
+    to: { opacity: 1, transform: 'none' },
+  },
+  '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
+})
 
 function compareRoom(a: Reservation, b: Reservation): number {
   const ra = a.room ?? '9999'
@@ -73,16 +90,14 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
       {topContent}
 
       {isLoading ? (
-        // その日のデータがない（初回・日付の切り替え）。前の日のカードは出さず、カードの形の仮表示にする
+        // その日のデータがない（初回・日付の切り替え）。前の日のカードは出さない。
+        // 待ちは 1 秒未満がほとんどなので、高さだけ取っておき、0.5 秒を超えたらスピナーを出す
         <Box
           data-testid="guest-info-loading"
           aria-busy="true"
-          aria-label="予約を読み込んでいます"
-          sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', mt: topContent ? 3 : 10 }}
+          sx={{ minHeight: CARD_ROW_HEIGHT, mt: topContent ? 3 : 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}
         >
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} variant="rounded" width={120} height={120} sx={{ m: 1 }} />
-          ))}
+          <DelayedSpinner label="予約を読み込んでいます" />
         </Box>
       ) : error ? (
         <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>
@@ -96,24 +111,30 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
             </Alert>
           )}
 
-          {/* 同じ日の取り直し中（閉じる・追加・キャンセルの後）。前のカードを薄く出し、押せないようにする */}
-          <Box sx={{ height: 4, mt: topContent ? 3 : 10, mb: -0.5 }}>
-            {isRefreshing && <LinearProgress data-testid="guest-info-refreshing" aria-label="予約を取り直しています" />}
-          </Box>
-
-          {/* アクティブな予約カード列（当日CI + 滞在中） */}
+          {/* アクティブな予約カード列（当日CI + 滞在中）。
+              同じ日の取り直し中（閉じる・追加・キャンセルの後）は、前のカードを薄く出し、押せないようにする */}
+          <Box sx={{ position: 'relative', mt: topContent ? 3 : 10 }}>
+          {/* 取り直しが 0.5 秒を超えたら、薄くしたカードの上にスピナーを重ねる */}
+          {isRefreshing && (
+            <Box sx={{ position: 'absolute', inset: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1, pointerEvents: 'none' }}>
+              <DelayedSpinner label="予約を取り直しています" />
+            </Box>
+          )}
           <Box
+            data-testid="guest-info-cards"
+            data-refreshing={isRefreshing ? 'true' : 'false'}
             aria-busy={isRefreshing}
             sx={{
               display: 'flex', flexWrap: 'wrap', gap: 0, justifyContent: 'center',
+              minHeight: CARD_ROW_HEIGHT,
               opacity: isRefreshing ? 0.5 : 1,
               transition: 'opacity 0.15s',
             }}
           >
-            {allActive.map(({ reservation, isStaying }) => (
+            {allActive.map(({ reservation, isStaying }, index) => (
               <Box
                 key={reservation.id}
-                sx={{ display: 'inline-flex' }}
+                sx={{ display: 'inline-flex', ...fadeInSx(index) }}
               >
                 <ReservationListCard
                   reservation={reservation}
@@ -126,7 +147,10 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
                 />
               </Box>
             ))}
-            <AddReservationCard onClick={() => setAddDialogOpen(true)} disabled={isRefreshing} />
+            <Box sx={{ display: 'inline-flex', ...fadeInSx(allActive.length) }}>
+              <AddReservationCard onClick={() => setAddDialogOpen(true)} disabled={isRefreshing} />
+            </Box>
+          </Box>
           </Box>
 
         {(cancelled.length > 0 || sideContent) && (
@@ -135,6 +159,9 @@ export function GuestInfoSection({ selectedDate, topContent, sideContent, select
               mt: 3,
               width: '70%',
               mx: 'auto',
+              opacity: isRefreshing ? 0.5 : 1,
+              transition: 'opacity 0.15s',
+              ...fadeInSx(allActive.length + 1),
             }}
           >
             {cancelled.length > 0 && (

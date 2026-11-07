@@ -133,6 +133,70 @@ test.describe('日付の切り替え', () => {
   })
 })
 
+// 待ちが 0.5 秒を超えたときだけスピナーを出す（DelayedSpinner）。短い待ちでは何も出さない
+test.describe('読み込み中のスピナー', () => {
+  // スピナー（role=progressbar）が出たことがあるかを記録する
+  async function watchSpinner(page: Page) {
+    await page.evaluate(() => {
+      const w = window as unknown as { __spinnerShown: boolean }
+      w.__spinnerShown = false
+      const check = () => {
+        if (document.querySelector('[role="progressbar"]')) w.__spinnerShown = true
+      }
+      new MutationObserver(check).observe(document, { subtree: true, childList: true, attributes: true })
+    })
+  }
+  const spinnerWasShown = (page: Page) => page.evaluate(() => (window as unknown as { __spinnerShown: boolean }).__spinnerShown)
+
+  test('日付の切り替えで 0.5 秒を超えたらスピナーを出し、カードが出たら消す', async ({ page }) => {
+    let slow = false
+    const { counts } = await setup(page, async (date, n, route) => {
+      if (slow) await sleep(1200)
+      await route.fulfill({ json: { normal: [reservation(`id-${date}`, date, `客${date}#${n}`)], staying: [], cancelled: [], roomConflicts: [] } })
+    })
+    await page.goto(`/daily-dashboard?today=${TODAY}`)
+    await expectLatest(page, counts, TODAY)
+    slow = true
+    await page.getByTestId('next-day').click()
+    await expect(page.getByRole('progressbar', { name: '予約を読み込んでいます' })).toBeVisible()
+    await expectLatest(page, counts, '2026-04-13')
+    await expect(page.getByRole('progressbar')).toHaveCount(0)
+  })
+
+  test('0.5 秒以内に届けば、スピナーを一度も出さない', async ({ page }) => {
+    let wait = 0
+    const { counts } = await setup(page, async (date, n, route) => {
+      await sleep(wait)
+      await route.fulfill({ json: { normal: [reservation(`id-${date}`, date, `客${date}#${n}`)], staying: [], cancelled: [], roomConflicts: [] } })
+    })
+    await page.goto(`/daily-dashboard?today=${TODAY}`)
+    await expectLatest(page, counts, TODAY)
+    await watchSpinner(page)
+    wait = 200
+    await page.getByTestId('next-day').click()
+    await expectLatest(page, counts, '2026-04-13')
+    await sleep(600)
+    expect(await spinnerWasShown(page)).toBe(false)
+  })
+
+  test('閉じた後の取り直しで 0.5 秒を超えたら、薄いカードの上にスピナーを出す', async ({ page }) => {
+    let slow = false
+    await setup(page, async (date, _n, route) => {
+      if (slow) await sleep(1200)
+      await route.fulfill({ json: { normal: [reservation('rsv-1', date, '客')], staying: [], cancelled: [], roomConflicts: [] } })
+    })
+    await page.goto(`/daily-dashboard?today=${TODAY}`)
+    await card(page, '客').click()
+    slow = true
+    await page.getByRole('dialog').getByRole('button', { name: '閉じる' }).click()
+    await expect(page.getByTestId('guest-info-cards')).toHaveAttribute('data-refreshing', 'true')
+    await expect(page.getByRole('progressbar', { name: '予約を取り直しています' })).toBeVisible()
+    await expect(card(page, '客')).toBeVisible()
+    await expect(page.getByTestId('guest-info-cards')).toHaveAttribute('data-refreshing', 'false')
+    await expect(page.getByRole('progressbar')).toHaveCount(0)
+  })
+})
+
 test.describe('閉じた後の取り直し', () => {
   test('取り直し中は前のカードを薄く出し、押してもモーダルが開かない。届いたら入れ替わり、また押せる', async ({ page }) => {
     let release: (() => void) | null = null
@@ -150,7 +214,7 @@ test.describe('閉じた後の取り直し', () => {
     await page.getByRole('dialog').getByRole('button', { name: '閉じる' }).click()
     await expect(page.getByRole('dialog')).toBeHidden()
 
-    await expect(page.getByTestId('guest-info-refreshing')).toBeVisible()
+    await expect(page.getByTestId('guest-info-cards')).toHaveAttribute('data-refreshing', 'true')
     await expect(card(page, '前のカード')).toBeVisible()
     await expect(card(page, '前のカード')).toHaveAttribute('aria-disabled', 'true')
     await card(page, '前のカード').click({ force: true })
@@ -160,7 +224,7 @@ test.describe('閉じた後の取り直し', () => {
     await expect.poll(() => release !== null).toBe(true)
     release!()
     await expect(card(page, '新しいカード')).toBeVisible()
-    await expect(page.getByTestId('guest-info-refreshing')).toHaveCount(0)
+    await expect(page.getByTestId('guest-info-cards')).toHaveAttribute('data-refreshing', 'false')
     await card(page, '新しいカード').click()
     await expect(page.getByRole('dialog')).toBeVisible()
   })

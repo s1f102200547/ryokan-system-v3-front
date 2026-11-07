@@ -64,7 +64,7 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 
 本番ビルド（`127.0.0.1:3300`）に対して、ゲストカードが出るまでの時間を測る：初回表示、翌日・前日、ブラウザの戻る、カレンダー、モーダルを閉じる。
 - 条件を固定する：ページ・JS の往復に 100ms（CDP）、guest-info 300ms・todos 150ms・PATCH 300ms（モックで待つ）
-- 時間はページの中で測る（`performance.now` と requestAnimationFrame）。各場面 10 回（`PERF_RUNS` で変える）の中央値・p90 と、カードが1枚も出ていなかった時間を `perf-results/<PERF_LABEL>.json` に書く
+- 時間はページの中で測る（`performance.now` と requestAnimationFrame）。各場面 10 回（`PERF_RUNS` で変える）の中央値・p90 と、カードが1枚も出ていなかった時間、カードもスピナーも出ていなかった時間（スピナーは 0.5 秒を超えてから出す設計なので、その分は残る）を `perf-results/<PERF_LABEL>.json` に書く
 - 変更前に `PERF_LABEL=baseline npm run perf`、変更後に `PERF_LABEL=after npm run perf`。after のときは baseline と並べて出す。`--grep` で一部の場面だけ測り直すと、同じ label の前の結果に足す
 - 時間はマシンの負荷でぶれるので、`make check` と CI には入れない。本番ビルドは 23:00〜6:00 JST に画面を開けないので、利用時間内に実行する
 
