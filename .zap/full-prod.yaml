@@ -16,10 +16,12 @@ env:
     progressToStdout: true
 
 jobs:
-  # .zap/rules.tsv で IGNORE にしているものと同じ（理由もそちらを参照）
+  # .zap/rules.tsv で IGNORE にしているものと同じ（理由もそちらを参照）。
+  # 10055（CSP）は MUI のための style-src 'unsafe-inline'（10055-6）だけを除外する。ルール丸ごとだと、
+  # 同じルールの別の指摘（例: 10055-13 フォールバックしないディレクティブの書き漏れ）まで隠れる
   - type: alertFilter
     alertFilters:
-      - ruleId: 10055
+      - ruleId: 10055-6
         newRisk: "False Positive"
       - ruleId: 10109
         newRisk: "False Positive"

@@ -37,7 +37,11 @@ jobs:
       - name: Build Next.js
         run: npm run build
       - name: Start server
-        # Emulator 系の変数は渡さない（起動ガードは production の規則で通る。ci.yml の zap-scan と同じ）
+        # Emulator 系の変数は渡さない（起動ガードは production の規則で通る。ci.yml の zap-scan と同じ）。
+        # GCP の外では firebase-admin が project ID を探してメタデータサーバーへの問い合わせの時間切れを待ち、
+        # ログイン API が ZAP の待ち時間を超えて止まる。存在しないダミーの ID を渡し、ID トークンの形の検査ですぐ 401 にする
+        env:
+          GOOGLE_CLOUD_PROJECT: zap-scan-no-such-project
         run: npx next start -H 127.0.0.1 -p 3000 &
       - name: Wait for server
         run: timeout 60 bash -c 'until curl -fs -o /dev/null http://127.0.0.1:3000/login; do sleep 1; done'

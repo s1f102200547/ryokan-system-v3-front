@@ -103,7 +103,8 @@ Semgrep を手元で試す: `docker run --rm -v "$PWD:/src" -w /src semgrep/semg
 
 - ZAP の Automation Framework を Docker で動かす（`zap.sh -cmd -autorun`）。イメージは zap-scan と同じ digest
 - 全 Route を `requestor` に列挙する。Route を足したら計画にも足す（`tests/unit/config/zapPlans.test.ts` が突き合わせる）
-- `.zap/rules.tsv` で IGNORE にしたものは、計画の `alertFilter` でも除外する（同じテストが確かめる）
+- `.zap/rules.tsv` で IGNORE にしたものは、計画の `alertFilter` でも除外する（同じテストが確かめる）。段A の 10055（CSP）は MUI のための `style-src 'unsafe-inline'`（alertRef `10055-6`）だけを除外する。ルール丸ごとだと、同じルールの別の指摘まで隠れる（Baseline の `rules.tsv` はルール ID でしか書けない）
+- 段A のサーバーには、存在しないダミーの `GOOGLE_CLOUD_PROJECT` を渡す。GCP の外では firebase-admin が project ID を探してメタデータサーバーの時間切れを待ち、ログイン API が ZAP の待ち時間を超えて止まるため
 - 指摘が Low 以上なら失敗（`exitStatus`）。responseCode の不一致（401 にならない API）も失敗（`failOnWarning`）
 - レポートは artifact（`zap-full-prod`）。Issue は書かない（permissions は `contents: read` だけ）
 - 本番ビルドは 23:00〜6:00 JST に全ページを `/time-restricted` に回すので、手動で動かすときも営業時間内に

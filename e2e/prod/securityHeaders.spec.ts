@@ -394,12 +394,15 @@ test.describe('ヘッダーが付く範囲', () => {
     }
   })
 
-  test('API: nosniff と CORP', async ({ request }) => {
-    for (const path of ['/api/guest-info?date=2026-05-20', '/api/auth/login']) {
+  // 未ログインの 401、不正な body の 400、存在しない API のパスの 404（ZAP が CSP なしと指摘した）のどれにも付くこと
+  test('API: nosniff・CORP・CSP', async ({ request }) => {
+    for (const [path, status] of [['/api/guest-info?date=2026-05-20', 401], ['/api/auth/login', 400], ['/api/auth', 404]] as const) {
       const response = path === '/api/auth/login' ? await request.post(path, { data: {} }) : await request.get(path)
+      expect(response.status(), path).toBe(status)
       const headers = response.headers()
       expect(headers['x-content-type-options'], path).toBe('nosniff')
       expect(headers['cross-origin-resource-policy'], path).toBe('same-origin')
+      expect(headers['content-security-policy'], path).toBe("default-src 'none'; frame-ancestors 'none'; form-action 'none'; base-uri 'none'")
       expect(headers['x-powered-by'], path).toBeUndefined()
     }
   })
