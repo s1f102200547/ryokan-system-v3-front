@@ -43,7 +43,7 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 | Fuzz | `tests/integration/fuzz/` | 同上 | 全 Route に壊れた入力を送り、5xx を返さない・Slack に通知しないこと |
 | PBT | `tests/pbt/` | 同上 | fast-check。読み取りの正規化、更新の検証、部屋の状態の性質 |
 | 時刻・TZ | `tests/time/` | `npm run test:tz` | JST の境界（0:00〜9:00 は UTC で前日、6:00 / 23:00 は時間帯制限）。TZ=UTC / Asia/Tokyo / America/Los_Angeles で3回 |
-| Emulator | `tests/emulator/` | `npm run test:emulator` | Route → Firestore Emulator に書いて読み戻す往復、状態遷移、Rules の全拒否、Emulator 上の fuzz |
+| Emulator | `tests/emulator/` | `npm run test:emulator` | Route → Firestore Emulator に書いて読み戻す往復、状態遷移、Rules の全拒否、Emulator 上の fuzz、Session Cookie の失効（Auth Emulator のユーザーで本物のログイン API を通す） |
 | E2E | `e2e/` | `npm run e2e` | ログイン、ルーティング、ダッシュボード、予約の編集、宿泊税。重要なフローに絞る |
 
 - Vitest の既定の設定（`vitest.config.ts`）は Emulator の接続先を **到達できないアドレス**（`127.0.0.1:1`）にしている。誤って Firestore を呼んだテストはすぐ失敗し、本番にも届かない
@@ -57,6 +57,7 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 - 直したら、同じ原因が他にないか全体を grep する。このプロジェクトで実際にあった原因: 入口の Zod に refine がない（日付の前後・実在日・配列の長さ）、`request.json()` を catch していない、ローカル時刻への依存（`getMonth()` / `getDate()`、`toISOString()`、`new Date('YYYY-MM-DD')`）、外部呼び出しを try の外で行う、失敗した保存を捨てる・応答を待たずに次を送る、`FieldValue.arrayUnion`（同じ内容を足さない）、今の状態を確かめずに状態を変える
 - Route を追加したら `tests/integration/fuzz/routes.fuzz.test.ts` の `ROUTES` に足す（export された Route と突き合わせるので、足さないと落ちる）
 - Emulator のテストで作るドキュメントは `emutest-` などの接頭辞を付け、最後に消す。`make` の Emulator が動いているとポートが衝突する
+- firebase-admin は Auth Emulator に接続しているとき、`verifySessionCookie` の `checkRevoked` の指定に関係なく失効を確かめる。`checkRevoked` を渡していることは Emulator のテストでは見分けられないので、unit テスト（`tests/unit/lib/verifySession.test.ts`）で見る
 - `tests/time/` の期待値は具体的な値で書く。スナップショットは最初に実行した TZ の値で固まるので使わない
 - PBT の性質は仕様（[Domain.md](Domain.md)）から立てる。コードを読んでから立てるとバグに合わせた性質になる。条件を満たす入力だけで確かめる性質は、条件を満たした件数も検査する（少なすぎると何も確かめていない）。生成器は `tests/utils/arbitraries.ts`
 - 空白・NUL 文字・`%2F` は Firestore のドキュメント ID として有効。入口で拒否せず、存在しなければ 404
