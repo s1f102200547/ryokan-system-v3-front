@@ -382,6 +382,18 @@ test.describe('ヘッダーが付く範囲', () => {
     })
   }
 
+  // ログイン済みで / を開いたときの /daily-dashboard への転送。page.tsx の redirect() だと、Next.js が画面の外枠を描いた
+  // HTML（約 7KB）を転送と一緒に返していた（ZAP の Big Redirect）。転送の応答は本文を持たず、ヘッダーも付くこと。
+  // request フィクスチャは context の Cookie を共有しないので、context.request を使う
+  test('ログイン済みの / の転送: 本文がなく、すべてのヘッダーが付く', async ({ context }) => {
+    const response = await context.request.get('/', { maxRedirects: 0 })
+    expect([307, 308]).toContain(response.status())
+    // 本番の時間外は /time-restricted への転送になる（proxy.ts）
+    expect(response.headers()['location']).toMatch(/\/(daily-dashboard|time-restricted)$/)
+    expect((await response.body()).length).toBeLessThan(100)
+    expect(response.headers()).toMatchObject(DOCUMENT_HEADERS)
+  })
+
   test('静的ファイル（/_next/static・/icons）: nosniff と CORP', async ({ request }) => {
     const html = await (await request.get(APP_PAGE)).text()
     const asset = html.match(/\/_next\/static\/[^"']+\.js/)?.[0]
