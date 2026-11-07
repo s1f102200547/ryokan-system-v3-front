@@ -16,6 +16,8 @@
 /playwright-report/
 /playwright-report-prod/
 /test-results-prod/
+/playwright-report-emulator/
+/test-results-emulator/
 
 # next.js
 /.next/

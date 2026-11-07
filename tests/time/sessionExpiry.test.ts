@@ -34,5 +34,7 @@ describe('ログイン時の Session Cookie の期限', () => {
     }))
     expect(res.status).toBe(200)
     expect(vi.mocked(adminAuth.createSessionCookie).mock.calls.at(-1)?.[1]).toEqual({ expiresIn: expected })
+    // ブラウザが Cookie を消す時刻（Max-Age）がサーバーの期限と同じ。ずれると、期限切れの Cookie が残る・まだ有効なのに消える
+    expect(res.headers.get('set-cookie')).toMatch(new RegExp(`Max-Age=${expected / 1000}(;|$)`))
   })
 })

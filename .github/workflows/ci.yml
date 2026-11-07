@@ -148,6 +148,15 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
       - run: npm install -g firebase-tools@15.34.1 # バージョンを固定する（公開から7日以上たったもの）
       - run: npm run test:emulator    # firebase emulators:exec で専用の Emulator を起動してから vitest を実行
+      # 本物のログイン（Auth Emulator）を通す E2E。セッション Cookie の属性と失効が画面まで効くかを確かめる（playwright.emulator.config.ts）
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e:emulator
+      - name: Upload playwright report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: playwright-report-emulator
+          path: playwright-report-emulator/
 
   e2e:
     name: E2E Test
