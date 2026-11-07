@@ -1,0 +1,129 @@
+name: ZAP Full Scan
+
+# ZAP の能動的な検査（Active Scan）。時間がかかる（数十分）ので、PR ごとではなく週1回と手動で動かす。
+# PR ごとの Baseline（ci.yml の zap-scan、/login だけ・受け身の検査）はそのまま残す。
+# 段A: 本番ビルド・未ログイン（.zap/full-prod.yaml）。段B: 開発サーバー + Emulator・ログイン済み（.zap/full-dev-auth.yaml）。
+# docs/Development.md「CI」節を参照
+on:
+  schedule:
+    # 月曜 10:00 JST（01:00 UTC）。本番ビルドは 23:00〜6:00 JST に全ページを /time-restricted に回すので、営業時間内に動かす
+    - cron: '0 1 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # ci.yml の zap-scan と同じイメージ。digest で固定する（Dependabot は更新しないので手で上げる）
+  ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:2.17.0@sha256:030d3df57735dacbb83464854758e674dd9ad01d79d12a129a8e58b1fd384238
+
+jobs:
+  prod-unauthenticated:
+    name: 段A 本番ビルド・未ログイン
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: cache
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+        if: steps.cache.outputs.cache-hit != 'true'
+      - name: Build Next.js
+        run: npm run build
+      - name: Start server
+        # Emulator 系の変数は渡さない（起動ガードは production の規則で通る。ci.yml の zap-scan と同じ）。
+        # GCP の外では firebase-admin が project ID を探してメタデータサーバーへの問い合わせの時間切れを待ち、
+        # ログイン API が ZAP の待ち時間を超えて止まる。存在しないダミーの ID を渡し、ID トークンの形の検査ですぐ 401 にする
+        env:
+          GOOGLE_CLOUD_PROJECT: zap-scan-no-such-project
+        run: npx next start -H 127.0.0.1 -p 3000 &
+      - name: Wait for server
+        run: timeout 60 bash -c 'until curl -fs -o /dev/null http://127.0.0.1:3000/login; do sleep 1; done'
+      - name: ZAP Automation Framework
+        # --network host: コンテナから 127.0.0.1:3000 に届かせる。レポートは .zap/out に出す（ZAP のユーザーが書けるようにする）
+        run: |
+          mkdir -p .zap/out && chmod 777 .zap/out
+          docker run --rm --network host -v "${PWD}/.zap:/zap/wrk:rw" "${ZAP_IMAGE}" \
+            zap.sh -cmd -autorun /zap/wrk/full-prod.yaml
+      - name: Upload ZAP report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: zap-full-prod
+          path: .zap/out/
+
+  # 段B: 開発サーバー + Emulator・ログイン済み。計画は .zap/full-dev-auth.yaml。
+  # 能動的な検査は書き込みをするので、Emulator と人工のテストデータ（tests/fixtures/localdev/）だけに向ける
+  dev-authenticated:
+    name: 段B 開発サーバー + Emulator・ログイン済み
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0 / Firestore Emulator は Java で動く
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: cache
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+        if: steps.cache.outputs.cache-hit != 'true'
+      - run: npm install -g firebase-tools@15.34.1 # ci.yml の emulator-test と同じ版
+      - name: Prepare env
+        # 中身は Emulator 用の固定値（本番の値は入らない）
+        run: cp .env.development.example .env.development
+      - name: Start emulators
+        run: firebase emulators:start --project demo-ryokan --only firestore,auth &
+      - name: Wait for emulators
+        run: timeout 120 bash -c 'until curl -s -o /dev/null http://127.0.0.1:8080 && curl -s -o /dev/null http://127.0.0.1:9099; do sleep 1; done'
+      - name: Seed fixture data
+        run: npm run seed -- --fixture
+      - name: Start dev server
+        run: npx next dev -H 127.0.0.1 -p 3000 &
+      - name: Wait for dev server
+        run: timeout 120 bash -c 'until curl -fs -o /dev/null http://127.0.0.1:3000/login; do sleep 1; done'
+      - name: Get session cookie
+        # Cookie の値はログに出さない（Emulator のものだが、念のため）
+        run: |
+          npx tsx --env-file=.env.development scripts/ci/zapSession.ts > zap.env
+          echo "::add-mask::$(sed -n 's/^ZAP_SESSION=//p' zap.env)"
+          cat zap.env >> "$GITHUB_ENV"
+          rm zap.env
+      - name: Warm up pages and APIs
+        # 開発サーバーは初回のリクエストでコンパイルするので、ZAP の前に一度ずつ開いておく
+        run: |
+          for path in "/daily-dashboard?date=${TODAY}" "/a_tax_table" "/api/guest-info?date=${TODAY}" "/api/timetable?date=${TODAY}" \
+            "/api/cleaning-board?date=${TODAY}" "/api/a-tax-table?year=${YEAR}&month=${MONTH}" "/api/daily/${TODAY}/todos"; do
+            curl -s -o /dev/null -H "Cookie: session=${ZAP_SESSION}" "http://127.0.0.1:3000${path}" || true
+          done
+      - name: ZAP Automation Framework
+        # ZAP の既定のプロキシのポート 8080 は Firestore Emulator と同じ（--network host なのでぶつかる）。8090 にする
+        # ZAP 2.17 はヘッダーの中の変数（replacer の ${ZAP_SESSION}）を展開しないので、渡す前に envsubst で展開する。
+        # 展開した計画は Cookie を含むので、artifact に上げる .zap/out ではなく .zap/run に置き、終わったら消す
+        run: |
+          mkdir -p .zap/out .zap/run && chmod 777 .zap/out
+          envsubst '${ZAP_SESSION} ${TODAY} ${YEAR} ${MONTH}' < .zap/full-dev-auth.yaml > .zap/run/full-dev-auth.yaml
+          docker run --rm --network host \
+            -v "${PWD}/.zap:/zap/wrk:rw" "${ZAP_IMAGE}" \
+            zap.sh -cmd -port 8090 -autorun /zap/wrk/run/full-dev-auth.yaml
+      - name: Remove rendered plan
+        if: always()
+        run: rm -rf .zap/run
+      - name: Upload ZAP report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: zap-full-dev-auth
+          path: .zap/out/

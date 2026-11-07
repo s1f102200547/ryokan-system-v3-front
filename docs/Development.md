@@ -39,16 +39,22 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 |---|---|---|---|
 | Unit | `tests/unit/` | `npm run test` | Domain を最も厚く（日付の境界、部屋の状態、予約の状態、配列の長さ）。infra の `toReservation`、lib、hooks の純粋関数、匿名化の変換 |
 | 制約の突き合わせ | `tests/unit/constraints/` | 同上 | UI の選択肢 → Route の Zod → Infra の読み取りで値が消えないこと。上限ちょうどは通り、+1 は拒否 |
+| 構成の固定 | `tests/unit/config/` | 同上 | ワークフローの `uses:` が SHA、Docker イメージが digest、CI のツールが正確な版、curl で取るバイナリのチェックサム検査。`.claude/settings.json` の拒否・確認の規則が残っていること |
 | Integration | `tests/integration/api/` | 同上 | Route Handler ごとに: 未ログイン 401、入力の検証 400、正常系、主な `InfraError`、想定外のエラー。Application は `vi.mock` |
 | Fuzz | `tests/integration/fuzz/` | 同上 | 全 Route に壊れた入力を送り、5xx を返さない・Slack に通知しないこと |
 | PBT | `tests/pbt/` | 同上 | fast-check。読み取りの正規化、更新の検証、部屋の状態の性質 |
 | 時刻・TZ | `tests/time/` | `npm run test:tz` | JST の境界（0:00〜9:00 は UTC で前日、6:00 / 23:00 は時間帯制限）。TZ=UTC / Asia/Tokyo / America/Los_Angeles で3回 |
-| Emulator | `tests/emulator/` | `npm run test:emulator` | Route → Firestore Emulator に書いて読み戻す往復、状態遷移、Rules の全拒否、Emulator 上の fuzz |
+| Emulator | `tests/emulator/` | `npm run test:emulator` | Route → Firestore Emulator に書いて読み戻す往復、状態遷移、Rules の全拒否、Emulator 上の fuzz、Session Cookie の失効（Auth Emulator のユーザーで本物のログイン API を通す） |
 | E2E | `e2e/` | `npm run e2e` | ログイン、ルーティング、ダッシュボード、予約の編集、宿泊税。重要なフローに絞る |
+| E2E（本番ビルド） | `e2e/prod/` | `npm run e2e:prod` | セキュリティヘッダー・CSP が、防ぐはずのこと（外への送信、埋め込み、注入した script、他のサイトからの読み込み・操作、カメラなど）を実際に止めること。各テストに対照実験（そのヘッダーだけを外すと止まらない）を置く |
+| E2E（Emulator） | `e2e/emulator/` | `npm run e2e:emulator` | 本物のログイン（Auth Emulator）で受け取ったセッション Cookie の HttpOnly・SameSite=Strict・Max-Age が目的どおりに働くこと（属性を外す対照実験つき）。失効・無効化のあと、Cookie が残っていても画面がログインに戻ること |
 
 - Vitest の既定の設定（`vitest.config.ts`）は Emulator の接続先を **到達できないアドレス**（`127.0.0.1:1`）にしている。誤って Firestore を呼んだテストはすぐ失敗し、本番にも届かない
 - 「今日」は `tests/utils/routeTestHelper.ts` の `setupFakeToday()` で 2026-05-20（JST）に固定する。JST の時刻を指定するときは `tests/utils/timeHelper.ts` の `setNowJST`
 - E2E は本物の Firebase 認証を使わない。`session` Cookie を `context.addCookies` で置いて `proxy.ts` を通し、`/api/**` と Firebase Auth の REST を `page.route` でモックする。Emulator 系の環境変数は `playwright.config.ts` の `webServer.env` にある（Emulator 本体は起動しない。ブラウザの Auth は Auth Emulator の URL に向かうが、`**/identitytoolkit.googleapis.com/**` のモックで捕まる）。URL と Cookie のホストは `localhost` ではなく `127.0.0.1` にそろえる
+- Emulator の E2E（`playwright.emulator.config.ts`）は `firebase emulators:exec` の中で、開発サーバーを `127.0.0.1:3200` で起動する。`make` の Emulator が動いているとポートが衝突する。Next.js は同じディレクトリで開発サーバーを1つしか起動できないので、`make` の開発サーバー（3000 番）が動いていても起動に失敗する
+- 本番ビルドの E2E（`playwright.prod.config.ts`）は毎回 `next build` してから `next start -H 127.0.0.1 -p 3100` で起動する（既存のサーバーは再利用しない）。Emulator 系の変数は渡さないのでログインはできず、API はブラウザ側でモックするか未ログインの応答を見る。本番は 23:00〜6:00 JST に全ページを `/time-restricted` に回すので、どの時刻でも成り立つように書く
+- 攻撃者のサイトは `page.route` で作る別オリジン（`http://localhost:4999`）。Chrome の Local Network Access がそのページから 127.0.0.1 への読み込みを先に止めるので、本番ビルドの E2E のブラウザでは `--disable-features=LocalNetworkAccessChecks` で無効にしている
 - テストデータに実在の人名・本番データを入れない
 
 ### テストを書くときの決まり
@@ -57,6 +63,7 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 - 直したら、同じ原因が他にないか全体を grep する。このプロジェクトで実際にあった原因: 入口の Zod に refine がない（日付の前後・実在日・配列の長さ）、`request.json()` を catch していない、ローカル時刻への依存（`getMonth()` / `getDate()`、`toISOString()`、`new Date('YYYY-MM-DD')`）、外部呼び出しを try の外で行う、失敗した保存を捨てる・応答を待たずに次を送る、`FieldValue.arrayUnion`（同じ内容を足さない）、今の状態を確かめずに状態を変える
 - Route を追加したら `tests/integration/fuzz/routes.fuzz.test.ts` の `ROUTES` に足す（export された Route と突き合わせるので、足さないと落ちる）
 - Emulator のテストで作るドキュメントは `emutest-` などの接頭辞を付け、最後に消す。`make` の Emulator が動いているとポートが衝突する
+- firebase-admin は Auth Emulator に接続しているとき、`verifySessionCookie` の `checkRevoked` の指定に関係なく失効を確かめる。`checkRevoked` を渡していることは Emulator のテストでは見分けられないので、unit テスト（`tests/unit/lib/verifySession.test.ts`）で見る
 - `tests/time/` の期待値は具体的な値で書く。スナップショットは最初に実行した TZ の値で固まるので使わない
 - PBT の性質は仕様（[Domain.md](Domain.md)）から立てる。コードを読んでから立てるとバグに合わせた性質になる。条件を満たす入力だけで確かめる性質は、条件を満たした件数も検査する（少なすぎると何も確かめていない）。生成器は `tests/utils/arbitraries.ts`
 - 空白・NUL 文字・`%2F` は Firestore のドキュメント ID として有効。入口で拒否せず、存在しなければ 404
@@ -81,11 +88,30 @@ semgrep ─┘                              └─→ zap-scan
 | semgrep | `p/default` `p/typescript` `p/react`。1件でも失敗 | 該当行の前に `// nosemgrep: <ルールID>` と理由 |
 | zap-scan | 本番ビルドを起動し、ZAP Baseline で `/login` を検査。WARN 以上で失敗 | `.zap/rules.tsv`（ASCII、タブ区切り、空行なし） |
 
-Actions・ツール・Docker イメージは SHA / digest / 版で固定している。上げるときも固定の形を保つ（Actions はタグが指すコミットの SHA を書き、行末に版をコメントで書く。ツールは公開から7日以上たった版）。Dependabot は Semgrep と ZAP のイメージ、CI の `firebase-tools` を更新しないので手で上げる。ZAP を上げると新しいルールで CI が落ちることがある。
+Actions・ツール・Docker イメージは SHA / digest / 版で固定している（`tests/unit/config/pinning.test.ts` が検査する）。上げるときも固定の形を保つ（Actions はタグが指すコミットの SHA を書き、行末に版をコメントで書く。ツールは公開から7日以上たった版）。Dependabot は Semgrep と ZAP のイメージ、CI の `firebase-tools` を更新しないので手で上げる。ZAP を上げると新しいルールで CI が落ちることがある。
 
 Semgrep を手元で試す: `docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:1.182.1 semgrep scan --metrics=off --config p/default --config p/typescript --config p/react`
 
-未実装: PR ごとの staging 環境、CI 失敗時の Slack 通知、ZAP の Full Scan。
+### ZAP の能動的な検査（`.github/workflows/zap-full.yml`）
+
+週1回（月曜 10:00 JST）と手動（`workflow_dispatch`）で動く。時間がかかるので PR ごとには動かさない。PR ごとの Baseline（上の zap-scan）は残す。
+
+| 段 | 対象 | 計画 | 見つけるもの |
+|---|---|---|---|
+| A | 本番ビルド・未ログイン | `.zap/full-prod.yaml` | 401 にならない API、エラーに出る内部の情報、ヘッダーの抜け |
+| B | 開発サーバー + Emulator + 人工のテストデータ・ログイン済み | `.zap/full-dev-auth.yaml` | ログイン後の全 API で、入力から起きる 5xx・注入・エラーの漏れ。書き込みが起きるので Emulator だけに向ける |
+
+- ZAP の Automation Framework を Docker で動かす（`zap.sh -cmd -autorun`）。イメージは zap-scan と同じ digest
+- 全 Route を `requestor` に列挙する。Route を足したら計画にも足す（`tests/unit/config/zapPlans.test.ts` が突き合わせる）
+- `.zap/rules.tsv` で IGNORE にしたものは、計画の `alertFilter` でも除外する（同じテストが確かめる）。段A の 10055（CSP）は MUI のための `style-src 'unsafe-inline'`（alertRef `10055-6`）だけを除外する。ルール丸ごとだと、同じルールの別の指摘まで隠れる（Baseline の `rules.tsv` はルール ID でしか書けない）
+- 段A のサーバーには、存在しないダミーの `GOOGLE_CLOUD_PROJECT` を渡す。GCP の外では firebase-admin が project ID を探してメタデータサーバーの時間切れを待ち、ログイン API が ZAP の待ち時間を超えて止まるため
+- 指摘が Low 以上なら失敗（`exitStatus`）。responseCode の不一致（401 にならない API）も失敗（`failOnWarning`）
+- レポートは artifact（`zap-full-prod`）。Issue は書かない（permissions は `contents: read` だけ）
+- 本番ビルドは 23:00〜6:00 JST に全ページを `/time-restricted` に回すので、手動で動かすときも営業時間内に
+- 段B の Cookie は `scripts/ci/zapSession.ts` が Auth Emulator の開発用ユーザーで取り、計画の `replacer` で全リクエストに付ける（計画には値を書かない）。ZAP 2.17 はヘッダーの中の `${...}` を展開しないので、ワークフローが `envsubst` で展開した計画を `.zap/run/` に作って渡し、終わったら消す（Cookie を含むので artifact の `.zap/out/` には置かない）。ZAP のプロキシは Firestore Emulator と同じ 8080 を既定で使うので `-port 8090` にする。テストデータは `npm run seed -- --fixture`（人工データ）
+- 段B は開発サーバーなので CSP（`'unsafe-eval'`）とヘッダーが本番と違う。ヘッダー系の指摘は計画の `alertFilter` で除外し、段A と `e2e/prod/` に任せる
+
+未実装: PR ごとの staging 環境、CI 失敗時の Slack 通知。
 
 ## デプロイ（`.github/workflows/deploy.yml`）
 

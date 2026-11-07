@@ -1,0 +1,120 @@
+# ZAP Automation Framework: 段B（開発サーバー + Emulator・ログイン済み・全 API への能動的な検査）
+# .github/workflows/zap-full.yml が実行する。docs/Development.md「CI」節を参照。
+# 目的: ログイン後の全 API に能動的な検査をかけ、入力から起きる 5xx・注入・エラーの漏れを見つける。
+# 書き込みが起きるので、Emulator とテストデータ（tests/fixtures/localdev/）だけに向ける。
+# 開発サーバーは CSP（'unsafe-eval'）やヘッダーが本番と違うので、ヘッダー系の指摘は段A（full-prod.yaml）に任せて除外する。
+# ${ZAP_SESSION} ${TODAY} ${YEAR} ${MONTH} は scripts/ci/zapSession.ts が出す環境変数。
+# ZAP 2.17 はヘッダー（replacer・requestor の headers）の中の変数を展開しないので、
+# ワークフローが ZAP に渡す前に展開する（展開した計画は Cookie を含むので、レポートと別の場所に置いて消す）
+env:
+  contexts:
+    - name: app
+      urls:
+        - http://127.0.0.1:3000
+      includePaths:
+        - "http://127.0.0.1:3000.*"
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  - type: alertFilter
+    alertFilters:
+      # .zap/rules.tsv と同じ
+      - ruleId: 10055
+        newRisk: "False Positive"
+      - ruleId: 10109
+        newRisk: "False Positive"
+      - ruleId: 10049
+        newRisk: "False Positive"
+      # ヘッダー系（開発サーバーは本番と違う。本番の値は段A と e2e/prod/ で見る）
+      - ruleId: 10020   # X-Frame-Options
+        newRisk: "False Positive"
+      - ruleId: 10021   # X-Content-Type-Options
+        newRisk: "False Positive"
+      - ruleId: 10035   # Strict-Transport-Security
+        newRisk: "False Positive"
+      - ruleId: 10038   # Content-Security-Policy がない
+        newRisk: "False Positive"
+      - ruleId: 10063   # Permissions-Policy
+        newRisk: "False Positive"
+      - ruleId: 90004   # Spectre 対策の分離（COOP・COEP・CORP）
+        newRisk: "False Positive"
+      # 誤検知（2026-11-07 に確認）。URL を絞り、他の API で同じ指摘が出たら見逃さないようにする
+      # キャンセル・復活は状態を変える（1回目 200、2回目 409）。ZAP は応答の違いを注入の成功と取り違える。
+      # staff_name は操作履歴に文字列で保存するだけで、SQL もファイルのパスも組み立てない
+      - ruleId: 40018   # SQL Injection
+        url: "http://127.0.0.1:3000/api/reservations/[^/]+/(cancel|restore)"
+        urlRegex: true
+        newRisk: "False Positive"
+      - ruleId: 6       # Path Traversal
+        url: "http://127.0.0.1:3000/api/reservations/[^/]+/(cancel|restore)"
+        urlRegex: true
+        newRisk: "False Positive"
+      # 開発サーバーの bundle の中の数値（React の開発版など）。本番ビルド（段A）では出ない
+      - ruleId: 10096   # Timestamp Disclosure - Unix
+        url: "http://127.0.0.1:3000/_next/static/.*"
+        urlRegex: true
+        newRisk: "False Positive"
+
+  # すべてのリクエストにログイン済みの Cookie を付ける（ない場合は足す）
+  - type: replacer
+    parameters:
+      deleteAllRules: true
+    rules:
+      - description: session
+        matchType: req_header
+        matchString: Cookie
+        matchRegex: false
+        replacementString: "session=${ZAP_SESSION}"
+
+  - type: requestor
+    requests:
+      - { name: "PAGE /daily-dashboard", url: "http://127.0.0.1:3000/daily-dashboard?date=${TODAY}" }
+      - { name: "PAGE /a_tax_table", url: "http://127.0.0.1:3000/a_tax_table" }
+      - { name: "GET a-tax-table", url: "http://127.0.0.1:3000/api/a-tax-table?year=${YEAR}&month=${MONTH}", responseCode: 200 }
+      - { name: "GET cleaning-board", url: "http://127.0.0.1:3000/api/cleaning-board?date=${TODAY}", responseCode: 200 }
+      - { name: "GET daily/[date]/safe-balance-checker", url: "http://127.0.0.1:3000/api/daily/${TODAY}/safe-balance-checker", responseCode: 200 }
+      - { name: "PATCH daily/[date]/safe-balance-checker", method: PATCH, url: "http://127.0.0.1:3000/api/daily/${TODAY}/safe-balance-checker", headers: ["Content-Type:application/json"], data: '{"staffName":"zap"}' }
+      - { name: "GET daily/[date]/todos", url: "http://127.0.0.1:3000/api/daily/${TODAY}/todos", responseCode: 200 }
+      - { name: "PATCH daily/[date]/todos", method: PATCH, url: "http://127.0.0.1:3000/api/daily/${TODAY}/todos", headers: ["Content-Type:application/json"], data: '{"todos":[{"id":"t1","text":"zap"}]}' }
+      - { name: "GET guest-info", url: "http://127.0.0.1:3000/api/guest-info?date=${TODAY}", responseCode: 200 }
+      - { name: "GET timetable", url: "http://127.0.0.1:3000/api/timetable?date=${TODAY}", responseCode: 200 }
+      - { name: "POST reservations", method: POST, url: "http://127.0.0.1:3000/api/reservations", headers: ["Content-Type:application/json"], data: '{"check_in_date":"${TODAY}","check_out_date":"${TODAY}","room":"21","adult_count":2,"child_count":0,"guest_name":"zap","booking_site":"chillnn","add_reason":"zap","staff_name":"zap"}' }
+      # テストデータの予約（tests/fixtures/localdev/guestInfoV2.json）
+      - { name: "PATCH reservations/[id]", method: PATCH, url: "http://127.0.0.1:3000/api/reservations/fixture-normal-1night", headers: ["Content-Type:application/json"], data: '{"guest_name":"zap"}' }
+      - { name: "PATCH reservations/[id]/a-tax", method: PATCH, url: "http://127.0.0.1:3000/api/reservations/fixture-normal-1night/a-tax", headers: ["Content-Type:application/json"], data: '{"a_tax_received":true,"a_tax_received_by_staff_name":"zap"}' }
+      - { name: "PATCH reservations/[id]/cancel", method: PATCH, url: "http://127.0.0.1:3000/api/reservations/fixture-normal-1night/cancel", headers: ["Content-Type:application/json"], data: '{"staff_name":"zap","target_date":"${TODAY}","reason":"zap"}' }
+      - { name: "PATCH reservations/[id]/restore", method: PATCH, url: "http://127.0.0.1:3000/api/reservations/fixture-normal-1night/restore", headers: ["Content-Type:application/json"], data: '{"staff_name":"zap","target_date":"${TODAY}","reason":"zap"}' }
+      - { name: "POST auth/login", method: POST, url: "http://127.0.0.1:3000/api/auth/login", headers: ["Content-Type:application/json"], data: '{"idToken":"zap"}' }
+
+  - type: spider
+    parameters:
+      context: app
+      maxDuration: 2
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+
+  - type: activeScan
+    parameters:
+      context: app
+      maxScanDurationInMins: 40
+      maxRuleDurationInMins: 5
+
+  - type: report
+    parameters:
+      template: traditional-html
+      reportDir: /zap/wrk/out
+      reportFile: full-dev-auth.html
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: /zap/wrk/out
+      reportFile: full-dev-auth.json
+
+  - type: exitStatus
+    parameters:
+      errorLevel: Low

@@ -1,0 +1,85 @@
+# ZAP Automation Framework: 段A（本番ビルド・未ログイン・全パス・能動的な検査）
+# .github/workflows/zap-full.yml が実行する。docs/Development.md「CI」節を参照。
+# 目的: 本番ビルドの全ページ・全 API を未ログインで検査し、401 にならない API、エラーに出る内部の情報、ヘッダーの抜けを見つける。
+# requests の name は「メソッド src/app/api からのパス」で、tests/unit/config/zapPlans.test.ts が全 Route との突き合わせに使う
+env:
+  contexts:
+    - name: app
+      urls:
+        - http://127.0.0.1:3000
+      includePaths:
+        - "http://127.0.0.1:3000.*"
+  parameters:
+    failOnError: true
+    # responseCode の不一致（401 にならない API）は warning になるので、warning でも失敗させる
+    failOnWarning: true
+    progressToStdout: true
+
+jobs:
+  # .zap/rules.tsv で IGNORE にしているものと同じ（理由もそちらを参照）。
+  # 10055（CSP）は MUI のための style-src 'unsafe-inline'（10055-6）だけを除外する。ルール丸ごとだと、
+  # 同じルールの別の指摘（例: 10055-13 フォールバックしないディレクティブの書き漏れ）まで隠れる
+  - type: alertFilter
+    alertFilters:
+      - ruleId: 10055-6
+        newRisk: "False Positive"
+      - ruleId: 10109
+        newRisk: "False Positive"
+      - ruleId: 10049
+        newRisk: "False Positive"
+
+  - type: requestor
+    requests:
+      # 画面（本番の時間外は /time-restricted へ回るので、status は見ない）
+      - { name: "PAGE /", url: "http://127.0.0.1:3000/" }
+      - { name: "PAGE /login", url: "http://127.0.0.1:3000/login" }
+      - { name: "PAGE /daily-dashboard", url: "http://127.0.0.1:3000/daily-dashboard?date=2026-05-20" }
+      - { name: "PAGE /a_tax_table", url: "http://127.0.0.1:3000/a_tax_table" }
+      - { name: "PAGE /time-restricted", url: "http://127.0.0.1:3000/time-restricted" }
+      # API は未ログインなので、ログイン以外はすべて 401 になること
+      - { name: "GET a-tax-table", url: "http://127.0.0.1:3000/api/a-tax-table?year=2026&month=5", responseCode: 401 }
+      - { name: "GET cleaning-board", url: "http://127.0.0.1:3000/api/cleaning-board?date=2026-05-20", responseCode: 401 }
+      - { name: "GET daily/[date]/safe-balance-checker", url: "http://127.0.0.1:3000/api/daily/2026-05-20/safe-balance-checker", responseCode: 401 }
+      - { name: "PATCH daily/[date]/safe-balance-checker", method: PATCH, url: "http://127.0.0.1:3000/api/daily/2026-05-20/safe-balance-checker", headers: ["Content-Type:application/json"], data: '{"staffName":"zap"}', responseCode: 401 }
+      - { name: "GET daily/[date]/todos", url: "http://127.0.0.1:3000/api/daily/2026-05-20/todos", responseCode: 401 }
+      - { name: "PATCH daily/[date]/todos", method: PATCH, url: "http://127.0.0.1:3000/api/daily/2026-05-20/todos", headers: ["Content-Type:application/json"], data: '{"todos":[{"id":"t1","text":"zap"}]}', responseCode: 401 }
+      - { name: "GET guest-info", url: "http://127.0.0.1:3000/api/guest-info?date=2026-05-20", responseCode: 401 }
+      - { name: "GET timetable", url: "http://127.0.0.1:3000/api/timetable?date=2026-05-20", responseCode: 401 }
+      - { name: "POST reservations", method: POST, url: "http://127.0.0.1:3000/api/reservations", headers: ["Content-Type:application/json"], data: '{"check_in_date":"2026-05-20","check_out_date":"2026-05-21","room":"21","adult_count":2,"child_count":0,"guest_name":"zap","booking_site":"chillnn","add_reason":"zap","staff_name":"zap"}', responseCode: 401 }
+      - { name: "PATCH reservations/[id]", method: PATCH, url: "http://127.0.0.1:3000/api/reservations/zap-none", headers: ["Content-Type:application/json"], data: '{"guest_name":"zap"}', responseCode: 401 }
+      - { name: "PATCH reservations/[id]/a-tax", method: PATCH, url: "http://127.0.0.1:3000/api/reservations/zap-none/a-tax", headers: ["Content-Type:application/json"], data: '{"a_tax_received":true,"a_tax_received_by_staff_name":"zap"}', responseCode: 401 }
+      - { name: "PATCH reservations/[id]/cancel", method: PATCH, url: "http://127.0.0.1:3000/api/reservations/zap-none/cancel", headers: ["Content-Type:application/json"], data: '{"staff_name":"zap","target_date":"2026-05-20","reason":"zap"}', responseCode: 401 }
+      - { name: "PATCH reservations/[id]/restore", method: PATCH, url: "http://127.0.0.1:3000/api/reservations/zap-none/restore", headers: ["Content-Type:application/json"], data: '{"staff_name":"zap","target_date":"2026-05-20","reason":"zap"}', responseCode: 401 }
+      # ログインは時間外に 403、不正な body で 400 になるので status は見ない（5xx は能動的な検査で見つける）
+      - { name: "POST auth/login", method: POST, url: "http://127.0.0.1:3000/api/auth/login", headers: ["Content-Type:application/json"], data: '{"idToken":"zap"}' }
+
+  - type: spider
+    parameters:
+      context: app
+      maxDuration: 2
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+
+  - type: activeScan
+    parameters:
+      context: app
+      maxScanDurationInMins: 30
+      maxRuleDurationInMins: 5
+
+  - type: report
+    parameters:
+      template: traditional-html
+      reportDir: /zap/wrk/out
+      reportFile: full-prod.html
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: /zap/wrk/out
+      reportFile: full-prod.json
+
+  # Low 以上の指摘が1件でもあれば失敗（Baseline の WARN で失敗と同じ考え方）
+  - type: exitStatus
+    parameters:
+      errorLevel: Low

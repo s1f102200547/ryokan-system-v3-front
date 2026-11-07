@@ -14,6 +14,10 @@
 /coverage
 /test-results/
 /playwright-report/
+/playwright-report-prod/
+/test-results-prod/
+/playwright-report-emulator/
+/test-results-emulator/
 
 # next.js
 /.next/
@@ -53,3 +57,5 @@ next-env.d.ts
 
 # google-github-actions/auth が作業ディレクトリに作る GCP の認証ファイル。Docker build や Git に入れない
 gha-creds-*.json
+/.zap/out/
+/.zap/run/

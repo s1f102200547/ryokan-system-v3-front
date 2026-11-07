@@ -51,6 +51,15 @@ export function proxy(request: NextRequest) {
     }
   }
 
+  // / はダッシュボードへ転送する。page.tsx の redirect() だと、Next.js が画面の外枠を描いた HTML（約 7KB）を
+  // 転送と一緒に返す（ZAP の Big Redirect）。ここで本文のない転送にする。page.tsx はすり抜けたときの保険として残す
+  if (pathname === '/') {
+    const redirectResponse = NextResponse.redirect(new URL('/daily-dashboard', request.url))
+    redirectResponse.headers.set('Content-Type', 'text/html; charset=utf-8')
+    applySecurityHeaders(redirectResponse, nonce, csp)
+    return redirectResponse
+  }
+
   const response = NextResponse.next()
   applySecurityHeaders(response, nonce, csp)
   return response
