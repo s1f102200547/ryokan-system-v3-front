@@ -30,6 +30,8 @@ check: ## lint・型チェック・unit/integration test・Emulator の往復検
 	npm run test:tz
 	npm run test:emulator
 	npm run e2e
+	npm run e2e:prod
+	npm run e2e:emulator
 
 help: ## ターゲット一覧
 	@grep -E '^[a-z]+:.*## ' $(MAKEFILE_LIST) | sed -E 's/:.*## /\t/'
