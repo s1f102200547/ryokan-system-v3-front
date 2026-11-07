@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { DATE_REGEX, addDays, formatDateLabel, formatDiffLabel } from '@/lib/dateUtils'
+import { isRealDate, addDays, formatDateLabel, formatDiffLabel } from '@/lib/dateUtils'
 import { DATE_RANGE_PAST_DAYS, DATE_RANGE_FUTURE_DAYS } from '@/constants/date'
 import type { UseDateNavigationReturn } from '@/types/date'
 
@@ -19,7 +19,8 @@ export function useDateNavigation(today: string): UseDateNavigationReturn {
     date < minDate ? minDate : date > maxDate ? maxDate : date
 
   const rawDate = searchParams.get('date')
-  const isValidFormat = rawDate !== null && DATE_REGEX.test(rawDate)
+  // 形の違う日付・実在しない日付（2026-02-30 など）は今日を出す。API も 400 にする日付なので、画面がエラーになる
+  const isValidFormat = rawDate !== null && isRealDate(rawDate)
   const isOutOfRange = isValidFormat && (rawDate! < minDate || rawDate! > maxDate)
   const selectedDate = isValidFormat && !isOutOfRange ? rawDate! : today
   const outOfRangeWarning: string | null = isOutOfRange
