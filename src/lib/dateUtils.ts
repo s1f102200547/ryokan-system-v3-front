@@ -1,5 +1,14 @@
 export const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
 
+// YYYY-MM-DD の形で、実在する日付か（2026-02-30・2026-13-01 などは false）。
+// API の DateSchema と、画面の ?date= の読み取りで同じ判定を使う
+export function isRealDate(v: string): boolean {
+  if (!DATE_REGEX.test(v)) return false
+  const [y, m, d] = v.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  return date.getFullYear() === y && date.getMonth() + 1 === m && date.getDate() === d
+}
+
 export function getTodayJST(): string {
   const now = new Date()
   const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000)

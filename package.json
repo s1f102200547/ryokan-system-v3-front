@@ -16,6 +16,7 @@
     "test:emulator": "firebase emulators:exec --project demo-ryokan --only firestore,auth \"vitest run --config vitest.emulator.config.ts\"",
     "e2e": "playwright test",
     "e2e:prod": "playwright test -c playwright.prod.config.ts",
+    "perf": "playwright test -c playwright.perf.config.ts",
     "e2e:emulator": "firebase emulators:exec --project demo-ryokan --only firestore,auth \"playwright test -c playwright.emulator.config.ts\"",
     "audit:ci": "tsx scripts/ci/audit.ts"
   },

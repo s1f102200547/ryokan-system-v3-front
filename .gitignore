@@ -59,3 +59,5 @@ next-env.d.ts
 gha-creds-*.json
 /.zap/out/
 /.zap/run/
+/test-results-perf/
+/perf-results/

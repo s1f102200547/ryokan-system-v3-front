@@ -4,12 +4,15 @@ import { useState, useEffect, useCallback } from 'react'
 import type { DailyTodo } from '@/domain/ports/dailyRepository'
 import { fetchWithSession } from '@/hooks/auth/fetchWithSession'
 
+// todos は fetchedDate の日のもの。保存中・保存の失敗も、どの日の保存かを持つ。
+// 保存中に日付を切り替えると、前の日の保存の結果が今の日の画面に入り、
+// そのまま追加すると前の日の todo ごと今の日に保存していた
 type State = {
   todos: DailyTodo[]
   fetchedDate: string | null
   error: string | null
-  isSaving: boolean
-  saveError: string | null
+  savingDate: string | null
+  saveError: { date: string; message: string } | null
 }
 
 async function saveTodos(date: string, todos: DailyTodo[]): Promise<void> {
@@ -26,7 +29,7 @@ export function useDailyTodos(date: string) {
     todos: [],
     fetchedDate: null,
     error: null,
-    isSaving: false,
+    savingDate: null,
     saveError: null,
   })
 
@@ -54,33 +57,38 @@ export function useDailyTodos(date: string) {
     }
   }, [date])
 
+  // 一覧全体を date の日に保存する。結果は、そのとき画面に出ている日が date のときだけ反映する
+  const save = useCallback(async (updated: DailyTodo[]) => {
+    setState((prev) => ({ ...prev, savingDate: date, saveError: null }))
+    try {
+      await saveTodos(date, updated)
+      setState((prev) => ({
+        ...prev,
+        todos: prev.fetchedDate === date ? updated : prev.todos,
+        savingDate: prev.savingDate === date ? null : prev.savingDate,
+      }))
+    } catch {
+      setState((prev) => ({
+        ...prev,
+        savingDate: prev.savingDate === date ? null : prev.savingDate,
+        saveError: { date, message: '保存に失敗しました' },
+      }))
+    }
+  }, [date])
+
   const addTodo = useCallback(
     async (text: string) => {
       const newTodo: DailyTodo = { id: crypto.randomUUID(), text }
-      const updated = [...state.todos, newTodo]
-      setState((prev) => ({ ...prev, isSaving: true, saveError: null }))
-      try {
-        await saveTodos(date, updated)
-        setState((prev) => ({ ...prev, todos: updated, isSaving: false }))
-      } catch {
-        setState((prev) => ({ ...prev, isSaving: false, saveError: '保存に失敗しました' }))
-      }
+      await save([...state.todos, newTodo])
     },
-    [date, state.todos],
+    [save, state.todos],
   )
 
   const removeTodo = useCallback(
     async (id: string) => {
-      const updated = state.todos.filter((t) => t.id !== id)
-      setState((prev) => ({ ...prev, isSaving: true, saveError: null }))
-      try {
-        await saveTodos(date, updated)
-        setState((prev) => ({ ...prev, todos: updated, isSaving: false }))
-      } catch {
-        setState((prev) => ({ ...prev, isSaving: false, saveError: '保存に失敗しました' }))
-      }
+      await save(state.todos.filter((t) => t.id !== id))
     },
-    [date, state.todos],
+    [save, state.todos],
   )
 
   const isLoading = state.fetchedDate !== date
@@ -89,8 +97,8 @@ export function useDailyTodos(date: string) {
     todos: state.todos,
     isLoading,
     error: state.error,
-    isSaving: state.isSaving,
-    saveError: state.saveError,
+    isSaving: state.savingDate === date,
+    saveError: state.saveError?.date === date ? state.saveError.message : null,
     addTodo,
     removeTodo,
   }

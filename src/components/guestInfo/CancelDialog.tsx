@@ -18,19 +18,34 @@ type Props = {
   onCancelled: () => void
 }
 
+// 入力とエラーは中身（CancelForm）が持ち、開くたびに key を変えて作り直す。
+// 以前はこの部品が持ち、失敗したときのエラーが、閉じて別の予約で開き直しても残っていた
 export function CancelDialog({ reservation, onClose, onCancelled }: Props) {
+  const open = reservation !== null
+  // 閉じるアニメーションの間も題名を出せるよう、最後に開いた予約を覚えておく
+  const [shown, setShown] = useState<Reservation | null>(reservation)
+  if (reservation !== null && reservation !== shown) setShown(reservation)
+  // 閉じた → 開いた、のたびに数える（同じ予約で開き直しても作り直す）
+  const [openCount, setOpenCount] = useState(open ? 1 : 0)
+  const [wasOpen, setWasOpen] = useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (open) setOpenCount((n) => n + 1)
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      {shown && <CancelForm key={`${openCount}-${shown.id}`} reservation={shown} onClose={onClose} onCancelled={onCancelled} />}
+    </Dialog>
+  )
+}
+
+function CancelForm({ reservation, onClose, onCancelled }: { reservation: Reservation; onClose: () => void; onCancelled: () => void }) {
   const [staffName, setStaffName] = useState('')
   const [reason, setReason] = useState('')
   const { execute, isPending, error } = useCancelReservation()
 
-  const handleClose = () => {
-    setStaffName('')
-    setReason('')
-    onClose()
-  }
-
   const handleSubmit = async () => {
-    if (!reservation) return
     const ok = await execute({
       id: reservation.id,
       staffName,
@@ -38,7 +53,7 @@ export function CancelDialog({ reservation, onClose, onCancelled }: Props) {
       reason,
     })
     if (ok) {
-      handleClose()
+      onClose()
       onCancelled()
     }
   }
@@ -46,9 +61,9 @@ export function CancelDialog({ reservation, onClose, onCancelled }: Props) {
   const canSubmit = staffName.trim().length > 0 && reason.trim().length > 0
 
   return (
-    <Dialog open={Boolean(reservation)} onClose={handleClose} maxWidth="xs" fullWidth>
+    <>
       <DialogTitle>
-        キャンセル — {reservation?.room} ／ {reservation?.guest_name}
+        キャンセル — {reservation.room} ／ {reservation.guest_name}
       </DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '30px !important' }}>
         {error && <Alert severity="error">{error}</Alert>}
@@ -73,7 +88,7 @@ export function CancelDialog({ reservation, onClose, onCancelled }: Props) {
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} disabled={isPending}>戻る</Button>
+        <Button onClick={onClose} disabled={isPending}>戻る</Button>
         <Button
           variant="contained"
           color="error"
@@ -84,6 +99,6 @@ export function CancelDialog({ reservation, onClose, onCancelled }: Props) {
           キャンセル実行
         </Button>
       </DialogActions>
-    </Dialog>
+    </>
   )
 }
