@@ -50,7 +50,7 @@ export function LoginPage() {
             disabled={isPending}
             fullWidth
           >
-            ログイン
+            {isPending ? 'ログイン中…' : 'ログイン'}
           </Button>
         </Box>
       </Paper>

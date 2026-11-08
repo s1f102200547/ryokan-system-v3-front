@@ -22,6 +22,8 @@ type Props = {
   isStaying?: boolean
   selectedToggle?: GuestInfoToggle | null
   targetDate?: string
+  // 一覧の取り直し中。押しても何もしない（古いデータから編集・キャンセルさせない）
+  disabled?: boolean
 }
 
 function getToggleValue(
@@ -60,20 +62,22 @@ export function ReservationListCard({
   isStaying = false,
   selectedToggle,
   targetDate,
+  disabled = false,
 }: Props) {
   const [isActionHovered, setIsActionHovered] = useState(false)
 
   if (isCancelled) {
     return (
       <Card
-        onClick={() => onClick(reservation)}
+        onClick={disabled ? undefined : () => onClick(reservation)}
+        aria-disabled={disabled}
         data-testid="reservation-card"
         sx={{
           position: 'relative',
           width: 60,
           height: 60,
           m: 0.5,
-          cursor: 'pointer',
+          cursor: disabled ? 'default' : 'pointer',
           bgcolor: 'grey.100',
           opacity: 0.7,
           transition: 'background-color 0.2s',
@@ -82,10 +86,11 @@ export function ReservationListCard({
         }}
       >
         {showRestoreAction && (
-          <Tooltip title="キャンセル復帰する" placement="top">
+          <Tooltip title={disabled ? '' : 'キャンセル復帰する'} placement="top">
             <IconButton
               size="small"
               data-testid="restore-button"
+              disabled={disabled}
               onMouseEnter={() => setIsActionHovered(true)}
               onMouseLeave={() => setIsActionHovered(false)}
               onClick={(e) => {
@@ -111,15 +116,15 @@ export function ReservationListCard({
 
   const card = (
     <Card
-      onClick={isStaying ? undefined : () => onClick(reservation)}
-      aria-disabled={isStaying}
+      onClick={isStaying || disabled ? undefined : () => onClick(reservation)}
+      aria-disabled={isStaying || disabled}
       data-testid="reservation-card"
       sx={{
         position: 'relative',
         width: 120,
         height: 120,
         m: 1,
-        cursor: isStaying ? 'not-allowed' : 'pointer',
+        cursor: isStaying ? 'not-allowed' : disabled ? 'default' : 'pointer',
         bgcolor: isStaying ? 'grey.100' : 'background.paper',
         border: isStaying ? '1px dashed' : '1px solid transparent',
         borderColor: isStaying ? 'grey.300' : 'transparent',
@@ -134,10 +139,11 @@ export function ReservationListCard({
       }}
     >
       {!isStaying && (
-        <Tooltip title="キャンセルする" placement="top">
+        <Tooltip title={disabled ? '' : 'キャンセルする'} placement="top">
           <IconButton
             size="small"
             data-testid="cancel-button"
+            disabled={disabled}
             onMouseEnter={() => setIsActionHovered(true)}
             onMouseLeave={() => setIsActionHovered(false)}
             onClick={(e) => {

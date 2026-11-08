@@ -28,7 +28,26 @@ type Props = {
   onAdded: () => void
 }
 
+// 入力の状態は中身（AddReservationForm）が持ち、開くたびに key を変えて作り直す。
+// 以前はこの部品が状態を持ち、画面に出たままだったため、C/O 日の初期値が最初に開いた日のまま残り
+// （4/12 を開いてから 4/10 で追加すると C/O 4/13 = 3泊）、失敗したときのエラーも開き直すと残っていた。
+// Dialog は閉じると中身を外すが、閉じるアニメーションの間に開き直すと外れないので、key でも作り直す
 export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Props) {
+  const [openCount, setOpenCount] = useState(open ? 1 : 0)
+  const [wasOpen, setWasOpen] = useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (open) setOpenCount((n) => n + 1)
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <AddReservationForm key={openCount} checkInDate={checkInDate} onClose={onClose} onAdded={onAdded} />
+    </Dialog>
+  )
+}
+
+function AddReservationForm({ checkInDate, onClose, onAdded }: Omit<Props, 'open'>) {
   const [checkOutDate, setCheckOutDate] = useState<Dayjs | null>(dayjs(checkInDate).add(1, 'day'))
   const [room, setRoom] = useState<string>('')
   const [adultCount, setAdultCount] = useState(1)
@@ -38,18 +57,6 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
   const [addReason, setAddReason] = useState('')
   const [staffName, setStaffName] = useState('')
   const { execute, isPending, error } = useAddReservation()
-
-  const handleClose = () => {
-    setCheckOutDate(dayjs(checkInDate).add(1, 'day'))
-    setRoom('')
-    setAdultCount(1)
-    setChildCount(0)
-    setGuestName('')
-    setBookingSite('chillnn')
-    setAddReason('')
-    setStaffName('')
-    onClose()
-  }
 
   const handleSubmit = async () => {
     if (!room || !checkOutDate) return
@@ -66,7 +73,7 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
       staff_name: staffName,
     })
     if (result !== null) {
-      handleClose()
+      onClose()
       onAdded()
     }
   }
@@ -82,7 +89,7 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
     checkOutStr <= dayjs(checkInDate).add(MAX_NIGHTS, 'day').format('YYYY-MM-DD')
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <>
       <DialogTitle>新規予約追加（C/I: {checkInDate}）</DialogTitle>
       <DialogContent sx={{ pt: '24px !important' }}>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -181,7 +188,7 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} disabled={isPending}>キャンセル</Button>
+        <Button onClick={onClose} disabled={isPending}>キャンセル</Button>
         <Button
           variant="contained"
           onClick={handleSubmit}
@@ -191,6 +198,6 @@ export function AddReservationDialog({ open, checkInDate, onClose, onAdded }: Pr
           追加
         </Button>
       </DialogActions>
-    </Dialog>
+    </>
   )
 }

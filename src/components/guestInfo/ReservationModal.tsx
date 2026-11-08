@@ -61,6 +61,9 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
 
   // 進行中の保存。保存は1件ずつ、前の保存が終わってから送る（応答の順序が入れ替わらないように）
   const savingRef = useRef<Promise<void>>(Promise.resolve())
+  // 4xx で断られ、まだ保存できていないフィールド。送り直しはしないが、閉じると失われるので閉じるときに確認する。
+  // 同じフィールドをあとで保存できたら外す
+  const rejectedFieldsRef = useRef<Set<keyof ReservationPatch>>(new Set())
 
   // 保留中の変更を送る。通信エラー・サーバーの障害で失敗した変更は保留に戻し、
   // 次の入力か「閉じる」で送り直す。以前は失敗した変更を捨てていたため、画面には入力が残るのに保存されていなかった。
@@ -71,9 +74,14 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
       if (Object.keys(payload).length === 0) return
       pendingPayloadRef.current = {}
       const result = await execute(id, payload)
+      const fields = Object.keys(payload) as (keyof ReservationPatch)[]
       if (result === 'retry') {
         // 待っている間に入力された新しい値を優先する
         pendingPayloadRef.current = { ...payload, ...pendingPayloadRef.current }
+      } else if (result === 'rejected') {
+        for (const f of fields) rejectedFieldsRef.current.add(f)
+      } else {
+        for (const f of fields) rejectedFieldsRef.current.delete(f)
       }
     })
     return savingRef.current
@@ -86,14 +94,19 @@ function ModalBody({ reservation, onClose }: { reservation: Reservation; onClose
   }, [save])
 
   // 保留中の変更（失敗した変更を含む）を送り、進行中の保存も終わってから閉じる。
-  // 保存の完了前に閉じると、一覧の再取得が保存より先に走る。送り直しても失敗したら、閉じる前に確認する
+  // 保存の完了前に閉じると、一覧の再取得が保存より先に走る。
+  // 送り直しても失敗した変更、または入力の誤りで断られた変更が残っていれば、閉じる前に確認する（確認は1回）。
+  // 以前は断られた変更を黙って捨てて閉じ、理由もモーダルと一緒に消えていた
   const handleClose = useCallback(async () => {
     debouncedUpdateRef.current?.cancel()
     await save(reservation.id)
-    if (
-      Object.keys(pendingPayloadRef.current).length > 0 &&
-      !window.confirm('保存できていない変更があります。閉じると失われます。閉じますか？')
-    ) return
+    const message =
+      Object.keys(pendingPayloadRef.current).length > 0
+        ? '保存できていない変更があります。閉じると失われます。閉じますか？'
+        : rejectedFieldsRef.current.size > 0
+          ? '保存できなかった変更があります（入力内容の誤り）。閉じると失われます。閉じますか？'
+          : null
+    if (message !== null && !window.confirm(message)) return
     onClose()
   }, [save, onClose, reservation.id])
 

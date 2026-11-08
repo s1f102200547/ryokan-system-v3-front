@@ -335,11 +335,20 @@ test.describe('GuestInfo - モーダル（auto-save）', () => {
       await expect(page.getByRole('dialog')).not.toBeVisible()
     })
 
-    test('入力の誤り（400）は送り直さず、確認なしで閉じる', async ({ page }) => {
+    // 400 は送り直しても通らないので送り直さない。ただし閉じると変更が失われるので、閉じる前に確認する
+    test('入力の誤り（400）は送り直さず、閉じる前に確認する', async ({ page }) => {
       let calls = 0
       await page.route('**/api/reservations/test-id-1', (route) => { calls++; return route.fulfill({ status: 400, json: {} }) })
       await editName(page, '入力の誤り')
       await expect(page.getByText('入力内容に誤りがあるため保存できませんでした')).toBeVisible()
+
+      const messages: string[] = []
+      page.once('dialog', (d) => { messages.push(d.message()); void d.dismiss() })
+      await page.getByRole('button', { name: '閉じる' }).click()
+      await expect.poll(() => messages).toEqual([expect.stringContaining('保存できなかった変更があります（入力内容の誤り）')])
+      await expect(page.getByRole('dialog')).toBeVisible()   // キャンセルしたら閉じない
+
+      page.once('dialog', (d) => void d.accept())
       await page.getByRole('button', { name: '閉じる' }).click()
       await expect(page.getByRole('dialog')).not.toBeVisible()
       expect(calls).toBe(1)
