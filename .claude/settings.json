@@ -19,13 +19,33 @@
       "Read(~/.config/configstore/**)",
       "Read(.env)",
       "Read(.env.*)",
-      "Read(!.env.development.example)",
       "Read(.localdev/**)",
       "Read(gha-creds-*.json)",
-      "Read(*.pem)"
+      "Read(*.pem)",
+      "Read(~/.config/gh/**)",
+      "Read(~/.npmrc)",
+      "Read(~/.git-credentials)",
+      "Read(~/.docker/config.json)",
+      "Read(~/.claude/.credentials.json)"
     ],
     "ask": [
       "Edit(.github/workflows/**)"
     ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "network": {
+      "allowedDomains": [
+        "registry.npmjs.org",
+        "github.com"
+      ]
+    },
+    "filesystem": {
+      "denyWrite": [
+        ".github/workflows"
+      ]
+    }
   }
 }

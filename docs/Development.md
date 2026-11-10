@@ -89,7 +89,8 @@ lint ─┐
 typecheck ─┤
 audit ─┼─→ unit-test（test + test:tz）─┬─→ emulator-test
 secret-scan ─┤                          ├─→ e2e
-semgrep ─┘                              └─→ zap-scan
+semgrep ─┤                              └─→ zap-scan
+zizmor ─┘
 ```
 
 | ジョブ | 内容 | 指摘を除外するとき |
@@ -97,11 +98,14 @@ semgrep ─┘                              └─→ zap-scan
 | audit | `npm run audit:ci`。high 以上で、例外リストにないものがあれば失敗 | `scripts/ci/auditAllowlist.ts` に ID・パッケージ・理由・期限（最長3か月）を書く。アプリで脆弱なコードが動かないことを確かめてから |
 | secret-scan | gitleaks で全履歴を検査 | `.gitleaksignore` に Fingerprint と理由。本物の秘密情報は除外せず、キーを無効化する |
 | semgrep | `p/default` `p/typescript` `p/react`。1件でも失敗 | 該当行の前に `// nosemgrep: <ルールID>` と理由 |
+| zizmor | GitHub Actions の定義（`.github/`）を検査。`--offline`（GitHub API を使う検査はしない）。1件でも失敗 | 該当行に `# zizmor: ignore[<監査名>]`、近くに理由 |
 | zap-scan | 本番ビルドを起動し、ZAP Baseline で `/login` を検査。WARN 以上で失敗 | `.zap/rules.tsv`（ASCII、タブ区切り、空行なし） |
 
-Actions・ツール・Docker イメージは SHA / digest / 版で固定している（`tests/unit/config/pinning.test.ts` が検査する）。上げるときも固定の形を保つ（Actions はタグが指すコミットの SHA を書き、行末に版をコメントで書く。ツールは公開から7日以上たった版）。Dependabot は Semgrep と ZAP のイメージ、CI の `firebase-tools` を更新しないので手で上げる。ZAP を上げると新しいルールで CI が落ちることがある。
+Actions・ツール・Docker イメージは SHA / digest / 版で固定している（`tests/unit/config/pinning.test.ts` が検査する）。上げるときも固定の形を保つ（Actions はタグが指すコミットの SHA を書き、行末に版をコメントで書く。ツールは公開から7日以上たった版）。Dependabot は Semgrep と ZAP のイメージ、gitleaks・zizmor の本体、CI の `firebase-tools` を更新しないので手で上げる（gitleaks・zizmor は版とチェックサムを一緒に変える。zizmor のチェックサムは GitHub のリリースの asset の digest）。ZAP を上げると新しいルールで CI が落ちることがある。
 
 Semgrep を手元で試す: `docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:1.182.1 semgrep scan --metrics=off --config p/default --config p/typescript --config p/react`
+
+zizmor を手元で試す: ci.yml の zizmor ジョブと同じ版の本体を取得し、チェックサムを確かめてから `zizmor --offline .`
 
 ### ZAP の能動的な検査（`.github/workflows/zap-full.yml`）
 
