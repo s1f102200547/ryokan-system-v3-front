@@ -43,9 +43,9 @@ test.describe('ログイン', () => {
     )
     await submit(page, 'pc1@example.com', 'pw1')
     await expect(page.getByText(/ログインの失敗が続いたため、あと [45]:\d\d はログインできません/)).toBeVisible()
-    // 止められている間は、入力欄もボタンも押せない（読み込み直すと戻る）
-    await expect(page.getByLabel('メールアドレス')).toBeDisabled()
-    await expect(page.getByLabel('パスワード')).toBeDisabled()
+    // 止められている間は、ログインボタンだけ押せない（入力欄は触れる。読み込み直すと戻る）
+    await expect(page.getByLabel('メールアドレス')).toBeEnabled()
+    await expect(page.getByLabel('パスワード')).toBeEnabled()
     await expect(page.getByRole('button', { name: 'ログイン' })).toBeDisabled()
     await page.reload()
     await expect(page.getByRole('button', { name: 'ログイン' })).toBeEnabled()

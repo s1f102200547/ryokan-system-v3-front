@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation'
 export function useLogin() {
   const [isPending, setIsPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // 失敗が続いて止められている（429 too_many_attempts）間は、画面の入力欄とボタンをすべて押せなくし、残りの時間を出す。
+  // 失敗が続いて止められている（429 too_many_attempts）間は、画面のログインボタンを押せなくし、残りの時間を出す。
   // 時間が来たら自動で戻す。時間は PC の時計ではなく、受け取ってからの経過（performance.now）で数える（時計の巻き戻りに左右されない）。
   // 早く戻ってもサーバーがまだ止めていれば、また 429 になるだけ（止めている間の試行は数えないので、止める時間は延びない）
   const [lockDeadline, setLockDeadline] = useState<number | null>(null)

@@ -35,7 +35,6 @@ export function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
             fullWidth
-            disabled={isLocked} // 失敗が続いて止められている間は入力させない
             // API の Zod と同じ値（src/constants/auth.ts）
             slotProps={{ htmlInput: { minLength: LOGIN_EMAIL_MIN_LENGTH, maxLength: LOGIN_EMAIL_MAX_LENGTH } }}
           />
@@ -47,13 +46,12 @@ export function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
             fullWidth
-            disabled={isLocked} // 失敗が続いて止められている間は入力させない
             slotProps={{ htmlInput: { minLength: LOGIN_PASSWORD_MIN_LENGTH, maxLength: LOGIN_PASSWORD_MAX_LENGTH } }}
           />
           <Button
             type="submit"
             variant="contained"
-            disabled={isPending || isLocked}
+            disabled={isPending || isLocked} // 失敗が続いて止められている間は押せない（入力欄は触れる）
             fullWidth
           >
             {isPending ? 'ログイン中…' : 'ログイン'}
