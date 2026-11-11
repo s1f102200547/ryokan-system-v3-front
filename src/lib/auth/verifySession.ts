@@ -1,5 +1,6 @@
 import { adminAuth } from '@/lib/firebase/admin'
 import { InfraError } from '@/types/errors'
+import { SESSION_AUTH_TIME_CLAIM } from '@/constants/auth'
 
 // Session Cookie そのものが無効なことを表すコード（未ログインとして 401 にする）
 const INVALID_SESSION_CODES = new Set([
@@ -35,6 +36,10 @@ export async function verifySession(
 
   try {
     const decoded = await adminAuth.verifySessionCookie(cookieValue, true)
+    // 1アカウント1セッション。ログイン API がユーザーのクレームに、最後のログインの時刻（auth_time）を書いている。
+    // 新しいログインがあると時刻が変わるので、前のセッションの Cookie は合わなくなる。クレームがなければ閉じる側に倒す
+    const user = await adminAuth.getUser(decoded.uid)
+    if (user.customClaims?.[SESSION_AUTH_TIME_CLAIM] !== decoded.auth_time) return null
     return { uid: decoded.uid }
   } catch (e) {
     if (isInvalidSessionError(e)) return null

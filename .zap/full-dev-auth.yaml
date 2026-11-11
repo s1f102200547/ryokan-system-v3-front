@@ -87,7 +87,7 @@ jobs:
       - { name: "PATCH reservations/[id]/a-tax", method: PATCH, url: "http://127.0.0.1:3000/api/reservations/fixture-normal-1night/a-tax", headers: ["Content-Type:application/json"], data: '{"a_tax_received":true,"a_tax_received_by_staff_name":"zap"}' }
       - { name: "PATCH reservations/[id]/cancel", method: PATCH, url: "http://127.0.0.1:3000/api/reservations/fixture-normal-1night/cancel", headers: ["Content-Type:application/json"], data: '{"staff_name":"zap","target_date":"${TODAY}","reason":"zap"}' }
       - { name: "PATCH reservations/[id]/restore", method: PATCH, url: "http://127.0.0.1:3000/api/reservations/fixture-normal-1night/restore", headers: ["Content-Type:application/json"], data: '{"staff_name":"zap","target_date":"${TODAY}","reason":"zap"}' }
-      - { name: "POST auth/login", method: POST, url: "http://127.0.0.1:3000/api/auth/login", headers: ["Content-Type:application/json"], data: '{"idToken":"zap"}' }
+      - { name: "POST auth/login", method: POST, url: "http://127.0.0.1:3000/api/auth/login", headers: ["Content-Type:application/json"], data: '{"email":"zap@example.com","password":"zap-password"}' }
 
   - type: spider
     parameters:

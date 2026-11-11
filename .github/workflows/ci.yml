@@ -17,6 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:                           # 1ステップ = 1コマンド or 1アクション
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 / 1. コードをCI環境にコピーする
+        with:
+          # Git の認証情報（GITHUB_TOKEN）を .git/config に残さない。後のステップで push しないので要らない。
+          # 残すと、依存パッケージのスクリプトや artifact から読まれうる（zizmor の artipacked）。他の checkout も同じ
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0 / 2. node本体をinstall
         with:
           node-version: 26
@@ -34,6 +38,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26
@@ -51,6 +57,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26
@@ -76,6 +84,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # 全履歴を取得する（既定の 1 だと最新のコミットしか検査できない）
+          persist-credentials: false
       - name: Install gitleaks
         working-directory: ${{ runner.temp }}
         run: |
@@ -96,12 +105,39 @@ jobs:
       SEMGREP_IMAGE: semgrep/semgrep:1.182.1@sha256:451b3d875c00dac7ed5db5293e584a07de11449a409c10b3c2d2652f429630b6
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Run Semgrep
         # --metrics=off: 利用状況を Semgrep 社に送らない。ルールは実行のたびに Semgrep Registry から取得する
         run: >-
           docker run --rm -v "${PWD}:/src" -w /src "${SEMGREP_IMAGE}"
           semgrep scan --metrics=off --error
           --config p/default --config p/typescript --config p/react
+
+  # GitHub Actions の定義の静的解析（zizmor）。テンプレートへの注入、権限の広さ、危ないトリガー、認証情報の残し方などを見る。
+  # Semgrep の一般ルールより Actions に詳しい。gitleaks と同じく、本体を版で固定してダウンロードし、チェックサムを確かめて実行する
+  # （2026-03 に trivy-action のタグが乗っ取られたように、検査ツールの action 自体が入口になりうるため）。
+  # --offline: GitHub API を使う検査（既知の脆弱な action など）はしない。トークンを渡さずに済み、版の更新は Dependabot が担う。
+  # 指摘が1件でもあれば失敗する。対応しないと決めたものは、その行に `# zizmor: ignore[<監査名>]` と、近くに理由を書く
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-latest
+    env:
+      ZIZMOR_VERSION: 1.32.0
+      ZIZMOR_SHA256: bb110cc765eca9cd7efb2e284a956be5974c60027b0970f16397d86208a9957b # GitHub のリリースの asset digest（x86_64-unknown-linux-gnu）
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install zizmor
+        working-directory: ${{ runner.temp }}
+        run: |
+          TARBALL="zizmor-x86_64-unknown-linux-gnu.tar.gz"
+          curl -fsSLO "https://github.com/zizmorcore/zizmor/releases/download/v${ZIZMOR_VERSION}/${TARBALL}"
+          echo "${ZIZMOR_SHA256}  ${TARBALL}" | sha256sum -c -
+          tar -xzf "${TARBALL}" zizmor
+      - name: Run zizmor
+        run: ${{ runner.temp }}/zizmor --offline --no-progress .
 
   # ── Phase 2: ユニットテスト（Phase 1 通過後）────────────────────────────
   unit-test:
@@ -110,6 +146,8 @@ jobs:
     needs: [lint, typecheck, audit, secret-scan, semgrep]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26
@@ -132,6 +170,8 @@ jobs:
     needs: [unit-test]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26
@@ -146,7 +186,9 @@ jobs:
           key: node-modules-${{ hashFiles('package-lock.json') }}
       - run: npm ci
         if: steps.cache.outputs.cache-hit != 'true'
-      - run: npm install -g firebase-tools@15.34.1 # バージョンを固定する（公開から7日以上たったもの）
+      # lockfile の外で入れる（zizmor の adhoc-packages）。版は正確に固定し（公開から7日以上たったもの）、
+      # tests/unit/config/pinning.test.ts が範囲や @latest にされていないかを検査している。devDependencies に入れると全ジョブの npm ci が重くなる
+      - run: npm install -g firebase-tools@15.34.1 # zizmor: ignore[adhoc-packages]
       - run: npm run test:emulator    # firebase emulators:exec で専用の Emulator を起動してから vitest を実行
       # 本物のログイン（Auth Emulator）を通す E2E。セッション Cookie の属性と失効が画面まで効くかを確かめる（playwright.emulator.config.ts）
       - run: npx playwright install --with-deps chromium
@@ -164,6 +206,8 @@ jobs:
     needs: [unit-test]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26
@@ -198,6 +242,8 @@ jobs:
       issues: write   # ZAP の action が結果を Issue に書く
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26

@@ -26,15 +26,10 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     // Emulator 系の変数と demo project で起動し、起動ガードを通す。
     // API はブラウザ側でモックするため Emulator 本体は起動しない。CI も同じ設定を使う。
-    // NEXT_PUBLIC_FIREBASE_API_KEY は Firebase SDK の存在チェックを通すためのダミー値
     env: {
       FIREBASE_PROJECT_ID: 'demo-ryokan',
       FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
       FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
-      NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'demo-ryokan',
-      NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
-      NEXT_PUBLIC_FIREBASE_API_KEY: 'demo-api-key',
-      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: 'demo-ryokan.firebaseapp.com',
     },
   },
 })

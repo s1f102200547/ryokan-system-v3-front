@@ -13,6 +13,7 @@ vi.mock('@/lib/firebase/admin', () => ({
   adminDb: {},
 }))
 vi.mock('@/application/aTaxTable/getATaxTableUseCase', () => ({ getATaxTableUseCase: vi.fn() }))
+vi.mock('@/application/auth/loginWithPasswordCommand', () => ({ loginWithPasswordCommand: vi.fn() }))
 vi.mock('@/application/cleaningBoard/getCleaningBoardUseCase', () => ({ getCleaningBoardUseCase: vi.fn() }))
 vi.mock('@/application/guestInfo/getGuestInfoUseCase', () => ({ getGuestInfoUseCase: vi.fn() }))
 vi.mock('@/application/timetable/getTimetableUseCase', () => ({ getTimetableUseCase: vi.fn() }))
@@ -35,6 +36,7 @@ import { InfraError } from '@/types/errors'
 import { notifySlackFireAndForget } from '@/lib/slack'
 import { adminAuth } from '@/lib/firebase/admin'
 import { getATaxTableUseCase } from '@/application/aTaxTable/getATaxTableUseCase'
+import { loginWithPasswordCommand } from '@/application/auth/loginWithPasswordCommand'
 import { getCleaningBoardUseCase } from '@/application/cleaningBoard/getCleaningBoardUseCase'
 import { getGuestInfoUseCase } from '@/application/guestInfo/getGuestInfoUseCase'
 import { getTimetableUseCase } from '@/application/timetable/getTimetableUseCase'
@@ -77,7 +79,7 @@ const staffBody = { staff_name: 'スタッフ', target_date: FIXED_TODAY, reason
 const ROUTES: RouteCase[] = [
   { route: 'a-tax-table', method: 'GET', handler: asHandler(aTaxTable.GET),
     query: { year: { valid: '2026', kind: 'number' }, month: { valid: '5', kind: 'number' } } },
-  { route: 'auth/login', method: 'POST', handler: asHandler(login.POST), body: { idToken: 'token' } },
+  { route: 'auth/login', method: 'POST', handler: asHandler(login.POST), body: { email: 'pc1@example.com', password: 'pw1' } },
   { route: 'cleaning-board', method: 'GET', handler: asHandler(cleaningBoard.GET),
     query: { date: { valid: FIXED_TODAY, kind: 'date' } } },
   { route: 'daily/[date]/safe-balance-checker', method: 'GET', handler: asHandler(safeBalanceChecker.GET),
@@ -175,6 +177,8 @@ async function send(r: RouteCase, input: Input): Promise<Response> {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(verifySession).mockResolvedValue({ uid: 'user-1' })
+  // ログインはパスワードが違う（401）。でたらめな値で 5xx にならないことを見る
+  vi.mocked(loginWithPasswordCommand).mockResolvedValue({ success: false, error: { kind: 'invalid_credentials' } })
   // 本物の firebase-admin は、でたらめなトークンに auth/argument-error を返す
   vi.mocked(adminAuth.verifyIdToken).mockRejectedValue({
     code: 'auth/argument-error', message: 'Decoding Firebase ID token failed.',
@@ -215,7 +219,7 @@ describe('Route の漏れがない', () => {
 describe.each(ROUTES.map((r) => [`${r.method} /api/${r.route}`, r] as const))('%s', (_name, r) => {
   it('正しい入力は 2xx（mock が正しく効いている）', async () => {
     const res = await send(r, validInput(r))
-    // ログインは mock の verifyIdToken が常に「不正なトークン」を返すので 401
+    // ログインは mock の Command が常に「パスワードが違う」を返すので 401
     expect(res.status, await res.clone().text()).toBe(r.route === 'auth/login' ? 401 : r.method === 'POST' ? 201 : 200)
   })
 

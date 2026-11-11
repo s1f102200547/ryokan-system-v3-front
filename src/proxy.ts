@@ -8,11 +8,7 @@ export function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
 
   const isDev = process.env.NODE_ENV === 'development'
-  const csp = buildCsp({
-    nonce,
-    isDev,
-    authEmulatorHost: process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST,
-  })
+  const csp = buildCsp({ nonce, isDev })
 
   const { pathname } = request.nextUrl
   const isLoginPage = pathname === '/login'

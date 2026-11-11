@@ -48,7 +48,7 @@
 
 | メソッド・パス | 内容 | 主な実装 |
 |---|---|---|
-| `POST /api/auth/login` | `{ idToken }` を検証して Session Cookie を発行（期限は当日 23:00 JST、最短5分）。本番の時間外は 403 | route 内 |
+| `POST /api/auth/login` | `{ email, password }`（メールアドレスの形式で3〜254文字、パスワードは3〜256文字。外れれば 400）をサーバーが Firebase Auth の REST で確かめ、Session Cookie を発行（期限は当日 23:00 JST、最短5分）。違えば 401 `invalid_credentials`、失敗が続いたメールアドレス・IP は 429 `too_many_attempts`、同時の試行の結果待ちは 429 `attempt_in_progress`（画面が自動で送り直す）。どちらも `retryAfterSeconds` と `Retry-After`。同じアカウントの前のセッションは、次の API から 401（1アカウント1セッション。Firebase のユーザーのカスタムクレーム `sessionAuthTime` を使う）。本番の時間外は 403 `outside_business_hours`。Windows の Chrome・Edge 以外は 403 `client_not_allowed` | route 内 |
 | `GET /api/guest-info?date=` | 対象日の `normal` / `staying` / `cancelled` / `roomConflicts` | `getGuestInfoUseCase` |
 | `GET /api/timetable?date=` | タイムテーブル印刷用 | `getTimetableUseCase` |
 | `GET /api/cleaning-board?date=` | 清掃ボード印刷用 | `getCleaningBoardUseCase` |
@@ -117,6 +117,22 @@
 
 ドキュメントがなければ空として扱い、更新は `set(..., { merge: true })` で作る。
 
+### `loginThrottle/{SHA-256}` — ログインの失敗回数
+
+このアプリだけが使う（`gmail-listener` は使わない）。ID は `sha256("email:" + 小文字のメールアドレス)` か `sha256("ip:" + IP)`。生のメールアドレス・IP は置かない。判定は `domain/auth/loginThrottle.ts`、読み書きは `infra/auth/firestoreLoginThrottleRepository.ts`。
+
+| フィールド | 型 | 備考 |
+|---|---|---|
+| `failures` | number | 続けて失敗した回数。成功でドキュメントごと消す |
+| `lastFailureAt` | Timestamp | ここから24時間たつと、次の失敗は1から数える |
+| `lockedUntil` | Timestamp | この時刻までパスワードを確かめず 429 |
+| `pending` | `{ id, expiresAt }[]` | 試行中の札。外し忘れても `expiresAt`（15秒後）で無効になる。札を入れる前のドキュメントにはない（空として読む） |
+| `expireAt` | Timestamp | TTL 用（最後の失敗か最後に書いた時刻 + 25時間）。Firestore の TTL ポリシーをこのフィールドに設定する |
+
+確かめる前に「試行中の札」（`pending`）を出し（`acquire`）、確かめ終わったら外して結果を確定させる（`complete`）。札は次に止める段までの残りの回数までしか出さない（同時の試行ですり抜けない）。判定は `domain/auth/loginThrottle.ts` の `acquireAll`・`completeAttempt`。
+
+形が違うドキュメントは、なかったものとして扱う（止めない側に倒し、次の失敗で書き直す）。
+
 `cancel` `late_out` は 0/1 の数値、`a_tax_received` は boolean で、型がそろっていない。`gmail-listener` と過去のデータとの互換のため、そのままにしている。
 
 ## 計算のルール
@@ -167,7 +183,7 @@
 | 部屋未割り当ての予約 | ダッシュボードには出るが、タイムテーブル（到着・夕食・朝食）と清掃ボードには出ない | 当日までに部屋を割り当てる運用。割り当て忘れると厨房の人数から漏れる |
 | 時間帯制限 | 本番はログイン API だけが時間外に 403。ほかの API は時間で制限しない | Session Cookie が 23:00 に切れる |
 | 書き込みの日付の範囲 | 実在日かつ今日 −100〜+365 日 | 画面から範囲外を開けないので実害はなく、年の打ち間違いを止められる |
-| Slack 通知 | 障害（`[ALERT]`）と、手動の追加・キャンセル・復活の記録だけ | 入力の誤り（4xx）、ログイン失敗、壊れたデータは通知しない（通知が多いと本物の障害が埋もれる） |
+| Slack 通知 | 障害（`[ALERT]`）、手動の追加・キャンセル・復活の記録、ログインの成功（`[ログイン]`）、端末・ブラウザでの拒否（`[ログイン拒否]`）、失敗が続いて止め始めたこと（`[ログイン制限]`）だけ | 入力の誤り（4xx）、ログイン失敗、壊れたデータは通知しない（通知が多いと本物の障害が埋もれる） |
 
 ## 既知の問題（未対応）
 

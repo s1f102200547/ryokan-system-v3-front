@@ -14,10 +14,7 @@ export default defineConfig({
     env: {
       FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
       FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
-      NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
       FIREBASE_PROJECT_ID: 'demo-ryokan',
-      NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'demo-ryokan',
-      NEXT_PUBLIC_FIREBASE_API_KEY: 'demo-api-key',
     },
   },
   resolve: {

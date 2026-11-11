@@ -54,11 +54,11 @@ function describeDeniedOperations() {
 
 beforeAll(async () => {
   app = initializeApp(
-    { projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY },
+    { projectId: process.env.FIREBASE_PROJECT_ID, apiKey: 'demo-api-key' }, // Emulator は API キーを見ない
     RUN_ID,
   )
   auth = getAuth(app)
-  connectAuthEmulator(auth, `http://${process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST}`, { disableWarnings: true })
+  connectAuthEmulator(auth, `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}`, { disableWarnings: true })
   db = getFirestore(app)
   const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST ?? '').split(':')
   connectFirestoreEmulator(db, host, Number(port))
