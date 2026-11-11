@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 // ログイン処理＋UI状態（loading / error / 遷移）をまとめる。
@@ -9,9 +9,30 @@ import { useRouter } from 'next/navigation'
 export function useLogin() {
   const [isPending, setIsPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // 失敗が続いて止められている（429 too_many_attempts）間は、画面の入力欄とボタンをすべて押せなくし、残りの時間を出す。
+  // 時間が来たら自動で戻す。時間は PC の時計ではなく、受け取ってからの経過（performance.now）で数える（時計の巻き戻りに左右されない）。
+  // 早く戻ってもサーバーがまだ止めていれば、また 429 になるだけ（止めている間の試行は数えないので、止める時間は延びない）
+  const [lockDeadline, setLockDeadline] = useState<number | null>(null)
+  const [lockRemainingMs, setLockRemainingMs] = useState<number | null>(null)
+  const isLocked = lockRemainingMs !== null
   const router = useRouter()
 
+  useEffect(() => {
+    if (lockDeadline === null) return
+    const timer = setInterval(() => {
+      const left = lockDeadline - performance.now()
+      if (left <= 0) {
+        setLockDeadline(null)
+        setLockRemainingMs(null)
+      } else {
+        setLockRemainingMs(left)
+      }
+    }, LOCK_TICK_MS)
+    return () => clearInterval(timer)
+  }, [lockDeadline])
+
   const login = async (credentials: { email: string; password: string }) => {
+    if (isLocked) return
     setIsPending(true)
     setError(null)
     let succeeded = false
@@ -41,13 +62,12 @@ export function useLogin() {
         return
       }
       if (response.status === 429) {
-        // 失敗が続いて止められている。いつまでかを分で出す（端数は切り上げ）
-        const minutes = typeof body.retryAfterSeconds === 'number' && body.retryAfterSeconds > 0
-          ? Math.ceil(body.retryAfterSeconds / 60)
-          : null
-        setError(minutes === null
-          ? 'ログインの失敗が続いたため、しばらくログインできません'
-          : `ログインの失敗が続いたため、${minutes}分後までログインできません`)
+        // 失敗が続いて止められている。サーバーの指定がなければ1分（早すぎても、またサーバーが断るだけ）
+        const lockMs = typeof body.retryAfterSeconds === 'number' && body.retryAfterSeconds > 0
+          ? body.retryAfterSeconds * 1000
+          : DEFAULT_LOCK_MS
+        setLockDeadline(performance.now() + lockMs)
+        setLockRemainingMs(lockMs)
         return
       }
       if (response.status === 403) {
@@ -66,7 +86,19 @@ export function useLogin() {
     }
   }
 
-  return { login, isPending, error }
+  // 止められている間のメッセージは、残りの時間から作る（毎秒変わる）
+  return { login, isPending, isLocked, error: isLocked ? lockMessage(lockRemainingMs) : error }
+}
+
+const LOCK_TICK_MS = 250
+const DEFAULT_LOCK_MS = 60_000
+
+// 「あと 4:59」の形（秒は切り上げ。0:00 は出さない）
+function lockMessage(remainingMs: number): string {
+  const seconds = Math.max(1, Math.ceil(remainingMs / 1000))
+  const mm = Math.floor(seconds / 60)
+  const ss = String(seconds % 60).padStart(2, '0')
+  return `ログインの失敗が続いたため、あと ${mm}:${ss} はログインできません`
 }
 
 const MAX_BUSY_RETRIES = 5

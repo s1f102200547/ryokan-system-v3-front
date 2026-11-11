@@ -29,7 +29,7 @@ async function submit(page: Page, email: string, password: string) {
   await page.getByRole('button', { name: 'ログイン' }).click()
 }
 
-test('3回間違えると止まり、正しいパスワードでも「N分後まで」と出てログインできない', async ({ browser }) => {
+test('3回間違えると止まり、正しいパスワードでも「あと M:SS」と出てログインできない', async ({ browser }) => {
   const email = `${RUN_ID}@example.com`
   const user = await adminAuth.createUser({ email, password: PASSWORD })
   createdUids.push(user.uid)
@@ -45,7 +45,7 @@ test('3回間違えると止まり、正しいパスワードでも「N分後ま
   }
 
   await submit(page, email, PASSWORD)
-  await expect(page.getByText('ログインの失敗が続いたため、1分後までログインできません')).toBeVisible()
+  await expect(page.getByText(/ログインの失敗が続いたため、あと [01]:\d\d はログインできません/)).toBeVisible()
   expect(page.url()).toContain('/login')
   expect((await context.cookies(APP)).find((c) => c.name === 'session')).toBeUndefined()
   await context.close()

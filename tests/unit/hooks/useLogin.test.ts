@@ -46,11 +46,11 @@ describe('useLogin', () => {
 
   it.each([
     [401, { error: 'invalid_credentials' }, 'メールアドレスまたはパスワードが正しくありません'],
-    [429, { error: 'too_many_attempts', retryAfterSeconds: 60 }, 'ログインの失敗が続いたため、1分後までログインできません'],
-    [429, { error: 'too_many_attempts', retryAfterSeconds: 61 }, 'ログインの失敗が続いたため、2分後までログインできません'],
-    [429, { error: 'too_many_attempts', retryAfterSeconds: 3600 }, 'ログインの失敗が続いたため、60分後までログインできません'],
-    [429, 'not json', 'ログインの失敗が続いたため、しばらくログインできません'],
-    [429, { error: 'too_many_attempts', retryAfterSeconds: 'x' }, 'ログインの失敗が続いたため、しばらくログインできません'],
+    [429, { error: 'too_many_attempts', retryAfterSeconds: 60 }, 'ログインの失敗が続いたため、あと 1:00 はログインできません'],
+    [429, { error: 'too_many_attempts', retryAfterSeconds: 61 }, 'ログインの失敗が続いたため、あと 1:01 はログインできません'],
+    [429, { error: 'too_many_attempts', retryAfterSeconds: 3600 }, 'ログインの失敗が続いたため、あと 60:00 はログインできません'],
+    [429, 'not json', 'ログインの失敗が続いたため、あと 1:00 はログインできません'], // 指定がなければ1分
+    [429, { error: 'too_many_attempts', retryAfterSeconds: 'x' }, 'ログインの失敗が続いたため、あと 1:00 はログインできません'],
     [403, { error: 'client_not_allowed' }, 'この PC・ブラウザからはログインできません。'],
     [403, { error: 'outside_business_hours' }, '利用時間外です（6:00〜23:00）'],
     [403, 'not json', '利用時間外です（6:00〜23:00）'],
@@ -118,7 +118,70 @@ describe('useLogin', () => {
       fetchMock.mockResolvedValue(new Response(JSON.stringify({ error: 'too_many_attempts', retryAfterSeconds: 60 }), { status: 429 }))
       const result = await run()
       expect(fetchMock).toHaveBeenCalledTimes(1)
-      expect(result.current.error).toBe('ログインの失敗が続いたため、1分後までログインできません')
+      expect(result.current.error).toBe('ログインの失敗が続いたため、あと 1:00 はログインできません')
+    })
+  })
+
+  // 失敗が続いて止められたら、画面の入力欄とボタンをすべて押せなくする（読み込み直すまで）
+  describe('止められている間（isLocked）', () => {
+    it('too_many_attempts を受けたら isLocked。そのあと login を呼んでも送らない', async () => {
+      const result = await loginWith(new Response(JSON.stringify({ error: 'too_many_attempts', retryAfterSeconds: 60 }), { status: 429 }))
+      expect(result.current.isLocked).toBe(true)
+      fetchMock.mockClear()
+      await act(async () => { await result.current.login(credentials) })
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(result.current.error).toBe('ログインの失敗が続いたため、あと 1:00 はログインできません')
+    })
+
+    it.each([
+      [401, { error: 'invalid_credentials' }],
+      [403, { error: 'client_not_allowed' }],
+      [403, { error: 'outside_business_hours' }],
+      [503, {}],
+    ])('%i（%j）では止めない（押し直せる）', async (status, body) => {
+      const result = await loginWith(new Response(JSON.stringify(body), { status }))
+      expect(result.current.isLocked).toBe(false)
+    })
+
+    it('残りの時間を毎秒出し、時間が来たら自動で戻す（メッセージも消え、また送れる）', async () => {
+      vi.useFakeTimers()
+      try {
+        fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ error: 'too_many_attempts', retryAfterSeconds: 3 }), { status: 429 }))
+        const { result } = renderHook(() => useLogin())
+        await act(async () => { await result.current.login(credentials) })
+        expect(result.current.error).toBe('ログインの失敗が続いたため、あと 0:03 はログインできません')
+        await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
+        expect(result.current.error).toBe('ログインの失敗が続いたため、あと 0:02 はログインできません')
+        expect(result.current.isLocked).toBe(true)
+        await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+        expect(result.current.isLocked).toBe(false)
+        expect(result.current.error).toBeNull()
+
+        fetchMock.mockResolvedValueOnce(new Response('{}', { status: 200 }))
+        await act(async () => { await result.current.login(credentials) })
+        expect(push).toHaveBeenCalledWith('/daily-dashboard')
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('PC の時計（Date）が巻き戻っても、待つ時間は変わらない（受け取ってからの経過で数える）', async () => {
+      vi.useFakeTimers()
+      try {
+        fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ error: 'too_many_attempts', retryAfterSeconds: 2 }), { status: 429 }))
+        const { result } = renderHook(() => useLogin())
+        await act(async () => { await result.current.login(credentials) })
+        vi.setSystemTime(Date.now() - 60 * 60 * 1000) // 壁時計だけ1時間戻す
+        await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+        expect(result.current.isLocked).toBe(false)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('最初は止めていない', () => {
+      const { result } = renderHook(() => useLogin())
+      expect(result.current.isLocked).toBe(false)
     })
   })
 
