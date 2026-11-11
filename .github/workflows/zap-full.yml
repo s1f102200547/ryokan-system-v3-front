@@ -24,6 +24,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # Git の認証情報を残さない（push しない）
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26
@@ -66,6 +68,8 @@ jobs:
     timeout-minutes: 75
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # Git の認証情報を残さない（push しない）
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26
@@ -80,7 +84,8 @@ jobs:
           key: node-modules-${{ hashFiles('package-lock.json') }}
       - run: npm ci
         if: steps.cache.outputs.cache-hit != 'true'
-      - run: npm install -g firebase-tools@15.34.1 # ci.yml の emulator-test と同じ版
+      # ci.yml の emulator-test と同じ版。lockfile の外で入れる理由も ci.yml と同じ
+      - run: npm install -g firebase-tools@15.34.1 # zizmor: ignore[adhoc-packages]
       - name: Prepare env
         # 中身は Emulator 用の固定値（本番の値は入らない）
         run: cp .env.development.example .env.development

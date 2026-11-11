@@ -13,10 +13,7 @@ export default defineConfig({
     env: {
       FIRESTORE_EMULATOR_HOST: '127.0.0.1:1',
       FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:1',
-      NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:1',
       FIREBASE_PROJECT_ID: 'demo-test',
-      NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'demo-test',
-      NEXT_PUBLIC_FIREBASE_API_KEY: 'demo-api-key',
     },
   },
   resolve: {

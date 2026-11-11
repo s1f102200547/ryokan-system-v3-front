@@ -142,21 +142,48 @@ describe.each(DATE_ROUTES)('%s の [date]', (_name, handler, sub, method, body) 
   })
 })
 
-// --- ログイン（実際の Auth Emulator の verifyIdToken） ---
+// --- ログイン（実際の Auth Emulator の REST と、Firestore Emulator の失敗回数） ---
 
 describe('POST /api/auth/login', () => {
-  const tokens: [string, unknown][] = [
-    ...FIELD_VALUES.map(([label, value]) => [label, value] as [string, unknown]),
-    ['JWT の形の文字列', 'a.b.c'],
-    ['署名なしの JWT（別プロジェクト）',
-      `${Buffer.from('{"alg":"none"}').toString('base64url')}.${Buffer.from('{"aud":"other"}').toString('base64url')}.`],
-  ]
+  // 失敗が3回続くと 429 になり、REST まで届かなくなる。1件ごとに数え直して、毎回 REST まで通す
+  // （ほかのファイルのログインも、IP が取れないときの同じ key で数えるので、残さない）
+  const clearThrottle = () => adminDb.recursiveDelete(adminDb.collection('loginThrottle'))
+  beforeEach(clearThrottle)
+  afterAll(clearThrottle)
+
+  const loginBody = (email: unknown, password: unknown) => JSON.stringify({ email, password })
 
   it.each(RAW_BODIES)('body: %s', async (_label, raw) => {
     expectNotServerError(await call(login.POST, '/api/auth/login', 'POST', {}, raw))
   })
 
-  it.each(tokens)('idToken: %s', async (_label, idToken) => {
-    expectNotServerError(await call(login.POST, '/api/auth/login', 'POST', {}, JSON.stringify({ idToken })))
+  it.each(FIELD_VALUES)('email: %s', async (_label, email) => {
+    expectNotServerError(await call(login.POST, '/api/auth/login', 'POST', {}, loginBody(email, 'emutest-password')))
+  })
+
+  it.each(FIELD_VALUES)('password: %s', async (_label, password) => {
+    expectNotServerError(await call(login.POST, '/api/auth/login', 'POST', {}, loginBody(`${RUN_ID}-none@example.com`, password)))
+  })
+
+  it.each([
+    ['メールアドレスの形でない', 'not-an-email'],
+    ['@ だけ', '@'],
+    ['長い（254文字）', `${'a'.repeat(242)}@example.com`],
+    ['日本語', 'ログイン@例え.jp'],
+    // バグハンティング（2026-11-11）: ブラウザの type="email" では正しい形だが、Firebase が別の理由で断りうるもの。
+    // 知らないエラーコードになると 503 + ALERT（入力が原因の 5xx。過去に何度も起きた種類）
+    ['記号だけのローカル部', "!#$%&'*+/=?^_`{|}~-@example.com"],
+    ['点で始まる', '.pc1@example.com'],
+    ['点が続く', 'p..c1@example.com'],
+    ['点で終わるローカル部', 'pc1.@example.com'],
+    ['ドメインに点なし', 'pc1@localhost'],
+    ['いちばん短い', 'a@b'],
+    ['punycode のドメイン', 'pc1@xn--r8jz45g.jp'],
+    ['ローカル部が64文字', `${'a'.repeat(64)}@example.com`],
+    ['ローカル部が65文字', `${'a'.repeat(65)}@example.com`],
+    ['ラベルが63文字', `pc1@${'a'.repeat(63)}.com`],
+    ['大文字', 'PC1@EXAMPLE.COM'],
+  ])('Firebase が受け付けないメールアドレス（%s）は 5xx にしない', async (_label, email) => {
+    expectNotServerError(await call(login.POST, '/api/auth/login', 'POST', {}, loginBody(email, 'xxx')))
   })
 })

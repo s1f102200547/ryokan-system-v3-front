@@ -1,7 +1,10 @@
 name: Deploy to Cloud Run
 
 on:
-  workflow_run:
+  # workflow_run は、PR（フォークを含む）の CI の完了でも動き、その権限で PR のコードを扱うと乗っ取られる（zizmor の dangerous-triggers）。
+  # ここでは jobs.deploy.if: で「main への push の CI が成功したとき」に限り、checkout するのはその CI が検査した main のコミット（head_sha）。
+  # ジョブに分けて ci.yml に入れない理由: WIF の属性条件が「main の deploy.yml」だけに GCP への認証を許しているため（docs/Security.md §7）
+  workflow_run: # zizmor: ignore[dangerous-triggers]
     workflows: ["CI"] # ci.yml の name: と一致
     types: [completed]
     branches: [main]
@@ -32,6 +35,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 / ソースコードを取得
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false # Git の認証情報を残さない（push しない）
 
       # Workload Identity Federation で GCP に認証（キーファイル不要）
       - id: auth
@@ -51,11 +55,7 @@ jobs:
           context: .
           push: true
           tags: ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ github.event.workflow_run.head_sha }}
-          # NEXT_PUBLIC_ はビルド時に埋め込まれるため build-args で渡す
-          build-args: |
-            NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
-            NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
-            NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+          # ブラウザは Firebase を呼ばないので、ビルド時に埋め込む NEXT_PUBLIC_ の変数（build-args）はない
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -68,6 +68,10 @@ jobs:
           # サーバーサイド専用の環境変数（Firebase Admin は ADC で自動認証、NEXT_PUBLIC_ 不要）
           env_vars: |
             SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}
+          # パスワードの確認（src/infra/auth/passwordSignIn.ts）に使う API キー。Identity Toolkit API だけに絞ったもの。
+          # Secret Manager から実行時に渡す（実行用の SA に roles/secretmanager.secretAccessor が要る。docs/Development.md）
+          secrets: |
+            FIREBASE_AUTH_API_KEY=firebase-auth-api-key:latest
           # 公開の設定（allUsers に run.invoker）はサービスに付いたまま残るので、デプロイのたびには渡さない。
           # デプロイ用の SA は run.developer で、公開の設定を変えられない
           flags: --service-account=${{ env.RUNTIME_SA_NAME }}@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com

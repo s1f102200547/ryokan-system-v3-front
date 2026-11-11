@@ -22,10 +22,12 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 
 | `NODE_ENV` | 必須 | 拒否 |
 |---|---|---|
-| `development` / `test` | `FIRESTORE_EMULATOR_HOST`, `FIREBASE_AUTH_EMULATOR_HOST`, `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST`（サーバーと同じ値）, `FIREBASE_PROJECT_ID`（`demo-` で始まる）, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`（同じ値） | `FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL`, `GOOGLE_APPLICATION_CREDENTIALS`、名前に `PRIVATE_KEY` を含む変数（空でも） |
+| `development` / `test` | `FIRESTORE_EMULATOR_HOST`, `FIREBASE_AUTH_EMULATOR_HOST`, `FIREBASE_PROJECT_ID`（`demo-` で始まる） | `FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL`, `GOOGLE_APPLICATION_CREDENTIALS`、名前に `PRIVATE_KEY` を含む変数（空でも） |
 | それ以外（本番） | — | `*_EMULATOR_HOST`, `FIREBASE_EMULATOR_HUB`、`demo-` の project ID |
 
 本番の Admin SDK は ADC（Cloud Run の実行用サービスアカウント）で認証する。鍵ファイルは使わない。
+
+ブラウザは Firebase を呼ばないので、`NEXT_PUBLIC_FIREBASE_*` の変数はない。パスワードの確認（`src/infra/auth/passwordSignIn.ts`）は、本番では `FIREBASE_AUTH_API_KEY`（Identity Toolkit API だけに絞った API キー。Secret Manager から Cloud Run に渡す）を使う。Emulator に接続しているときは、Auth Emulator がキーを見ないのでダミーの値を使い、設定は要らない。本番で設定がなければ、ログインが 503 になり Slack に通知される（起動は止めない。CI の ZAP は本番ビルドを環境変数なしで起動するため）。
 
 ### 本番データの匿名化（人だけが実行する）
 
@@ -53,7 +55,7 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 
 - Vitest の既定の設定（`vitest.config.ts`）は Emulator の接続先を **到達できないアドレス**（`127.0.0.1:1`）にしている。誤って Firestore を呼んだテストはすぐ失敗し、本番にも届かない
 - 「今日」は `tests/utils/routeTestHelper.ts` の `setupFakeToday()` で 2026-05-20（JST）に固定する。JST の時刻を指定するときは `tests/utils/timeHelper.ts` の `setNowJST`
-- E2E は本物の Firebase 認証を使わない。`session` Cookie を `context.addCookies` で置いて `proxy.ts` を通し、`/api/**` と Firebase Auth の REST を `page.route` でモックする。Emulator 系の環境変数は `playwright.config.ts` の `webServer.env` にある（Emulator 本体は起動しない。ブラウザの Auth は Auth Emulator の URL に向かうが、`**/identitytoolkit.googleapis.com/**` のモックで捕まる）。URL と Cookie のホストは `localhost` ではなく `127.0.0.1` にそろえる
+- E2E は本物の Firebase 認証を使わない。`session` Cookie を `context.addCookies` で置いて `proxy.ts` を通し、`/api/**` を `page.route` でモックする（ブラウザは Firebase を呼ばない）。Emulator 系の環境変数は `playwright.config.ts` の `webServer.env` にある（Emulator 本体は起動しない）。URL と Cookie のホストは `localhost` ではなく `127.0.0.1` にそろえる
 - Emulator の E2E（`playwright.emulator.config.ts`）は `firebase emulators:exec` の中で、開発サーバーを `127.0.0.1:3200` で起動する。`make` の Emulator が動いているとポートが衝突する。Next.js は同じディレクトリで開発サーバーを1つしか起動できないので、`make` の開発サーバー（3000 番）が動いていても起動に失敗する
 - 本番ビルドの E2E（`playwright.prod.config.ts`）は毎回 `next build` してから `next start -H 127.0.0.1 -p 3100` で起動する（既存のサーバーは再利用しない）。Emulator 系の変数は渡さないのでログインはできず、API はブラウザ側でモックするか未ログインの応答を見る。本番は 23:00〜6:00 JST に全ページを `/time-restricted` に回すので、どの時刻でも成り立つように書く
 - 開発サーバーは React の StrictMode で最初の表示の effect を2回動かす。E2E で API の呼び出し回数を数えるときは、最初の表示の回数を決め打ちしない（`e2e/guestCardRefresh.spec.ts` の `expectLatest`）
@@ -89,7 +91,8 @@ lint ─┐
 typecheck ─┤
 audit ─┼─→ unit-test（test + test:tz）─┬─→ emulator-test
 secret-scan ─┤                          ├─→ e2e
-semgrep ─┘                              └─→ zap-scan
+semgrep ─┤                              └─→ zap-scan
+zizmor ─┘
 ```
 
 | ジョブ | 内容 | 指摘を除外するとき |
@@ -97,11 +100,14 @@ semgrep ─┘                              └─→ zap-scan
 | audit | `npm run audit:ci`。high 以上で、例外リストにないものがあれば失敗 | `scripts/ci/auditAllowlist.ts` に ID・パッケージ・理由・期限（最長3か月）を書く。アプリで脆弱なコードが動かないことを確かめてから |
 | secret-scan | gitleaks で全履歴を検査 | `.gitleaksignore` に Fingerprint と理由。本物の秘密情報は除外せず、キーを無効化する |
 | semgrep | `p/default` `p/typescript` `p/react`。1件でも失敗 | 該当行の前に `// nosemgrep: <ルールID>` と理由 |
+| zizmor | GitHub Actions の定義（`.github/`）を検査。`--offline`（GitHub API を使う検査はしない）。1件でも失敗 | 該当行に `# zizmor: ignore[<監査名>]`、近くに理由 |
 | zap-scan | 本番ビルドを起動し、ZAP Baseline で `/login` を検査。WARN 以上で失敗 | `.zap/rules.tsv`（ASCII、タブ区切り、空行なし） |
 
-Actions・ツール・Docker イメージは SHA / digest / 版で固定している（`tests/unit/config/pinning.test.ts` が検査する）。上げるときも固定の形を保つ（Actions はタグが指すコミットの SHA を書き、行末に版をコメントで書く。ツールは公開から7日以上たった版）。Dependabot は Semgrep と ZAP のイメージ、CI の `firebase-tools` を更新しないので手で上げる。ZAP を上げると新しいルールで CI が落ちることがある。
+Actions・ツール・Docker イメージは SHA / digest / 版で固定している（`tests/unit/config/pinning.test.ts` が検査する）。上げるときも固定の形を保つ（Actions はタグが指すコミットの SHA を書き、行末に版をコメントで書く。ツールは公開から7日以上たった版）。Dependabot は Semgrep と ZAP のイメージ、gitleaks・zizmor の本体、CI の `firebase-tools` を更新しないので手で上げる（gitleaks・zizmor は版とチェックサムを一緒に変える。zizmor のチェックサムは GitHub のリリースの asset の digest）。ZAP を上げると新しいルールで CI が落ちることがある。
 
 Semgrep を手元で試す: `docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:1.182.1 semgrep scan --metrics=off --config p/default --config p/typescript --config p/react`
+
+zizmor を手元で試す: ci.yml の zizmor ジョブと同じ版の本体を取得し、チェックサムを確かめてから `zizmor --offline .`
 
 ### ZAP の能動的な検査（`.github/workflows/zap-full.yml`）
 
@@ -131,7 +137,7 @@ Semgrep を手元で試す: `docker run --rm -v "$PWD:/src" -w /src semgrep/semg
 - 認証は Workload Identity Federation（鍵ファイルなし）。イメージは Artifact Registry `asia-northeast1-docker.pkg.dev/<project>/ryokan/ryokan-system:<sha>`
 - 実行用サービスアカウント `ryokan-runtime`。Firestore の読み書きと Session Cookie の発行・確認だけの権限
 - Dockerfile は3段（deps → builder → runner）、`output: 'standalone'`、非 root、`PORT=8080`
-- GitHub Secrets: `WORKLOAD_IDENTITY_PROVIDER`, `SERVICE_ACCOUNT`, `GCP_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_API_KEY` / `_AUTH_DOMAIN` / `_PROJECT_ID`（ビルド時にクライアントへ埋め込む。build arg）, `SLACK_WEBHOOK_URL`（Cloud Run の実行時の環境変数）
+- GitHub Secrets: `WORKLOAD_IDENTITY_PROVIDER`, `SERVICE_ACCOUNT`, `GCP_PROJECT_ID`, `SLACK_WEBHOOK_URL`（Cloud Run の実行時の環境変数）
 - `firestore.rules` は自動では反映されない。変えたら開発者が `firebase deploy --only firestore:rules` を手で実行する
 - デプロイの開始・結果と PR の作成は、Slack の GitHub アプリが通知する（ワークフローの中では通知しない）
 

@@ -1,18 +1,10 @@
 type CspOptions = {
   nonce: string
   isDev: boolean
-  // NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST（例: 127.0.0.1:9099）
-  authEmulatorHost: string | undefined
 }
 
 // self: 自分のドメインのみ許可
-export function buildCsp({ nonce, isDev, authEmulatorHost }: CspOptions): string {
-  // Firebase Auth（signInWithEmailAndPassword）が叩く外部エンドポイントを許可
-  const connectSrc = [`'self'`, 'https://identitytoolkit.googleapis.com', 'https://securetoken.googleapis.com']
-  // development のときだけ Auth Emulator を許可する。production の CSP は変えない
-  if (isDev && authEmulatorHost) {
-    connectSrc.push(`http://${authEmulatorHost}`)
-  }
+export function buildCsp({ nonce, isDev }: CspOptions): string {
 
   return [
     `default-src 'self'`,
@@ -22,7 +14,7 @@ export function buildCsp({ nonce, isDev, authEmulatorHost }: CspOptions): string
     `style-src 'self' 'unsafe-inline'`,           // MUI使用するのでinlineCSSを許可
     `img-src 'self'`,
     `font-src 'self'`,  // next/font/google はビルド時に自己ホスト化されるので 'self' のみで十分
-    `connect-src ${connectSrc.join(' ')}`,
+    `connect-src 'self'`, // ブラウザは自分の API だけを呼ぶ（パスワードの確認もサーバーが Firebase に送る）
     `frame-ancestors 'none'`, // iframeとして埋め込まれない
     `base-uri 'self'`,        // baseタグは自分のドメインのみ、悪意あるドメインが設定されないようにする
     `form-action 'self'`,     // formの送信先制限
