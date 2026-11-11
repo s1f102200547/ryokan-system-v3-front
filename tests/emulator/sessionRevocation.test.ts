@@ -9,6 +9,7 @@ import { getTodayJST } from '@/lib/dateUtils'
 import { parseCookieValue } from '@/lib/api/routeHelpers'
 import { POST as LOGIN } from '@/app/api/auth/login/route'
 import { GET as GUEST_INFO } from '@/app/api/guest-info/route'
+import { logger } from '@/lib/logger'
 
 // ログインはWindowsの Chrome・Edge だけ（src/lib/auth/clientCheck.ts）
 const WINDOWS_CHROME = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
@@ -50,17 +51,47 @@ async function login(email: string): Promise<string> {
   const res = await LOGIN(new Request('http://localhost/api/auth/login', {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME }, body: JSON.stringify({ idToken }),
   }))
-  expect(res.status).toBe(200)
+  // 落ちたときは、応答と、ログイン API が残した直近のログ（失敗の理由のコード）を載せる
+  const message = res.status === 200 ? undefined : JSON.stringify({
+    nowMs: Date.now(),
+    idToken: JSON.parse(Buffer.from(idToken.split('.')[1] ?? '', 'base64url').toString()) as unknown,
+    response: { status: res.status, body: await res.clone().text() },
+    logs: [...vi.mocked(logger.warn).mock.calls, ...vi.mocked(logger.error).mock.calls].slice(-3),
+  }, null, 2)
+  expect(res.status, message).toBe(200)
   const cookie = parseCookieValue(res.headers.get('set-cookie')?.split(';')[0] ?? null, 'session')
   if (!cookie) throw new Error('Session Cookie がない')
   return cookie
 }
 
-async function guestInfo(cookie: string): Promise<number> {
-  const res = await GUEST_INFO(new Request(`http://localhost/api/guest-info?date=${getTodayJST()}`, {
+async function guestInfo(cookie: string): Promise<Response> {
+  return GUEST_INFO(new Request(`http://localhost/api/guest-info?date=${getTodayJST()}`, {
     headers: { cookie: `session=${cookie}` },
   }))
-  return res.status
+}
+
+// 時刻の比べ方（秒単位）に関わる値。まれに落ちたことがあり（2026-11-11、約30回に2回）、原因を追えるよう、落ちたときだけ集めて載せる
+async function diagnose(cookie: string, res: Response): Promise<string> {
+  const settle = <T>(p: Promise<T>) => p.then((v) => v, (e: unknown) => `例外: ${e instanceof Error ? e.message : String(e)}`)
+  const decoded = await settle(adminAuth.verifySessionCookie(cookie, false))
+  const user = typeof decoded === 'string' ? decoded : await settle(adminAuth.getUser(decoded.uid))
+  return JSON.stringify({
+    nowMs: Date.now(),
+    response: { status: res.status, body: await res.clone().text() },
+    cookie: typeof decoded === 'string' ? decoded : { uid: decoded.uid, auth_time: decoded.auth_time, iat: decoded.iat, exp: decoded.exp },
+    user: typeof user === 'string' ? user : {
+      tokensValidAfterMs: user.tokensValidAfterTime ? Date.parse(user.tokensValidAfterTime) : null,
+      customClaims: user.customClaims ?? null,
+      disabled: user.disabled,
+    },
+  }, null, 2)
+}
+
+// guest-info を呼び、status が違えば diagnose の結果を失敗のメッセージに載せる
+async function expectStatus(cookie: string, expected: number) {
+  const res = await guestInfo(cookie)
+  const message = res.status === expected ? undefined : await diagnose(cookie, res)
+  expect(res.status, message).toBe(expected)
 }
 
 beforeAll(() => {
@@ -74,7 +105,7 @@ afterAll(async () => {
 describe('Session Cookie の失効', () => {
   it('ログインで受け取った Cookie で API を呼べる（前提）', async () => {
     const { email } = await createUser('valid')
-    expect(await guestInfo(await login(email))).toBe(200)
+    await expectStatus(await login(email), 200)
   })
 
   it.each([
@@ -84,12 +115,12 @@ describe('Session Cookie の失効', () => {
   ])('%s のあと、同じ Cookie は 401', async (_label, revoke) => {
     const { email, uid } = await createUser('revoke')
     const cookie = await login(email)
-    expect(await guestInfo(cookie)).toBe(200)
+    await expectStatus(cookie, 200)
 
     await nextSecond()
     await revoke(uid)
 
-    expect(await guestInfo(cookie)).toBe(401)
+    await expectStatus(cookie, 401)
   })
 
   it('失効のあとにログインし直せば、新しい Cookie は使える', async () => {
@@ -100,8 +131,8 @@ describe('Session Cookie の失効', () => {
     await nextSecond()
 
     const newCookie = await login(email)
-    expect(await guestInfo(newCookie)).toBe(200)
-    expect(await guestInfo(oldCookie)).toBe(401)
+    await expectStatus(newCookie, 200)
+    await expectStatus(oldCookie, 401)
   })
 })
 
@@ -110,13 +141,13 @@ describe('1アカウント1セッション', () => {
   it('同じアカウントで新しくログインすると、前の Cookie は 401、新しい Cookie は使える', async () => {
     const { email, uid } = await createUser('single')
     const first = await login(email)
-    expect(await guestInfo(first)).toBe(200)
+    await expectStatus(first, 200)
 
     await nextSecond() // ログインの時刻（auth_time）は秒単位。同じ秒の2回のログインは両方とも通る
     const second = await login(email)
 
-    expect(await guestInfo(first)).toBe(401)
-    expect(await guestInfo(second)).toBe(200)
+    await expectStatus(first, 401)
+    await expectStatus(second, 200)
     expect((await adminAuth.getUser(uid)).customClaims).toEqual({ sessionAuthTime: expect.any(Number) })
   })
 
@@ -126,14 +157,14 @@ describe('1アカウント1セッション', () => {
     const cookieA = await login(a.email)
     await nextSecond()
     await login(b.email)
-    expect(await guestInfo(cookieA)).toBe(200)
+    await expectStatus(cookieA, 200)
   })
 
   it('クレームを消すと（この仕組みの前のログインと同じ）、その Cookie は 401', async () => {
     const { email, uid } = await createUser('single-noclaim')
     const cookie = await login(email)
     await adminAuth.setCustomUserClaims(uid, null)
-    expect(await guestInfo(cookie)).toBe(401)
+    await expectStatus(cookie, 401)
   })
 })
 
