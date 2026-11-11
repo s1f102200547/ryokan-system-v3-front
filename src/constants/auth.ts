@@ -18,6 +18,9 @@ export const LOGIN_LOCK_STEPS: readonly { failures: number; lockMs: number }[] =
 ]
 export const LOGIN_FAILURE_RESET_MS = 24 * 60 * MINUTE_MS
 
-// ログイン API の入力の長さ（メールアドレスは RFC 5321 の上限。パスワードは openssl で作った値より十分長い）
+// ログインの入力の長さ。ログイン画面の入力欄（minLength・maxLength）と API の Zod で同じ値を使う。
+// 上限: メールアドレスは RFC 5321 の上限、パスワードは openssl で作った値より十分長い
+export const LOGIN_EMAIL_MIN_LENGTH = 3
 export const LOGIN_EMAIL_MAX_LENGTH = 254
+export const LOGIN_PASSWORD_MIN_LENGTH = 3
 export const LOGIN_PASSWORD_MAX_LENGTH = 256

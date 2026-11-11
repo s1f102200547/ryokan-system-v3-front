@@ -69,11 +69,11 @@ describe('ログインの失敗回数の制限（本物の REST と Firestore）
     const ip = nextIp()
     const email = `${RUN_ID}-nobody@example.com`
     for (let i = 0; i < 3; i++) {
-      const res = await login(email, 'x', ip)
+      const res = await login(email, 'xxx', ip)
       expect(res.status).toBe(401)
       expect(await res.json()).toEqual({ error: 'invalid_credentials' })
     }
-    expect((await login(email, 'x', ip)).status).toBe(429)
+    expect((await login(email, 'xxx', ip)).status).toBe(429)
   })
 
   it('成功で数え直す', async () => {

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Box, TextField, Button, Alert, Typography, Paper } from '@mui/material'
 import { useLogin } from '@/hooks/auth/useLogin'
+import { LOGIN_EMAIL_MAX_LENGTH, LOGIN_EMAIL_MIN_LENGTH, LOGIN_PASSWORD_MAX_LENGTH, LOGIN_PASSWORD_MIN_LENGTH } from '@/constants/auth'
 
 export function LoginPage() {
   const [email, setEmail] = useState('')
@@ -34,6 +35,8 @@ export function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
             fullWidth
+            // API の Zod と同じ値（src/constants/auth.ts）
+            slotProps={{ htmlInput: { minLength: LOGIN_EMAIL_MIN_LENGTH, maxLength: LOGIN_EMAIL_MAX_LENGTH } }}
           />
           <TextField
             id="password"
@@ -43,6 +46,7 @@ export function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
             fullWidth
+            slotProps={{ htmlInput: { minLength: LOGIN_PASSWORD_MIN_LENGTH, maxLength: LOGIN_PASSWORD_MAX_LENGTH } }}
           />
           <Button
             type="submit"

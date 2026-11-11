@@ -171,6 +171,6 @@ describe('POST /api/auth/login', () => {
     ['長い（254文字）', `${'a'.repeat(242)}@example.com`],
     ['日本語', 'ログイン@例え.jp'],
   ])('Firebase が受け付けないメールアドレス（%s）は 5xx にしない', async (_label, email) => {
-    expectNotServerError(await call(login.POST, '/api/auth/login', 'POST', {}, loginBody(email, 'x')))
+    expectNotServerError(await call(login.POST, '/api/auth/login', 'POST', {}, loginBody(email, 'xxx')))
   })
 })

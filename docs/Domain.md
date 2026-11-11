@@ -48,7 +48,7 @@
 
 | メソッド・パス | 内容 | 主な実装 |
 |---|---|---|
-| `POST /api/auth/login` | `{ email, password }` をサーバーが Firebase Auth の REST で確かめ、Session Cookie を発行（期限は当日 23:00 JST、最短5分）。違えば 401 `invalid_credentials`、失敗が続いたメールアドレス・IP は 429 `too_many_attempts`（`retryAfterSeconds` と `Retry-After`）。同じアカウントの前のセッションは、次の API から 401（1アカウント1セッション。Firebase のユーザーのカスタムクレーム `sessionAuthTime` を使う）。本番の時間外は 403 `outside_business_hours`。Windows の Chrome・Edge 以外は 403 `client_not_allowed` | route 内 |
+| `POST /api/auth/login` | `{ email, password }`（メールアドレスの形式で3〜254文字、パスワードは3〜256文字。外れれば 400）をサーバーが Firebase Auth の REST で確かめ、Session Cookie を発行（期限は当日 23:00 JST、最短5分）。違えば 401 `invalid_credentials`、失敗が続いたメールアドレス・IP は 429 `too_many_attempts`（`retryAfterSeconds` と `Retry-After`）。同じアカウントの前のセッションは、次の API から 401（1アカウント1セッション。Firebase のユーザーのカスタムクレーム `sessionAuthTime` を使う）。本番の時間外は 403 `outside_business_hours`。Windows の Chrome・Edge 以外は 403 `client_not_allowed` | route 内 |
 | `GET /api/guest-info?date=` | 対象日の `normal` / `staying` / `cancelled` / `roomConflicts` | `getGuestInfoUseCase` |
 | `GET /api/timetable?date=` | タイムテーブル印刷用 | `getTimetableUseCase` |
 | `GET /api/cleaning-board?date=` | 清掃ボード印刷用 | `getCleaningBoardUseCase` |

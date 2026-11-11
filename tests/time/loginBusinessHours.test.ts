@@ -27,7 +27,7 @@ import { POST } from '@/app/api/auth/login/route'
 const WINDOWS_CHROME = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
 
 const login = () => POST(new Request('http://localhost/api/auth/login', {
-  method: 'POST', headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME }, body: JSON.stringify({ email: 'pc1@example.com', password: 'pw' }),
+  method: 'POST', headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME }, body: JSON.stringify({ email: 'pc1@example.com', password: 'pw1' }),
 }))
 
 // 画面は 6:00〜23:00 JST だけ開けるが、ログイン API は深夜でも Cookie を発行していた

@@ -40,7 +40,7 @@ test.describe('ログイン', () => {
     await page.route('**/api/auth/login', (route) =>
       route.fulfill({ status: 429, headers: { 'Retry-After': '300' }, json: { error: 'too_many_attempts', retryAfterSeconds: 300 } }),
     )
-    await submit(page, 'pc1@example.com', 'pw')
+    await submit(page, 'pc1@example.com', 'pw1')
     await expect(page.getByText('ログインの失敗が続いたため、5分後までログインできません')).toBeVisible()
     await expect(page.getByRole('button', { name: 'ログイン' })).toBeEnabled()
   })

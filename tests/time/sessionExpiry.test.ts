@@ -44,7 +44,7 @@ describe('ログイン時の Session Cookie の期限', () => {
     vi.useFakeTimers()
     setNowJST(`2026-05-20T${time}`)
     const res = await POST(new Request('http://localhost/api/auth/login', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME }, body: JSON.stringify({ email: 'pc1@example.com', password: 'pw' }),
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME }, body: JSON.stringify({ email: 'pc1@example.com', password: 'pw1' }),
     }))
     expect(res.status).toBe(200)
     expect(vi.mocked(adminAuth.createSessionCookie).mock.calls.at(-1)?.[1]).toEqual({ expiresIn: expected })

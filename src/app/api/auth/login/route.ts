@@ -9,15 +9,18 @@ import { describeUserAgent } from '@/lib/auth/userAgent'
 import { checkClient } from '@/lib/auth/clientCheck'
 import { isOutsideBusinessHours } from '@/lib/businessHours'
 import { BUSINESS_HOURS_END_JST } from '@/constants/date'
-import { LOGIN_EMAIL_MAX_LENGTH, LOGIN_PASSWORD_MAX_LENGTH, SESSION_AUTH_TIME_CLAIM } from '@/constants/auth'
+import {
+  LOGIN_EMAIL_MAX_LENGTH, LOGIN_EMAIL_MIN_LENGTH, LOGIN_PASSWORD_MAX_LENGTH, LOGIN_PASSWORD_MIN_LENGTH, SESSION_AUTH_TIME_CLAIM,
+} from '@/constants/auth'
 import { handleRouteError } from '@/lib/api/routeHelpers'
 import { loginWithPasswordCommand } from '@/application/auth/loginWithPasswordCommand'
 import { getTodayJST } from '@/lib/dateUtils'
 
-// パスワードはこのサーバーを通る（ブラウザから Firebase を呼ばない）。body はログに出さない
+// パスワードはこのサーバーを通る（ブラウザから Firebase を呼ばない）。body はログに出さない。
+// メールアドレスの形式は、ログイン画面の <input type="email"> と同じ規則（画面で通るのにここで断られる、をなくす）
 const BodySchema = z.object({
-  email: z.string().min(1).max(LOGIN_EMAIL_MAX_LENGTH),
-  password: z.string().min(1).max(LOGIN_PASSWORD_MAX_LENGTH),
+  email: z.email({ pattern: z.regexes.html5Email }).min(LOGIN_EMAIL_MIN_LENGTH).max(LOGIN_EMAIL_MAX_LENGTH),
+  password: z.string().min(LOGIN_PASSWORD_MIN_LENGTH).max(LOGIN_PASSWORD_MAX_LENGTH),
 })
 
 // 今日の 23:00 JST までの残り時間（ms）を返す

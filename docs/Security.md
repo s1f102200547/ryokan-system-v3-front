@@ -113,7 +113,7 @@
 - ログインのサーバー経由化: ブラウザはメールアドレスとパスワードを `/api/auth/login` に送るだけで、サーバーが Firebase Auth の REST API（`accounts:signInWithPassword`）で確かめる。ブラウザは Firebase を呼ばない（CSP の `connect-src` は `'self'` だけ。`src/` からの `firebase` パッケージの import は ESLint で禁止）。パスワードはログにも Slack にも出さない
 - API キーのサーバー専用化: パスワードの確認に使う API キー（`FIREBASE_AUTH_API_KEY`）はサーバーだけが持つ（Secret Manager から Cloud Run に渡す）
 - ログインの失敗回数の制限: メールアドレスごと・IP（`X-Forwarded-For` の右端）ごとに数え、3回で1分、4回で5分、5回で15分、6回以降は1時間止める。止めている間は Firebase に送らず 429。存在しないメールアドレスも同じに数える。回数は Firestore の `loginThrottle`（ID は値の SHA-256）。止め始めたら Slack に通知
-- ログイン API での、メールアドレス（254文字まで）とパスワード（256文字まで）の長さの確認
+- ログイン API での入力の確認: メールアドレスはブラウザの `type="email"` と同じ形式で3〜254文字、パスワードは3〜256文字。外れれば 400（Firebase に送らず、失敗としても数えない）。ログイン画面の入力欄も同じ値（`src/constants/auth.ts`）
 - セッション Cookie の、JavaScript からの読み取りと他サイトからの送信の禁止（Emulator の E2E で、属性を外すと読める・送られることの対照実験つきで確認。Secure は本番だけで付くことを integration で確認）
 - セッションの期限の、当日の 23:00 まで（22:55 以降のログインは Firebase の最低値の 5 分後まで）への限定
 - 営業時間外の、ログインの拒否

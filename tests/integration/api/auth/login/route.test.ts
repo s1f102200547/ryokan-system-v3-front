@@ -104,9 +104,16 @@ describe('POST /api/auth/login', () => {
   it.each([
     ['空の object', {}],
     ['パスワードなし', { email: 'pc1@example.com' }],
-    ['メールアドレスが空', { email: '', password: 'x' }],
+    ['メールアドレスが空', { email: '', password: 'xxx' }],
     ['パスワードが空', { email: 'pc1@example.com', password: '' }],
-    ['メールアドレスが長すぎる（255文字）', { email: `${'a'.repeat(243)}@example.com`, password: 'x' }],
+    ['パスワードが2文字', { email: 'pc1@example.com', password: 'ab' }],
+    ['@ がない', { email: 'pc1.example.com', password: 'xxx' }],
+    ['@ の前がない', { email: '@example.com', password: 'xxx' }],
+    ['@ の後がない', { email: 'pc1@', password: 'xxx' }],
+    ['@ が2つ', { email: 'pc1@@example.com', password: 'xxx' }],
+    ['空白を含む', { email: 'pc 1@example.com', password: 'xxx' }],
+    ['前後の空白', { email: ' pc1@example.com', password: 'xxx' }],
+    ['メールアドレスが長すぎる（255文字）', { email: `${'a'.repeat(243)}@example.com`, password: 'xxx' }],
     ['パスワードが長すぎる（257文字）', { email: 'pc1@example.com', password: 'p'.repeat(257) }],
     ['文字列でない', { email: 1, password: true }],
     ['以前の形（idToken）', { idToken: 'token' }],
@@ -115,6 +122,18 @@ describe('POST /api/auth/login', () => {
     expect(response.status).toBe(400)
     expect(mockSignIn).not.toHaveBeenCalled()
     expect(throttle.states.size).toBe(0)
+  })
+
+  it.each([
+    ['いちばん短い形（3文字）', 'a@b'],
+    ['ドメインに点なし（ブラウザの type="email" と同じく通す）', 'pc1@localhost'],
+    ['+ を含む', 'pc1+front@example.com'],
+  ])('メールアドレスの形として通す: %s', async (_label, email) => {
+    expect((await POST(makeRequest({ email, password: 'abc' }))).status).toBe(200)
+  })
+
+  it('パスワードは3文字から通す', async () => {
+    expect((await POST(makeRequest({ email: 'pc1@example.com', password: 'abc' }))).status).toBe(200)
   })
 
   it('長さの上限ちょうど（メールアドレス254文字・パスワード256文字）は通す', async () => {
@@ -430,28 +449,28 @@ describe('POST /api/auth/login', () => {
     it('IP ごとにも数える: 同じ IP から別のアドレスを順に試しても、3回で止まる', async () => {
       wrong()
       for (const email of ['a@example.com', 'b@example.com', 'c@example.com']) {
-        expect((await POST(from('203.0.113.5', { email, password: 'x' }))).status).toBe(401)
+        expect((await POST(from('203.0.113.5', { email, password: 'xxx' }))).status).toBe(401)
       }
-      expect((await POST(from('203.0.113.5', { email: 'd@example.com', password: 'x' }))).status).toBe(429)
-      expect((await POST(from('198.51.100.7', { email: 'd@example.com', password: 'x' }))).status).toBe(401) // 別の IP なら試せる
+      expect((await POST(from('203.0.113.5', { email: 'd@example.com', password: 'xxx' }))).status).toBe(429)
+      expect((await POST(from('198.51.100.7', { email: 'd@example.com', password: 'xxx' }))).status).toBe(401) // 別の IP なら試せる
     })
 
     it('メールアドレスごとにも数える: IP を変えても、大文字にしても止まる', async () => {
       wrong()
       for (const ip of ['198.51.100.1', '198.51.100.2', '198.51.100.3']) await POST(from(ip))
-      expect((await POST(from('198.51.100.4', { email: 'PC1@Example.com', password: 'x' }))).status).toBe(429)
+      expect((await POST(from('198.51.100.4', { email: 'PC1@Example.com', password: 'xxx' }))).status).toBe(429)
     })
 
     it('IP は X-Forwarded-For の右端（Google が書いた値）。左側を毎回変えても同じ IP として数える', async () => {
       wrong()
-      for (let i = 0; i < 3; i++) await POST(from(`10.0.0.${i}, 203.0.113.5`, { email: `user${i}@example.com`, password: 'x' }))
-      expect((await POST(from('10.9.9.9, 203.0.113.5', { email: 'other@example.com', password: 'x' }))).status).toBe(429)
+      for (let i = 0; i < 3; i++) await POST(from(`10.0.0.${i}, 203.0.113.5`, { email: `user${i}@example.com`, password: 'xxx' }))
+      expect((await POST(from('10.9.9.9, 203.0.113.5', { email: 'other@example.com', password: 'xxx' }))).status).toBe(429)
     })
 
     it('X-Forwarded-For がなければ、まとめて1つの IP（unknown）として数える', async () => {
       wrong()
-      for (let i = 0; i < 3; i++) await POST(makeRequest({ email: `user${i}@example.com`, password: 'x' }))
-      expect((await POST(makeRequest({ email: 'other@example.com', password: 'x' }))).status).toBe(429)
+      for (let i = 0; i < 3; i++) await POST(makeRequest({ email: `user${i}@example.com`, password: 'xxx' }))
+      expect((await POST(makeRequest({ email: 'other@example.com', password: 'xxx' }))).status).toBe(429)
       expect(slackMessages()).toContain('[ログイン制限] IP ? / 3回続けて失敗 / 1分止める')
     })
 
