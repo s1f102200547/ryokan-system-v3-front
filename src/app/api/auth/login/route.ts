@@ -9,11 +9,15 @@ import { describeUserAgent } from '@/lib/auth/userAgent'
 import { checkClient } from '@/lib/auth/clientCheck'
 import { isOutsideBusinessHours } from '@/lib/businessHours'
 import { BUSINESS_HOURS_END_JST } from '@/constants/date'
-import { SESSION_AUTH_TIME_CLAIM } from '@/constants/auth'
+import { LOGIN_EMAIL_MAX_LENGTH, LOGIN_PASSWORD_MAX_LENGTH, SESSION_AUTH_TIME_CLAIM } from '@/constants/auth'
+import { handleRouteError } from '@/lib/api/routeHelpers'
+import { loginWithPasswordCommand } from '@/application/auth/loginWithPasswordCommand'
 import { getTodayJST } from '@/lib/dateUtils'
 
+// パスワードはこのサーバーを通る（ブラウザから Firebase を呼ばない）。body はログに出さない
 const BodySchema = z.object({
-  idToken: z.string().min(1),
+  email: z.string().min(1).max(LOGIN_EMAIL_MAX_LENGTH),
+  password: z.string().min(1).max(LOGIN_PASSWORD_MAX_LENGTH),
 })
 
 // 今日の 23:00 JST までの残り時間（ms）を返す
@@ -50,10 +54,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'outside_business_hours' }, { status: 403 })
   }
 
-  // 不正な JSON や空の body は 400
+  // 不正な JSON や空の body、長すぎる入力は 400（Firebase に送らず、失敗としても数えない）
   const parsed = BodySchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
     return NextResponse.json({ error: 'invalid request' }, { status: 400 })
+  }
+
+  // パスワードの確認。失敗が続いたメールアドレス・IP は、しばらく Firebase に送らずに 429
+  const forwardedFor = request.headers.get('x-forwarded-for')
+  const userAgent = request.headers.get('user-agent')
+  let idToken: string
+  try {
+    const result = await loginWithPasswordCommand({
+      email: parsed.data.email,
+      password: parsed.data.password,
+      ip: forwardedIps(forwardedFor).at(-1) ?? null, // 右端が Google の書いた接続元
+      nowMs: Date.now(),
+    })
+    if (!result.success) {
+      if (result.error.kind === 'rate_limited') {
+        const retryAfterSeconds = Math.ceil(result.error.retryAfterMs / 1000)
+        return NextResponse.json(
+          { error: 'too_many_attempts', retryAfterSeconds },
+          { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } },
+        )
+      }
+      logger.warn('ログイン失敗: メールアドレスかパスワードが違う')
+      return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 })
+    }
+    idToken = result.value.idToken
+  } catch (e) {
+    return handleRouteError(e, 'ログイン')
   }
 
   // idToken の整合性検証（改ざん・期限切れ・無効トークンを弾く）
@@ -61,7 +92,7 @@ export async function POST(request: Request) {
   let uid: string
   let authTime: number
   try {
-    const decoded = await adminAuth.verifyIdToken(parsed.data.idToken)  // このユーザは本当にログイン済みか?
+    const decoded = await adminAuth.verifyIdToken(idToken)  // REST で得たトークンから uid・auth_time・email を取る
     account = decoded.email ?? decoded.uid
     uid = decoded.uid
     authTime = decoded.auth_time
@@ -77,9 +108,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'server error' }, { status: 503 })
   }
 
-  // 旅館の PC（Windows）の Chrome か Edge だけ。パスワードの確認（ブラウザ側）の後なので、どのアカウントかを通知に載せられる
-  const forwardedFor = request.headers.get('x-forwarded-for')
-  const userAgent = request.headers.get('user-agent')
+  // 旅館の PC（Windows）の Chrome か Edge だけ。パスワードが合った後に確かめる（誰でも送れるリクエストで [ログイン拒否] を出させない）。
+  // パスワードは合っているので、失敗としては数えない
   const client = checkClient(userAgent)
   if (!client.success) {
     logger.warn('ログイン拒否: 端末・ブラウザ', { account, reason: client.error, forwardedIps: forwardedIps(forwardedFor), client: describeUserAgent(userAgent) })
@@ -96,7 +126,7 @@ export async function POST(request: Request) {
     const replacedSession = isLiveToday(previousAuthTime) && previousAuthTime !== authTime
 
     const expiresIn = msUntilToday23JST()
-    const sessionCookie = await adminAuth.createSessionCookie(parsed.data.idToken, { expiresIn }) // ログイン状態を維持するためのセッションCookieを作る
+    const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn }) // ログイン状態を維持するためのセッションCookieを作る
 
     // 旅館の外からのログインに気付けるよう、毎回 Slack に通知する（ログにも残す。Slack の失敗は気付けないため）
     logger.info('ログイン成功', { account, forwardedIps: forwardedIps(forwardedFor), client: describeUserAgent(userAgent), replacedSession })

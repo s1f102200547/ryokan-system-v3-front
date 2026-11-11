@@ -14,8 +14,9 @@ export type AuditAllowlistEntry = {
 }
 
 // @firebase/firestore（ブラウザ用 firebase パッケージに同梱）が @grpc/grpc-js を ~1.9.0 に固定している。
+// firebase パッケージは devDependencies で、テスト（tests/emulator/firestoreRules.test.ts）だけで使う。アプリ（src/）からの import は ESLint で禁止している
 // firebase 最新版（13.1.0 / @firebase/firestore 4.19.0）でも固定は変わらず、npm の修正案は firebase 9.14.0 へのダウングレード。
-// - ブラウザでは firebase/app と firebase/auth だけを使い、firebase/firestore を import していないので、この grpc-js は読み込まれない
+// - アプリは firebase パッケージを読み込まない（本番の画面にもサーバーにも入らない）。テストもブラウザ用の SDK を Emulator に向けるだけ
 // - gRPC サーバー側（TLS のクライアント証明書の認可）の問題。このアプリは gRPC サーバーを動かさない
 // - サーバー側の firebase-admin が使う grpc-js は修正済みの 1.14.x
 // （同じ grpc-js の GHSA-f596-whhp-79r4 は low なので例外にしない）
@@ -24,7 +25,7 @@ export const AUDIT_ALLOWLIST: readonly AuditAllowlistEntry[] = [
     id: 'GHSA-m9gg-hp2v-232j', // getAuthContext が未認可の証明書を認可済みとして返す（gRPC サーバーの TLS）
     package: '@grpc/grpc-js',
     reason:
-      'firebase（ブラウザ用 SDK）の @firebase/firestore が grpc-js を ~1.9.0 に固定。firebase/firestore は import しておらず、脆弱性は gRPC サーバー側のみ',
+      'firebase（ブラウザ用 SDK、テストだけで使う）の @firebase/firestore が grpc-js を ~1.9.0 に固定。アプリは読み込まず、脆弱性は gRPC サーバー側のみ',
     expires: '2027-01-31',
   },
 ]

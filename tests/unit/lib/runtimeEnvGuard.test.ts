@@ -5,15 +5,11 @@ import type { RuntimeEnv, RuntimeEnvViolationCode } from '@/types/runtimeEnv'
 const EMULATOR_ENV: RuntimeEnv = {
   FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
   FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
-  NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
   FIREBASE_PROJECT_ID: 'demo-ryokan',
-  NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'demo-ryokan',
-  NEXT_PUBLIC_FIREBASE_API_KEY: 'demo-api-key',
 }
 
 const PRODUCTION_ENV: RuntimeEnv = {
-  NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'ryokan-prod',
-  NEXT_PUBLIC_FIREBASE_API_KEY: 'prod-api-key',
+  FIREBASE_AUTH_API_KEY: 'prod-api-key',
   SLACK_WEBHOOK_URL: 'https://hooks.slack.com/services/x',
 }
 
@@ -30,9 +26,7 @@ describe.each(['development', 'test'])('checkRuntimeEnv: NODE_ENV=%s', (nodeEnv)
   it.each([
     ['FIRESTORE_EMULATOR_HOST', 'FIRESTORE_EMULATOR_HOST_MISSING'],
     ['FIREBASE_AUTH_EMULATOR_HOST', 'AUTH_EMULATOR_HOST_MISSING'],
-    ['NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST', 'BROWSER_AUTH_EMULATOR_HOST_MISSING'],
     ['FIREBASE_PROJECT_ID', 'PROJECT_ID_NOT_DEMO'],
-    ['NEXT_PUBLIC_FIREBASE_PROJECT_ID', 'BROWSER_PROJECT_ID_MISMATCH'],
   ] as const)('%s がないと拒否（%s）', (name, code) => {
     const env = { ...EMULATOR_ENV, [name]: undefined }
     expect(violationCodes(env, nodeEnv)).toContain(code)
@@ -49,20 +43,10 @@ describe.each(['development', 'test'])('checkRuntimeEnv: NODE_ENV=%s', (nodeEnv)
   it.each(['ryokan-prod', 'DEMO-ryokan', 'xdemo-ryokan', 'demo-'])(
     'project ID が %s なら拒否',
     (projectId) => {
-      const env = { ...EMULATOR_ENV, FIREBASE_PROJECT_ID: projectId, NEXT_PUBLIC_FIREBASE_PROJECT_ID: projectId }
+      const env = { ...EMULATOR_ENV, FIREBASE_PROJECT_ID: projectId }
       expect(violationCodes(env, nodeEnv)).toEqual(['PROJECT_ID_NOT_DEMO'])
     },
   )
-
-  it('ブラウザ側の project ID がサーバー側とずれていると拒否', () => {
-    const env = { ...EMULATOR_ENV, NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'demo-other' }
-    expect(violationCodes(env, nodeEnv)).toEqual(['BROWSER_PROJECT_ID_MISMATCH'])
-  })
-
-  it('ブラウザ側とサーバー側の Auth Emulator の接続先がずれていると拒否', () => {
-    const env = { ...EMULATOR_ENV, NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9199' }
-    expect(violationCodes(env, nodeEnv)).toEqual(['AUTH_EMULATOR_HOST_MISMATCH'])
-  })
 
   it.each([
     'FIREBASE_PRIVATE_KEY',
@@ -87,9 +71,7 @@ describe.each(['development', 'test'])('checkRuntimeEnv: NODE_ENV=%s', (nodeEnv)
     expect(violationCodes({ FIREBASE_PRIVATE_KEY: 'secret' }, nodeEnv)).toEqual([
       'FIRESTORE_EMULATOR_HOST_MISSING',
       'AUTH_EMULATOR_HOST_MISSING',
-      'BROWSER_AUTH_EMULATOR_HOST_MISSING',
       'PROJECT_ID_NOT_DEMO',
-      'BROWSER_PROJECT_ID_MISMATCH',
       'PRODUCTION_CREDENTIAL_SET',
     ])
   })
@@ -123,16 +105,13 @@ describe('checkRuntimeEnv: NODE_ENV=production', () => {
     expect(violationCodes(env, 'production')).toEqual(['EMULATOR_ENV_IN_PRODUCTION'])
   })
 
-  it.each(['FIREBASE_PROJECT_ID', 'NEXT_PUBLIC_FIREBASE_PROJECT_ID'])(
-    '%s が demo- 始まりなら拒否',
-    (name) => {
-      const env = { ...PRODUCTION_ENV, [name]: 'demo-ryokan' }
-      expect(checkRuntimeEnv(env, 'production')).toEqual({
-        success: false,
-        error: [{ code: 'DEMO_PROJECT_IN_PRODUCTION', envName: name }],
-      })
-    },
-  )
+  it('FIREBASE_PROJECT_ID が demo- 始まりなら拒否', () => {
+    const env = { ...PRODUCTION_ENV, FIREBASE_PROJECT_ID: 'demo-ryokan' }
+    expect(checkRuntimeEnv(env, 'production')).toEqual({
+      success: false,
+      error: [{ code: 'DEMO_PROJECT_IN_PRODUCTION', envName: 'FIREBASE_PROJECT_ID' }],
+    })
+  })
 
   it('production では鍵の有無を見ない（Cloud Run は ADC）', () => {
     const env = { ...PRODUCTION_ENV, GOOGLE_APPLICATION_CREDENTIALS: '/secrets/sa.json' }
@@ -147,9 +126,7 @@ describe.each([undefined, '', 'staging'])('checkRuntimeEnv: NODE_ENV=%s', (nodeE
       error: [
         { code: 'EMULATOR_ENV_IN_PRODUCTION', envName: 'FIRESTORE_EMULATOR_HOST' },
         { code: 'EMULATOR_ENV_IN_PRODUCTION', envName: 'FIREBASE_AUTH_EMULATOR_HOST' },
-        { code: 'EMULATOR_ENV_IN_PRODUCTION', envName: 'NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST' },
         { code: 'DEMO_PROJECT_IN_PRODUCTION', envName: 'FIREBASE_PROJECT_ID' },
-        { code: 'DEMO_PROJECT_IN_PRODUCTION', envName: 'NEXT_PUBLIC_FIREBASE_PROJECT_ID' },
       ],
     })
   })

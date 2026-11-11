@@ -60,3 +60,10 @@ export function buildLoginRejectedNotice(input: LoginNoticeInput & { reason: Cli
   const ipLabel = ips.length > 0 ? ips.join(', ') : '不明'
   return `[ログイン拒否] ${escapeSlack(account)} / ${REJECTION_LABELS[reason]} / IP ${ipLabel}（右端が Google の追記） / ${describeUserAgent(userAgent)} / ${formatJST(nowMs)}`
 }
+
+// ログインの失敗が続いて止め始めたときの通知。メールアドレスは利用者が書いた値なので書式を無効にする。IP は IP の形でなければ「?」
+export function buildLoginLockNotice({ key, failures, lockMs }: { key: { kind: 'email' | 'ip'; value: string }; failures: number; lockMs: number }): string {
+  const target = key.kind === 'email' ? `アカウント ${escapeSlack(key.value)}` : `IP ${forwardedIps(key.value)[0] ?? '?'}`
+  return `[ログイン制限] ${target} / ${failures}回続けて失敗 / ${Math.round(lockMs / 60000)}分止める`
+}
+

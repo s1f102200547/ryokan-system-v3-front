@@ -6,3 +6,18 @@ export const LOGIN_ALLOWED_BROWSERS = ['chrome', 'edge'] as const
 // 1アカウント1セッション: ログイン API が Firebase のユーザーのカスタムクレームに書く、最後のログインの時刻（auth_time、秒）。
 // verifySession が Session Cookie の auth_time と比べ、違えば前のセッションとして断る
 export const SESSION_AUTH_TIME_CLAIM = 'sessionAuthTime'
+
+// ログインの失敗回数の制限（iPhone のように、続けて失敗するほど長く止める）。メールアドレスごと・IP ごとに同じ表で数える。
+// 止めている間はパスワードを確かめず、回数も足さない。成功、または最後の失敗から LOGIN_FAILURE_RESET_MS で 0 に戻る
+const MINUTE_MS = 60 * 1000
+export const LOGIN_LOCK_STEPS: readonly { failures: number; lockMs: number }[] = [
+  { failures: 3, lockMs: 1 * MINUTE_MS },
+  { failures: 4, lockMs: 5 * MINUTE_MS },
+  { failures: 5, lockMs: 15 * MINUTE_MS },
+  { failures: 6, lockMs: 60 * MINUTE_MS }, // 6回目以降は、失敗のたびに1時間
+]
+export const LOGIN_FAILURE_RESET_MS = 24 * 60 * MINUTE_MS
+
+// ログイン API の入力の長さ（メールアドレスは RFC 5321 の上限。パスワードは openssl で作った値より十分長い）
+export const LOGIN_EMAIL_MAX_LENGTH = 254
+export const LOGIN_PASSWORD_MAX_LENGTH = 256

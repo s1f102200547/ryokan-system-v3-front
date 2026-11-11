@@ -27,34 +27,34 @@ const createdUids: string[] = []
 // 要件は「失効から数秒以内に使えなくなる」こと。ここでは失効の直後の API で確かめる
 const nextSecond = () => new Promise((r) => setTimeout(r, 1100))
 
-async function authRest(method: 'accounts:signUp' | 'accounts:signInWithPassword', email: string) {
-  const res = await fetch(`${AUTH_URL}/${method}?key=demo-api-key`, {
+async function signUp(email: string): Promise<string> {
+  const res = await fetch(`${AUTH_URL}/accounts:signUp?key=demo-api-key`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password: PASSWORD, returnSecureToken: true }),
   })
-  const body = (await res.json()) as { idToken?: string; localId?: string }
-  if (!res.ok || !body.idToken || !body.localId) throw new Error(`${method} に失敗: ${res.status}`)
-  return { idToken: body.idToken, uid: body.localId }
+  const body = (await res.json()) as { localId?: string }
+  if (!res.ok || !body.localId) throw new Error(`accounts:signUp に失敗: ${res.status}`)
+  return body.localId
 }
 
 async function createUser(label: string) {
   const email = `${RUN_ID}-${label}-${createdUids.length}@example.com`
-  const { uid } = await authRest('accounts:signUp', email)
+  const uid = await signUp(email)
   createdUids.push(uid)
   return { email, uid }
 }
 
-// 本物のログイン API で Session Cookie を受け取る
+// 本物のログイン API（パスワードの確認は Auth Emulator の REST）で Session Cookie を受け取る
 async function login(email: string): Promise<string> {
-  const { idToken } = await authRest('accounts:signInWithPassword', email)
   const res = await LOGIN(new Request('http://localhost/api/auth/login', {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME }, body: JSON.stringify({ idToken }),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME },
+    body: JSON.stringify({ email, password: PASSWORD }),
   }))
   // 落ちたときは、応答と、ログイン API が残した直近のログ（失敗の理由のコード）を載せる
   const message = res.status === 200 ? undefined : JSON.stringify({
     nowMs: Date.now(),
-    idToken: JSON.parse(Buffer.from(idToken.split('.')[1] ?? '', 'base64url').toString()) as unknown,
     response: { status: res.status, body: await res.clone().text() },
     logs: [...vi.mocked(logger.warn).mock.calls, ...vi.mocked(logger.error).mock.calls].slice(-3),
   }, null, 2)

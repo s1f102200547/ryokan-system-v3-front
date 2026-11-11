@@ -11,6 +11,12 @@ vi.mock('@/lib/firebase/admin', () => ({
   },
   adminDb: {},
 }))
+// パスワードの確認（Firebase の REST）は常に成功。失敗回数の記録はメモリで数える
+vi.mock('@/infra/auth/passwordSignIn', () => ({ signInWithPassword: vi.fn().mockResolvedValue({ success: true, value: { idToken: 'id-token' } }) }))
+vi.mock('@/infra/auth/firestoreLoginThrottleRepository', async () => {
+  const { createMemoryLoginThrottleRepository } = await import('@tests/utils/memoryLoginThrottleRepository')
+  return { firestoreLoginThrottleRepository: createMemoryLoginThrottleRepository() }
+})
 vi.mock('@/lib/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
 vi.mock('@/lib/slack', () => ({ notifySlackFireAndForget: vi.fn() }))
 import { adminAuth } from '@/lib/firebase/admin'
@@ -38,7 +44,7 @@ describe('ログイン時の Session Cookie の期限', () => {
     vi.useFakeTimers()
     setNowJST(`2026-05-20T${time}`)
     const res = await POST(new Request('http://localhost/api/auth/login', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME }, body: JSON.stringify({ idToken: 't' }),
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME }, body: JSON.stringify({ email: 'pc1@example.com', password: 'pw' }),
     }))
     expect(res.status).toBe(200)
     expect(vi.mocked(adminAuth.createSessionCookie).mock.calls.at(-1)?.[1]).toEqual({ expiresIn: expected })

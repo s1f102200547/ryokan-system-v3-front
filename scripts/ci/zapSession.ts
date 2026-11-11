@@ -18,19 +18,12 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  // seed（npm run seed）が作る開発用ユーザーでログインする
-  const signIn = await fetch(
-    `http://${target.value.authHost}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=demo-api-key`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: DEV_USER_EMAIL, password: DEV_USER_PASSWORD, returnSecureToken: true }) },
-  )
-  const { idToken } = (await signIn.json()) as { idToken?: string }
-  if (!signIn.ok || !idToken) throw new Error(`Auth Emulator へのログインに失敗: ${signIn.status}`)
-
+  // seed（npm run seed）が作る開発用ユーザーでログインする（パスワードの確認は開発サーバーが Auth Emulator に送る）
   const login = await fetch(`${APP}/api/auth/login`, {
     method: 'POST',
     // ログインは旅館の PC（Windows）の Chrome・Edge だけ（src/lib/auth/clientCheck.ts）。Node の fetch の既定の User-Agent では断られる
     headers: { 'Content-Type': 'application/json', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36' },
-    body: JSON.stringify({ idToken }),
+    body: JSON.stringify({ email: DEV_USER_EMAIL, password: DEV_USER_PASSWORD }),
   })
   const cookie = login.headers.get('set-cookie')?.match(/(?:^|;\s*)session=([^;]+)/)?.[1]
   if (!login.ok || !cookie) throw new Error(`/api/auth/login に失敗: ${login.status}`)

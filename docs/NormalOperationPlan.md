@@ -6,7 +6,6 @@
 
 | 順 | 項目 | NormalOperation の節 | 大きさ | 主に変える場所 |
 |---|---|---|---|---|
-| 3 | D: ログインのサーバー経由化と、失敗回数の制限 | 入力 | 大 | ログイン画面・API、ブラウザの Firebase SDK の削除、Firestore、CSP、API キー |
 | 4 | C: SMS の MFA（サーバー経由の上に作る） | 使う人・場所 | 大 | ログイン画面・API、Firebase の設定 |
 
 ## 2. 共通の方針
@@ -23,69 +22,14 @@ NormalOperation.md の「端末」「ブラウザ」へ移した。判定は `sr
 
 NormalOperation.md の「アカウント」へ移した。ログイン API がカスタムクレーム `sessionAuthTime`（`src/constants/auth.ts`）に最後のログインの時刻を書き、`verifySession` が Cookie の `auth_time` と比べる。D でログインをサーバー経由にしても、REST API で得た ID トークンの `auth_time` を同じく書けばよい。
 
-## 5. D: ログインのサーバー経由化と、失敗回数の制限
+## 5. D: ログインのサーバー経由化と、失敗回数の制限（実装済み）
 
-### なぜサーバー経由にするか
+NormalOperation.md の「入力」へ移した。C に引き継ぐこと:
 
-今はパスワードをブラウザから Firebase（`identitytoolkit.googleapis.com`）へ直接送っている。間違ったパスワードはこのアプリのサーバーに届かず、攻撃者もブラウザに載っている公開の API キーで Firebase を直接呼べる。サーバー経由にすると次のようになる。
-
-- パスワードの間違いがサーバーを通るので数えられる
-- API キーをサーバーだけが持つので、攻撃者は Firebase を直接呼べない。パスワードの総当たりも、SMS を勝手に送らせること（C の後）も、このアプリのサーバーを通るしかない
-- パスワードを確かめる前に、時間帯と A を確かめられる。条件に合わないログインでは、Firebase に何も送らない
-- ブラウザから Firebase の SDK がなくなり、CSP の `connect-src` から Google の通信先を消せる
-
-### 流れ
-
-1. ブラウザ: メールアドレスとパスワードを `POST /api/auth/login` に送る
-2. サーバー: 時間帯 → A → 失敗回数の制限を確かめる
-3. サーバー: Firebase Auth の REST API（`accounts:signInWithPassword`）にサーバー用の API キーで送る
-4. 失敗なら回数を足して 401。成功なら回数を消し、得た ID トークンで B の `setCustomUserClaims` → `createSessionCookie`
-
-### 失敗回数の制限
-
-- 数える単位は「メールアドレス」と「IP」の2つ。どちらかが上限を超えたら、しばらく 429
-  - 案: 15分に5回の失敗で、15分止める。正しいスタッフはパスワードマネージャーの自動入力なので、普段はほぼ間違えない
-  - メールアドレスごとだけだと、1つの IP から多くのアドレスを試される。IP ごとだけだと、IP を変えながら1つのアドレスを試される
-- 回数は Firestore の新しいコレクション（案: `loginAttempts/{key}`）に置く。Cloud Run はインスタンスが複数になりうるので、メモリでは数えられない
-  - key はメールアドレス・IP そのものではなく、ハッシュにする（DB に個人の情報を増やさない）
-  - トランザクションで足す。古いドキュメントは Firestore の TTL で消す
-  - `gmail-listener` が使っていない名前であることを確かめる
-- 429 になったら Slack に通知する。正しいスタッフが止められたときに、開発者が気付けるように
-- 存在しないメールアドレスも、正しいアドレスと同じ数え方・同じ応答にする（どのアドレスが本物かを探らせない）
-- IP は `X-Forwarded-For` の右端（Google が書いた値）を使う。どの位置が接続元かは、`loginNotice.ts` のとおり本番のログで先に確かめる
-
-### 新しく生まれる弱みと手当て
-
-- **パスワードがサーバーを通る。** リクエストの body をログに出さない。エラーのログにも REST API の応答をそのまま出さない（コードだけにする）
-- **Firebase 自身の IP ごとの制限からは、全員がサーバーの IP に見える。** 攻撃されると Firebase がサーバーを止め、正しいスタッフもログインできなくなるおそれがある。こちらの制限を Firebase より厳しくし、攻撃はこちらで先に止める。Firebase の `TOO_MANY_ATTEMPTS_TRY_LATER` は 503 と Slack にする
-- ログイン API の入力（メールアドレスとパスワード）の長さを Zod で絞る。Security.md §8「ログイン API での、パスワードの長さの確認」もここで片付く
-
-### API キー
-
-- サーバー用の API キーを新しく作り、使える API を Identity Toolkit だけに絞る。Secret Manager に置き、Cloud Run に渡す
-- 今ブラウザに載っている API キー（`NEXT_PUBLIC_FIREBASE_API_KEY`）は、切り替えた後に消す
-  - 消す前に、`gmail-listener` など、ほかにこのキーを使っているものがないか確かめる
-
-### 消すもの
-
-- ブラウザの Firebase SDK（`src/lib/firebase/client.ts`、`firebase` パッケージ）。ブラウザから Firebase を一切呼ばなくなる
-- `NEXT_PUBLIC_FIREBASE_*` の環境変数と、`runtimeEnvGuard.ts` のうちブラウザ側の Emulator の確認（`NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST` など）。ガードは緩めず、サーバー側の確認はそのまま残す
-- `src/lib/csp.ts` の `connect-src` の `identitytoolkit.googleapis.com` と `securetoken.googleapis.com`
-
-### 先に試すこと（スパイク）
-
-- [ ] REST API の `accounts:signInWithPassword` が Auth Emulator でも同じ形で動くか（開発と E2E で使う）
-- [ ] REST API でも MFA のサインイン（`accounts/mfaSignIn:start`・`finalize`）が呼べるか。reCAPTCHA の token が要るか（C の作りがここで決まる）
-
-### テスト
-
-- unit: 失敗回数の判定（上限の手前・ちょうど・超えた後・期限が過ぎた後）、IP の取り出し
-- integration: ログイン API の 400（長すぎる入力）、401、429、503、Slack 通知。body の値がログに出ないこと
-- fuzz: ログイン API の body と `X-Forwarded-For`
-- emulator: 回数のトランザクション（同時に失敗したとき数え漏れがないこと）
-- e2e: ログイン画面（API はモック）
-- e2e:emulator: 本物のログインと、6回目の失敗の 429
-- e2e:prod: CSP を変えたので、攻撃を止める検査が今も通るか
+- ブラウザは Firebase を呼ばない（SDK なし、CSP の `connect-src` は `'self'`）。C の SMS の送信とコードの確認も、サーバーが REST（`accounts/mfaSignIn:start`・`finalize`）で行う。reCAPTCHA の token が要るなら、ブラウザで reCAPTCHA だけを動かすことになり、CSP と COEP を変える
+- パスワードの確認は `src/infra/auth/passwordSignIn.ts`。今は idToken のない成功（`mfaPendingCredential`）を 503 にしている。C ではここで2段目へ進める
+- ログインの順番は「時間帯 → 長さ → 失敗回数 → パスワード → A → B → Cookie」。A をパスワードの前に移さなかったのは、誰でも送れるリクエストで Slack の `[ログイン拒否]` を出させないため。SMS はパスワードと A の後に送る（条件に合わない端末には送らない）
+- コードの入力の失敗も、`loginThrottle` で同じように数えられる（`domain/auth/loginThrottle.ts`）
 
 ## 6. C: SMS の MFA
 

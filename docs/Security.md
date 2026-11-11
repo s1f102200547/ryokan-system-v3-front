@@ -110,6 +110,10 @@
 - 1アカウント1セッション: 新しいログインで前のセッションを使えなくする（ユーザーのカスタムクレーム `sessionAuthTime` に最後のログインの時刻を書き、Session Cookie の `auth_time` と比べる。`revokeRefreshTokens` は新しい Cookie まで失効させるので使わない）と、前のセッションを切ったことの Slack への通知
 - Emulator 上のテストによる、失効（`revokeRefreshTokens`）・無効化・削除したユーザーの Session Cookie が直後の API で拒否されることの確認（ログインと同じ秒の `revokeRefreshTokens` は firebase-admin の仕様で効かない。運用では問題にならない）
 - ログイン時の、トークンを検証してからのセッションの発行
+- ログインのサーバー経由化: ブラウザはメールアドレスとパスワードを `/api/auth/login` に送るだけで、サーバーが Firebase Auth の REST API（`accounts:signInWithPassword`）で確かめる。ブラウザは Firebase を呼ばない（CSP の `connect-src` は `'self'` だけ。`src/` からの `firebase` パッケージの import は ESLint で禁止）。パスワードはログにも Slack にも出さない
+- API キーのサーバー専用化: パスワードの確認に使う API キー（`FIREBASE_AUTH_API_KEY`）はサーバーだけが持つ（Secret Manager から Cloud Run に渡す）
+- ログインの失敗回数の制限: メールアドレスごと・IP（`X-Forwarded-For` の右端）ごとに数え、3回で1分、4回で5分、5回で15分、6回以降は1時間止める。止めている間は Firebase に送らず 429。存在しないメールアドレスも同じに数える。回数は Firestore の `loginThrottle`（ID は値の SHA-256）。止め始めたら Slack に通知
+- ログイン API での、メールアドレス（254文字まで）とパスワード（256文字まで）の長さの確認
 - セッション Cookie の、JavaScript からの読み取りと他サイトからの送信の禁止（Emulator の E2E で、属性を外すと読める・送られることの対照実験つきで確認。Secure は本番だけで付くことを integration で確認）
 - セッションの期限の、当日の 23:00 まで（22:55 以降のログインは Firebase の最低値の 5 分後まで）への限定
 - 営業時間外の、ログインの拒否
@@ -142,9 +146,6 @@
 
 - Firestore の PITR・削除保護・定期バックアップの有効化
 - SMS による MFA（PC のアカウントごとに業務用の携帯電話を登録）
-- ログインのサーバー経由化と、API キーのサーバー専用化
-- ログインの失敗回数の制限
-- ログイン API での、パスワードの長さの確認
 - Terraform による GCP・GitHub の設定のコード化
 
 ## 9. 採用しなかった対策

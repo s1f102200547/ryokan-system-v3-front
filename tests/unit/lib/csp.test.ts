@@ -1,42 +1,31 @@
 import { describe, it, expect } from 'vitest'
 import { buildCsp } from '@/lib/csp'
 
-// production の CSP 文字列（変えてはいけない基準値）
+// production の CSP 文字列（変えてはいけない基準値）。
+// ブラウザは Firebase を呼ばない（パスワードの確認はサーバーが行う）ので、connect-src は自分の API だけ
 const PRODUCTION_CSP = [
   `default-src 'self'`,
   `script-src 'self' 'nonce-abc' 'strict-dynamic'`,
   `style-src 'self' 'unsafe-inline'`,
   `img-src 'self'`,
   `font-src 'self'`,
-  `connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com`,
+  `connect-src 'self'`,
   `frame-ancestors 'none'`,
   `base-uri 'self'`,
   `form-action 'self'`,
 ].join('; ')
 
 describe('buildCsp', () => {
-  it('production では Emulator のアドレスを含めず、基準値と一致する', () => {
-    const csp = buildCsp({ nonce: 'abc', isDev: false, authEmulatorHost: '127.0.0.1:9099' })
-    expect(csp).toBe(PRODUCTION_CSP)
-    expect(csp).not.toContain('127.0.0.1')
-  })
-
-  it('development では connect-src に Auth Emulator のアドレスを加える', () => {
-    const csp = buildCsp({ nonce: 'abc', isDev: true, authEmulatorHost: '127.0.0.1:9099' })
-    expect(csp).toContain(
-      `connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com http://127.0.0.1:9099`,
-    )
+  it('production は基準値と一致する', () => {
+    expect(buildCsp({ nonce: 'abc', isDev: false })).toBe(PRODUCTION_CSP)
   })
 
   it('development では unsafe-eval を許可する', () => {
-    const csp = buildCsp({ nonce: 'abc', isDev: true, authEmulatorHost: undefined })
+    const csp = buildCsp({ nonce: 'abc', isDev: true })
     expect(csp).toContain(`script-src 'self' 'nonce-abc' 'strict-dynamic' 'unsafe-eval'`)
   })
 
-  it('development でも接続先が未設定なら Emulator のアドレスを加えない', () => {
-    const csp = buildCsp({ nonce: 'abc', isDev: true, authEmulatorHost: undefined })
-    expect(csp).toContain(
-      `connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com;`,
-    )
+  it('development でも connect-src は自分の API だけ（Auth Emulator にもブラウザからはつながない）', () => {
+    expect(buildCsp({ nonce: 'abc', isDev: true })).toContain(`connect-src 'self';`)
   })
 })

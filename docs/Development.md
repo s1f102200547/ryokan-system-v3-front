@@ -22,10 +22,12 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 
 | `NODE_ENV` | 必須 | 拒否 |
 |---|---|---|
-| `development` / `test` | `FIRESTORE_EMULATOR_HOST`, `FIREBASE_AUTH_EMULATOR_HOST`, `NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST`（サーバーと同じ値）, `FIREBASE_PROJECT_ID`（`demo-` で始まる）, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`（同じ値） | `FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL`, `GOOGLE_APPLICATION_CREDENTIALS`、名前に `PRIVATE_KEY` を含む変数（空でも） |
+| `development` / `test` | `FIRESTORE_EMULATOR_HOST`, `FIREBASE_AUTH_EMULATOR_HOST`, `FIREBASE_PROJECT_ID`（`demo-` で始まる） | `FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL`, `GOOGLE_APPLICATION_CREDENTIALS`、名前に `PRIVATE_KEY` を含む変数（空でも） |
 | それ以外（本番） | — | `*_EMULATOR_HOST`, `FIREBASE_EMULATOR_HUB`、`demo-` の project ID |
 
 本番の Admin SDK は ADC（Cloud Run の実行用サービスアカウント）で認証する。鍵ファイルは使わない。
+
+ブラウザは Firebase を呼ばないので、`NEXT_PUBLIC_FIREBASE_*` の変数はない。パスワードの確認（`src/infra/auth/passwordSignIn.ts`）は、本番では `FIREBASE_AUTH_API_KEY`（Identity Toolkit API だけに絞った API キー。Secret Manager から Cloud Run に渡す）を使う。Emulator に接続しているときは、Auth Emulator がキーを見ないのでダミーの値を使い、設定は要らない。本番で設定がなければ、ログインが 503 になり Slack に通知される（起動は止めない。CI の ZAP は本番ビルドを環境変数なしで起動するため）。
 
 ### 本番データの匿名化（人だけが実行する）
 
@@ -53,7 +55,7 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 
 - Vitest の既定の設定（`vitest.config.ts`）は Emulator の接続先を **到達できないアドレス**（`127.0.0.1:1`）にしている。誤って Firestore を呼んだテストはすぐ失敗し、本番にも届かない
 - 「今日」は `tests/utils/routeTestHelper.ts` の `setupFakeToday()` で 2026-05-20（JST）に固定する。JST の時刻を指定するときは `tests/utils/timeHelper.ts` の `setNowJST`
-- E2E は本物の Firebase 認証を使わない。`session` Cookie を `context.addCookies` で置いて `proxy.ts` を通し、`/api/**` と Firebase Auth の REST を `page.route` でモックする。Emulator 系の環境変数は `playwright.config.ts` の `webServer.env` にある（Emulator 本体は起動しない。ブラウザの Auth は Auth Emulator の URL に向かうが、`**/identitytoolkit.googleapis.com/**` のモックで捕まる）。URL と Cookie のホストは `localhost` ではなく `127.0.0.1` にそろえる
+- E2E は本物の Firebase 認証を使わない。`session` Cookie を `context.addCookies` で置いて `proxy.ts` を通し、`/api/**` を `page.route` でモックする（ブラウザは Firebase を呼ばない）。Emulator 系の環境変数は `playwright.config.ts` の `webServer.env` にある（Emulator 本体は起動しない）。URL と Cookie のホストは `localhost` ではなく `127.0.0.1` にそろえる
 - Emulator の E2E（`playwright.emulator.config.ts`）は `firebase emulators:exec` の中で、開発サーバーを `127.0.0.1:3200` で起動する。`make` の Emulator が動いているとポートが衝突する。Next.js は同じディレクトリで開発サーバーを1つしか起動できないので、`make` の開発サーバー（3000 番）が動いていても起動に失敗する
 - 本番ビルドの E2E（`playwright.prod.config.ts`）は毎回 `next build` してから `next start -H 127.0.0.1 -p 3100` で起動する（既存のサーバーは再利用しない）。Emulator 系の変数は渡さないのでログインはできず、API はブラウザ側でモックするか未ログインの応答を見る。本番は 23:00〜6:00 JST に全ページを `/time-restricted` に回すので、どの時刻でも成り立つように書く
 - 開発サーバーは React の StrictMode で最初の表示の effect を2回動かす。E2E で API の呼び出し回数を数えるときは、最初の表示の回数を決め打ちしない（`e2e/guestCardRefresh.spec.ts` の `expectLatest`）
@@ -135,7 +137,7 @@ zizmor を手元で試す: ci.yml の zizmor ジョブと同じ版の本体を�
 - 認証は Workload Identity Federation（鍵ファイルなし）。イメージは Artifact Registry `asia-northeast1-docker.pkg.dev/<project>/ryokan/ryokan-system:<sha>`
 - 実行用サービスアカウント `ryokan-runtime`。Firestore の読み書きと Session Cookie の発行・確認だけの権限
 - Dockerfile は3段（deps → builder → runner）、`output: 'standalone'`、非 root、`PORT=8080`
-- GitHub Secrets: `WORKLOAD_IDENTITY_PROVIDER`, `SERVICE_ACCOUNT`, `GCP_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_API_KEY` / `_AUTH_DOMAIN` / `_PROJECT_ID`（ビルド時にクライアントへ埋め込む。build arg）, `SLACK_WEBHOOK_URL`（Cloud Run の実行時の環境変数）
+- GitHub Secrets: `WORKLOAD_IDENTITY_PROVIDER`, `SERVICE_ACCOUNT`, `GCP_PROJECT_ID`, `SLACK_WEBHOOK_URL`（Cloud Run の実行時の環境変数）
 - `firestore.rules` は自動では反映されない。変えたら開発者が `firebase deploy --only firestore:rules` を手で実行する
 - デプロイの開始・結果と PR の作成は、Slack の GitHub アプリが通知する（ワークフローの中では通知しない）
 
