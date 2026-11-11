@@ -37,6 +37,9 @@ export default defineConfig({
     url: `http://127.0.0.1:${PORT}/login`,
     reuseExistingServer: false,
     timeout: 180_000,
+    // 開発サーバーのログ（ログイン API がどこで断ったか・Firebase のコード）を出す。
+    // 正しいパスワードで 401 になることがまれにあり（2026-11-11）、原因を追うため
+    stdout: 'pipe',
     env: {
       FIREBASE_PROJECT_ID: 'demo-ryokan',
       FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',

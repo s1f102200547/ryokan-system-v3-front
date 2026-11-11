@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import fc from 'fast-check'
-import { acquireAttempt, checkThrottle, lockDurationMs, recordFailure, refundFailure, type ThrottleState } from '@/domain/auth/loginThrottle'
+import {
+  acquireAll, acquireAttempt, checkThrottle, completeAttempt, lockDurationMs, recordFailure, remainingBeforeLock, type ThrottleState,
+} from '@/domain/auth/loginThrottle'
+import { LOGIN_PENDING_TTL_MS } from '@/constants/auth'
 import { LOGIN_FAILURE_RESET_MS } from '@/constants/auth'
 
 const MIN = 60 * 1000
@@ -38,7 +41,7 @@ describe('recordFailure', () => {
     const { state, lastLockMs } = failTimes(3)
     const at = NOW + 2000
     expect(lastLockMs).toBe(1 * MIN)
-    expect(state).toEqual({ failures: 3, lastFailureAtMs: at, lockedUntilMs: at + 1 * MIN })
+    expect(state).toEqual({ failures: 3, lastFailureAtMs: at, lockedUntilMs: at + 1 * MIN, pending: [] })
   })
 
   it('最後の失敗から24時間たっていれば1から数える', () => {
@@ -84,11 +87,11 @@ describe('性質', () => {
   })
 
   it('回数が負の壊れた記録でも、次の回数は 1 から', () => {
-    expect(recordFailure({ failures: -5, lastFailureAtMs: NOW, lockedUntilMs: 0 }, NOW + 1000).next.failures).toBe(1)
+    expect(recordFailure({ failures: -5, lastFailureAtMs: NOW, lockedUntilMs: 0, pending: [] }, NOW + 1000).next.failures).toBe(1)
   })
 
   it('壊れた記録（未来の失敗の時刻など）でも例外を投げない', () => {
-    const state = fc.record({ failures: fc.integer({ min: -5, max: 1000 }), lastFailureAtMs: fc.integer(), lockedUntilMs: fc.integer() })
+    const state = fc.record({ failures: fc.integer({ min: -5, max: 1000 }), lastFailureAtMs: fc.integer(), lockedUntilMs: fc.integer(), pending: fc.constant(null).map(() => []) })
     fc.assert(fc.property(state, fc.integer({ min: 0, max: 2 ** 45 }), (s, now) => {
       checkThrottle(s, now)
       const { next } = recordFailure(s, now)
@@ -97,35 +100,73 @@ describe('性質', () => {
   })
 })
 
-describe('acquireAttempt と refundFailure（先に数えて、障害なら返す）', () => {
-  it('止まっていれば数えずに retryAfterMs', () => {
-    const { state } = failTimes(3)
-    expect(acquireAttempt(state, NOW + 2000 + 10_000)).toEqual({ success: false, error: { retryAfterMs: 50_000 } })
+describe('試行中の札（acquireAttempt・completeAttempt）', () => {
+  const acquire = (state: ThrottleState | null, at: number, id: string) => {
+    const r = acquireAttempt(state, at, id)
+    if (!r.success) throw new Error(`札が出るはず: ${JSON.stringify(r.error)}`)
+    return r.value
+  }
+
+  it('同時に出せる札は、次に止める段までの残りの回数まで', () => {
+    expect([0, 1, 2, 3, 4, 5, 6, 10].map(remainingBeforeLock)).toEqual([3, 2, 1, 1, 1, 1, 1, 1])
   })
 
-  it('間にほかの試行がなければ、先に数える前の状態にそのまま戻す（止める時間を今から数え直さない）', () => {
+  it('失敗が0回なら札は3枚まで。4枚目は busy（少し待って）で、何も書かない', () => {
+    let state: ThrottleState | null = null
+    for (const id of ['a', 'b', 'c']) state = acquire(state, NOW, id)
+    expect(acquireAttempt(state, NOW, 'd')).toEqual({ success: false, error: { kind: 'busy', retryAfterMs: 1000 } })
+  })
+
+  it('止まっていれば locked（札は出さない）', () => {
+    const { state } = failTimes(3)
+    expect(acquireAttempt(state, NOW + 2000 + 10_000, 'x')).toEqual({ success: false, error: { kind: 'locked', retryAfterMs: 50_000 } })
+  })
+
+  it('外し忘れた札は、期限で自然に消え、また札を出せる', () => {
+    const { state: two } = failTimes(2) // 残り1枚
+    const held = acquire(two, NOW + 2000, 'lost')
+    expect(acquireAttempt(held, NOW + 2000 + LOGIN_PENDING_TTL_MS - 1, 'next').success).toBe(false)
+    expect(acquireAttempt(held, NOW + 2000 + LOGIN_PENDING_TTL_MS, 'next').success).toBe(true)
+  })
+
+  it('success は確定した失敗を 0 に戻し、札も外す（記録を消してよい）', () => {
+    const { state: two } = failTimes(2)
+    const held = acquire(two, NOW + 2000, 'a')
+    expect(completeAttempt(held, 'a', 'success', NOW + 2100)).toEqual({ next: null, lockMs: null, failures: 0 })
+  })
+
+  it('failure は確定した失敗を1回足し、止め始めたら lockMs', () => {
+    const { state: two } = failTimes(2)
+    const held = acquire(two, NOW + 2000, 'a')
+    const done = completeAttempt(held, 'a', 'failure', NOW + 2100)
+    expect(done.lockMs).toBe(1 * MIN)
+    expect(done.next).toEqual({ failures: 3, lastFailureAtMs: NOW + 2100, lockedUntilMs: NOW + 2100 + MIN, pending: [] })
+  })
+
+  it('void（Firebase の障害）は札を外すだけ。確定した失敗も止める時刻も変えない', () => {
     const { state: before } = failTimes(3) // 1分止まる
     const at = NOW + 2000 + MIN // 止まりが切れた時刻
-    const acquired = acquireAttempt(before, at)
-    if (!acquired.success) throw new Error('通るはず')
-    expect(acquired.value.lockMs).toBe(5 * MIN) // 先に数えると4回目で5分止まる
-    expect(refundFailure(acquired.value.next, before, at)).toEqual(before)
-    expect(checkThrottle(refundFailure(acquired.value.next, before, at), at).success).toBe(true)
+    const held = acquire(before, at, 'a')
+    expect(completeAttempt(held, 'a', 'void', at + 100).next).toEqual(before)
   })
 
-  it('記録がなかったときは、返すと記録ごと消える', () => {
-    const acquired = acquireAttempt(null, NOW)
-    if (!acquired.success) throw new Error('通るはず')
-    expect(refundFailure(acquired.value.next, null, NOW)).toBeNull()
+  it('ほかの札は残す（同時の試行の結果を待つ）', () => {
+    const held = acquire(acquire(null, NOW, 'a'), NOW, 'b')
+    const done = completeAttempt(held, 'a', 'failure', NOW + 10)
+    expect(done.next?.pending.map((p) => p.id)).toEqual(['b'])
   })
 
-  it('間にほかの試行が割り込んでいたら、回数だけ1つ減らす', () => {
-    const first = acquireAttempt(null, NOW)
-    if (!first.success) throw new Error('通るはず')
-    const second = acquireAttempt(first.value.next, NOW + 10) // 割り込んだ試行
-    if (!second.success) throw new Error('通るはず')
-    // 1つ目が障害だったので返す。今の状態は2つ目が書いたもの
-    expect(refundFailure(second.value.next, null, NOW)).toEqual({ failures: 1, lastFailureAtMs: NOW + 10, lockedUntilMs: 0 })
+  it('札を出していない（期限で消えた）試行が終わっても、結果は確定する', () => {
+    expect(completeAttempt(null, 'gone', 'failure', NOW).next?.failures).toBe(1)
+    expect(completeAttempt(null, 'gone', 'void', NOW).next).toBeNull()
+  })
+
+  it('acquireAll: どれかが止まっていれば locked（いちばん長い待ち）、どれかが埋まっていれば busy、断るなら何も返さない', () => {
+    const { state: locked } = failTimes(3)
+    const full = acquire(failTimes(2).state, NOW + 2000, 'x')
+    expect(acquireAll([locked, full], NOW + 2000, 'y')).toEqual({ success: false, error: { kind: 'locked', retryAfterMs: MIN } })
+    expect(acquireAll([null, full], NOW + 2000, 'y')).toEqual({ success: false, error: { kind: 'busy', retryAfterMs: 1000 } })
+    const ok = acquireAll([null, null], NOW, 'y')
+    expect(ok.success && ok.value.map((s) => s.pending.map((p) => p.id))).toEqual([['y'], ['y']])
   })
 })
-

@@ -1,20 +1,15 @@
-import type { ThrottleState } from '@/domain/auth/loginThrottle'
+import type { AcquireRejection, AttemptOutcome, ThrottleState } from '@/domain/auth/loginThrottle'
 import type { Result } from '@/types/result'
 
 // ログインの失敗回数を数える単位。value はメールアドレス（小文字にする）か IP
 export type ThrottleKey = { kind: 'email' | 'ip'; value: string }
 
-export type AcquiredAttempt = { lockMs: number | null; failures: number; previous: ThrottleState | null }
-
 export interface LoginThrottleRepository {
-  // ない key は null（テスト・調査用）
+  // トランザクションを使わない読み取り。止まっているかを先に安く確かめる（攻撃の大半はここで 429 にする）。ない key は null
   read(keys: ThrottleKey[]): Promise<(ThrottleState | null)[]>
-  // 試す前に呼ぶ。どれかの key が止まっていれば何も書かずに retryAfterMs。
-  // 止まっていなければ、すべての key に失敗を1回先に足す（確認と記録を1つのトランザクションで行う。同時の試行ですり抜けられない）。
-  // 返すのは key ごとの、この1回で止め始める時間（止めなければ null）と回数、先に足す前の状態（refund に渡す）
-  acquire(keys: ThrottleKey[], nowMs: number): Promise<Result<AcquiredAttempt[], { retryAfterMs: number }>>
-  // 先に足した1回分を返す（障害でパスワードを確かめられなかったとき）。acquired と nowMs は acquire に渡した・受け取ったもの
-  refund(keys: ThrottleKey[], acquired: AcquiredAttempt[], nowMs: number): Promise<void>
-  // 成功したら 0 に戻す（ドキュメントを消す）
-  reset(keys: ThrottleKey[]): Promise<void>
+  // 試す前に、すべての key に試行中の札を出す（確認と札を1つのトランザクションで行う）。
+  // 止まっていれば locked、札が埋まっていれば（同時の試行）busy。トランザクションがぶつかり合って諦めたときも busy
+  acquire(keys: ThrottleKey[], nowMs: number, attemptId: string): Promise<Result<void, AcquireRejection>>
+  // 確かめ終わったら札を外し、結果を確定させる。返すのは key ごとの、この結果で止め始めた時間（止めなければ null）と回数
+  complete(keys: ThrottleKey[], attemptId: string, outcome: AttemptOutcome, nowMs: number): Promise<{ lockMs: number | null; failures: number }[]>
 }

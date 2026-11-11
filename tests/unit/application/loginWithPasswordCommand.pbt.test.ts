@@ -32,12 +32,14 @@ type Step =
   | { op: 'wrong' }
   | { op: 'right' }
   | { op: 'outage' }
+  | { op: 'throttled' } // Firebase 自身が止めた（失敗として数える）
   | { op: 'wait'; ms: number }
 
 const step: fc.Arbitrary<Step> = fc.oneof(
   { arbitrary: fc.constant({ op: 'wrong' as const }), weight: 5 },
   { arbitrary: fc.constant({ op: 'right' as const }), weight: 1 },
   { arbitrary: fc.constant({ op: 'outage' as const }), weight: 1 },
+  { arbitrary: fc.constant({ op: 'throttled' as const }), weight: 1 },
   { arbitrary: fc.integer({ min: 1, max: 26 * H }).map((ms) => ({ op: 'wait' as const, ms })), weight: 2 },
 )
 
@@ -56,7 +58,8 @@ describe('loginWithPasswordCommand（1つのメールアドレス・1つの IP�
       for (const s of steps) {
         if (s.op === 'wait') { now += s.ms; continue }
         vi.mocked(signInWithPassword).mockReset()
-        if (s.op === 'wrong') vi.mocked(signInWithPassword).mockResolvedValue({ success: false, error: 'invalid_credentials' })
+        if (s.op === 'wrong') vi.mocked(signInWithPassword).mockResolvedValue({ success: false, error: { kind: 'invalid_credentials', code: 'INVALID_LOGIN_CREDENTIALS' } })
+        if (s.op === 'throttled') vi.mocked(signInWithPassword).mockResolvedValue({ success: false, error: { kind: 'firebase_throttled', code: 'TOO_MANY_ATTEMPTS_TRY_LATER' } })
         if (s.op === 'right') vi.mocked(signInWithPassword).mockResolvedValue({ success: true, value: { idToken: 't' } })
         if (s.op === 'outage') vi.mocked(signInWithPassword).mockRejectedValue(new InfraError('AUTH_UNAVAILABLE', 'down'))
 
@@ -65,7 +68,8 @@ describe('loginWithPasswordCommand（1つのメールアドレス・1つの IP�
 
         // 模範
         let expected: string
-        if (now < lockedUntil) {
+        const wasLocked = now < lockedUntil
+        if (wasLocked) {
           expected = `429:${lockedUntil - now}`
         } else if (s.op === 'outage') {
           expected = '503' // 確かめられなかったので数えない
@@ -73,15 +77,16 @@ describe('loginWithPasswordCommand（1つのメールアドレス・1つの IP�
           failures = 0; lockedUntil = 0
           expected = 'ok'
         } else {
+          // wrong と throttled は、どちらも失敗として数える
           if (now - lastFailureAt >= 24 * H) failures = 0
           failures += 1
           lastFailureAt = now
           lockedUntil = modelLockMs(failures) > 0 ? now + modelLockMs(failures) : 0
-          expected = '401'
+          expected = s.op === 'wrong' ? '401' : `429:${modelLockMs(failures) > 0 ? modelLockMs(failures) : 60_000}`
         }
         expect(actual, JSON.stringify({ s, now, failures })).toBe(expected)
         // 止めている間は Firebase に送らない
-        if (expected.startsWith('429')) expect(signInWithPassword).not.toHaveBeenCalled()
+        if (wasLocked) expect(signInWithPassword).not.toHaveBeenCalled()
       }
     }), { numRuns: 300 })
   })

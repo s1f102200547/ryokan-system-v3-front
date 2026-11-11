@@ -1,6 +1,7 @@
 // @vitest-environment node
 // ログインの失敗回数の制限を、本物の Auth Emulator（パスワードの確認）と Firestore Emulator（回数）で確かめる
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from 'vitest'
+import { Timestamp } from 'firebase-admin/firestore'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { POST as LOGIN } from '@/app/api/auth/login/route'
 import { firestoreLoginThrottleRepository, throttleDocId } from '@/infra/auth/firestoreLoginThrottleRepository'
@@ -36,7 +37,7 @@ beforeAll(async () => {
   expect(process.env.FIREBASE_AUTH_EMULATOR_HOST).toMatch(/^127\.0\.0\.1:/)
   await clearThrottle()
 })
-beforeEach(() => vi.mocked(notifySlackFireAndForget).mockClear())
+beforeEach(() => { vi.mocked(notifySlackFireAndForget).mockClear() })
 afterAll(async () => {
   await adminAuth.deleteUsers(createdUids)
   await clearThrottle()
@@ -85,14 +86,16 @@ describe('ログインの失敗回数の制限（本物の REST と Firestore）
     expect(state).toBeNull()
   })
 
-  // 確認と記録を1つのトランザクションで行うので、同時に試しても止める前の3回しか通らない（すり抜けない）
-  it('同時に10回試しても、通るのは3回で、回数は3（トランザクション）', async () => {
+  // 試行中の札は、次に止める段までの残り（失敗0回なら3枚）までしか出ない。同時に試してもすり抜けない
+  it('同時に10回札を求めても、出るのは3枚（トランザクション）。残りは busy か、ぶつかり合いの busy', async () => {
     const key = { kind: 'email' as const, value: `${RUN_ID}-concurrent@example.com` }
     const now = Date.now()
-    const results = await Promise.all(Array.from({ length: 10 }, () => firestoreLoginThrottleRepository.acquire([key], now)))
+    const results = await Promise.all(Array.from({ length: 10 }, (_, i) => firestoreLoginThrottleRepository.acquire([key], now, `a${i}`)))
     expect(results.filter((r) => r.success)).toHaveLength(3)
+    expect(results.filter((r) => !r.success && r.error.kind === 'busy')).toHaveLength(7)
     const [state] = await firestoreLoginThrottleRepository.read([key])
-    expect(state?.failures).toBe(3)
+    expect(state?.pending).toHaveLength(3)
+    expect(state?.failures).toBe(0) // 札はまだ失敗ではない
   })
 
   it('同時に10回、本物のログイン API で間違えても、Firebase まで届くのは3回（残りは 429）', async () => {
@@ -103,23 +106,36 @@ describe('ログインの失敗回数の制限（本物の REST と Firestore）
     expect(statuses.filter((s) => s === 429)).toHaveLength(7)
   })
 
-  it('先に数えた1回は、障害のときに返せる（refund）', async () => {
+  it('札を外す: failure は数え、void は数えず、success は 0 に戻す（記録を消す）', async () => {
     const key = { kind: 'ip' as const, value: nextIp() }
     const t0 = Date.now()
-    for (let i = 0; i < 2; i++) await firestoreLoginThrottleRepository.acquire([key], t0 + i)
-    const third = await firestoreLoginThrottleRepository.acquire([key], t0 + 2) // 3回目で止まるはず
-    if (!third.success) throw new Error('3回目は通るはず')
-    await firestoreLoginThrottleRepository.refund([key], third.value, t0 + 2)
-    const [state] = await firestoreLoginThrottleRepository.read([key])
-    // 3回目を数える前の状態に戻る（最後の失敗の時刻も2回目のまま、止めない）
-    expect(state).toEqual({ failures: 2, lastFailureAtMs: t0 + 1, lockedUntilMs: 0 })
+    expect((await firestoreLoginThrottleRepository.acquire([key], t0, 'f')).success).toBe(true)
+    await firestoreLoginThrottleRepository.complete([key], 'f', 'failure', t0 + 1)
+    expect((await firestoreLoginThrottleRepository.read([key]))[0]).toEqual({ failures: 1, lastFailureAtMs: t0 + 1, lockedUntilMs: 0, pending: [] })
+
+    expect((await firestoreLoginThrottleRepository.acquire([key], t0 + 2, 'v')).success).toBe(true)
+    await firestoreLoginThrottleRepository.complete([key], 'v', 'void', t0 + 3)
+    expect((await firestoreLoginThrottleRepository.read([key]))[0]).toEqual({ failures: 1, lastFailureAtMs: t0 + 1, lockedUntilMs: 0, pending: [] })
+
+    expect((await firestoreLoginThrottleRepository.acquire([key], t0 + 4, 's')).success).toBe(true)
+    await firestoreLoginThrottleRepository.complete([key], 's', 'success', t0 + 5)
+    expect((await adminDb.collection('loginThrottle').doc(throttleDocId(key)).get()).exists).toBe(false)
   })
 
-  it('形の崩れたドキュメントは、なかったものとして扱う（止めず、次の失敗で書き直す）', async () => {
+  it('形の崩れたドキュメントは、なかったものとして扱う（止めず、次に書くときに書き直す）', async () => {
     const key = { kind: 'ip' as const, value: nextIp() }
     await adminDb.collection('loginThrottle').doc(throttleDocId(key)).set({ failures: 'many', lockedUntil: 'forever' })
     expect(await firestoreLoginThrottleRepository.read([key])).toEqual([null])
-    expect((await firestoreLoginThrottleRepository.acquire([key], Date.now())).success).toBe(true)
-    expect((await firestoreLoginThrottleRepository.read([key]))[0]?.failures).toBe(1)
+    expect((await firestoreLoginThrottleRepository.acquire([key], Date.now(), 'x')).success).toBe(true)
+    expect((await firestoreLoginThrottleRepository.read([key]))[0]?.pending).toHaveLength(1)
+  })
+
+  it('札を入れる前の形のドキュメント（pending なし）も読める', async () => {
+    const key = { kind: 'ip' as const, value: nextIp() }
+    const now = Date.now()
+    await adminDb.collection('loginThrottle').doc(throttleDocId(key)).set({
+      failures: 3, lastFailureAt: Timestamp.fromMillis(now), lockedUntil: Timestamp.fromMillis(now + 60_000),
+    })
+    expect((await firestoreLoginThrottleRepository.read([key]))[0]).toEqual({ failures: 3, lastFailureAtMs: now, lockedUntilMs: now + 60_000, pending: [] })
   })
 })

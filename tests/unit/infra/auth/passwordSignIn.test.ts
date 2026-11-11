@@ -59,12 +59,11 @@ describe('signInWithPassword', () => {
   it.each(['INVALID_LOGIN_CREDENTIALS', 'INVALID_PASSWORD', 'EMAIL_NOT_FOUND', 'USER_DISABLED', 'INVALID_EMAIL'])(
     '%s は invalid_credentials（数えて 401）', async (message) => {
       fetchMock.mockResolvedValue(errorResponse(400, message))
-      expect(await signInWithPassword('a@example.com', PASSWORD)).toEqual({ success: false, error: 'invalid_credentials' })
+      expect(await signInWithPassword('a@example.com', PASSWORD)).toEqual({ success: false, error: { kind: 'invalid_credentials', code: message } })
     },
   )
 
   it.each([
-    ['Firebase 自身の制限', 400, 'TOO_MANY_ATTEMPTS_TRY_LATER : Access to this account has been temporarily disabled'],
     ['API キーの誤り', 400, 'API key not valid. Please pass a valid API key.'],
     ['API キーなし（Emulator は 403）', 403, 'The request is missing a valid API key.'],
     ['Firebase の障害', 503, 'UNAVAILABLE'],
@@ -73,6 +72,12 @@ describe('signInWithPassword', () => {
     const e = await expectUnavailable()
     // 説明の文は載せず、先頭の語と status だけ
     expect(e.message).toBe(`Password sign-in failed: ${message.split(/[\s:]/, 1)[0]} (status ${status})`)
+  })
+
+  it('Firebase 自身の制限（TOO_MANY_ATTEMPTS_TRY_LATER）は障害にせず firebase_throttled（失敗として数える）', async () => {
+    fetchMock.mockResolvedValue(errorResponse(400, 'TOO_MANY_ATTEMPTS_TRY_LATER : Access to this account has been temporarily disabled'))
+    expect(await signInWithPassword('a@example.com', PASSWORD))
+      .toEqual({ success: false, error: { kind: 'firebase_throttled', code: 'TOO_MANY_ATTEMPTS_TRY_LATER' } })
   })
 
   it('本文が JSON でない失敗は UNKNOWN の AUTH_UNAVAILABLE', async () => {

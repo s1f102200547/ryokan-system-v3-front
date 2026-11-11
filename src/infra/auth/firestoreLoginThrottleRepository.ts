@@ -3,20 +3,24 @@ import { Timestamp, type DocumentReference, type Transaction } from 'firebase-ad
 import { z } from 'zod'
 import { adminDb } from '@/lib/firebase/admin'
 import { withFirestoreError } from '@/infra/firestoreError'
-import { acquireAttempt, refundFailure, type ThrottleState } from '@/domain/auth/loginThrottle'
-import { LOGIN_FAILURE_RESET_MS, LOGIN_LOCK_STEPS } from '@/constants/auth'
+import { acquireAll, completeAttempt, type ThrottleState } from '@/domain/auth/loginThrottle'
+import { LOGIN_BUSY_RETRY_MS, LOGIN_FAILURE_RESET_MS, LOGIN_LOCK_STEPS } from '@/constants/auth'
 import type { LoginThrottleRepository, ThrottleKey } from '@/domain/ports/loginThrottleRepository'
 
-// ログインの失敗回数（メールアドレスごと・IP ごと）。gmail-listener は使わないコレクション。
+// ログインの失敗回数（メールアドレスごと・IP ごと）と試行中の札。gmail-listener は使わないコレクション。
 // ドキュメント ID は値のハッシュにする（DB にメールアドレス・IP をそのまま置かない）
 const COLLECTION = 'loginThrottle'
 // TTL（Firestore の TTL ポリシーを expireAt に設定する）。数え直す時間と、いちばん長く止める時間の後に消す
 const EXPIRE_AFTER_MS = LOGIN_FAILURE_RESET_MS + Math.max(...LOGIN_LOCK_STEPS.map((s) => s.lockMs))
+// gRPC の ABORTED。同じドキュメントへのトランザクションがぶつかり合い、SDK がやり直しを諦めたとき
+const GRPC_ABORTED = 10
 
 const StoredSchema = z.object({
   failures: z.number().int().min(0),
   lastFailureAt: z.instanceof(Timestamp),
   lockedUntil: z.instanceof(Timestamp),
+  // 札を入れる前のドキュメントにはない
+  pending: z.array(z.object({ id: z.string(), expiresAt: z.instanceof(Timestamp) })).max(20).optional(),
 })
 
 export function throttleDocId(key: ThrottleKey): string {
@@ -24,7 +28,7 @@ export function throttleDocId(key: ThrottleKey): string {
   return createHash('sha256').update(`${key.kind}:${value}`).digest('hex')
 }
 
-// 形の崩れたドキュメントは、なかったものとして扱う（止めない側に倒すが、次の失敗で正しい形に書き直す）
+// 形の崩れたドキュメントは、なかったものとして扱う（止めない側に倒すが、次に書くときに正しい形に書き直す）
 function toState(data: unknown): ThrottleState | null {
   const parsed = StoredSchema.safeParse(data)
   if (!parsed.success) return null
@@ -32,18 +36,33 @@ function toState(data: unknown): ThrottleState | null {
     failures: parsed.data.failures,
     lastFailureAtMs: parsed.data.lastFailureAt.toMillis(),
     lockedUntilMs: parsed.data.lockedUntil.toMillis(),
+    pending: (parsed.data.pending ?? []).map((p) => ({ id: p.id, expiresAtMs: p.expiresAt.toMillis() })),
   }
 }
 
 const refOf = (key: ThrottleKey) => adminDb.collection(COLLECTION).doc(throttleDocId(key))
 
-function writeState(tx: Transaction, ref: DocumentReference, state: ThrottleState, lastFailureAtMs: number) {
+function writeState(tx: Transaction, ref: DocumentReference, state: ThrottleState | null, nowMs: number) {
+  if (state === null) {
+    tx.delete(ref)
+    return
+  }
   tx.set(ref, {
     failures: state.failures,
     lastFailureAt: Timestamp.fromMillis(state.lastFailureAtMs),
     lockedUntil: Timestamp.fromMillis(state.lockedUntilMs),
-    expireAt: Timestamp.fromMillis(lastFailureAtMs + EXPIRE_AFTER_MS),
+    pending: state.pending.map((p) => ({ id: p.id, expiresAt: Timestamp.fromMillis(p.expiresAtMs) })),
+    expireAt: Timestamp.fromMillis(Math.max(state.lastFailureAtMs, nowMs) + EXPIRE_AFTER_MS),
   })
+}
+
+function isAborted(e: unknown): boolean {
+  return (e as { code?: unknown } | null)?.code === GRPC_ABORTED
+}
+
+async function readStates(tx: Transaction, refs: DocumentReference[]): Promise<(ThrottleState | null)[]> {
+  const snaps = await tx.getAll(...refs)
+  return snaps.map((snap) => (snap.exists ? toState(snap.data()) : null))
 }
 
 export const firestoreLoginThrottleRepository: LoginThrottleRepository = {
@@ -55,47 +74,36 @@ export const firestoreLoginThrottleRepository: LoginThrottleRepository = {
     })
   },
 
-  async acquire(keys, nowMs) {
-    if (keys.length === 0) return { success: true, value: [] }
+  async acquire(keys, nowMs, attemptId) {
+    if (keys.length === 0) return { success: true, value: undefined }
+    try {
+      return await withFirestoreError(() => adminDb.runTransaction(async (tx) => {
+        const refs = keys.map(refOf)
+        const result = acquireAll(await readStates(tx, refs), nowMs, attemptId)
+        // 断るときは何も書かない（止めている間は数えない）
+        if (!result.success) return result
+        refs.forEach((ref, i) => writeState(tx, ref, result.value[i], nowMs))
+        return { success: true as const, value: undefined }
+      }))
+    } catch (e) {
+      // 同時の試行が多すぎてぶつかり合った。入力（大量の同時送信）が原因なので、障害にせず「少し待って」にする
+      if (isAborted((e as { cause?: unknown }).cause) || isAborted(e)) {
+        return { success: false, error: { kind: 'busy', retryAfterMs: LOGIN_BUSY_RETRY_MS } }
+      }
+      throw e
+    }
+  },
+
+  async complete(keys, attemptId, outcome, nowMs) {
+    if (keys.length === 0) return []
     return withFirestoreError(() => adminDb.runTransaction(async (tx) => {
       const refs = keys.map(refOf)
-      const snaps = await tx.getAll(...refs)
-      const states = snaps.map((snap) => (snap.exists ? toState(snap.data()) : null))
-      const attempts = states.map((state) => acquireAttempt(state, nowMs))
-      // どれかが止まっていれば、何も書かない（止めている間は数えない）
-      const retryAfterMs = Math.max(0, ...attempts.map((a) => (a.success ? 0 : a.error.retryAfterMs)))
-      if (retryAfterMs > 0) return { success: false as const, error: { retryAfterMs } }
-      return {
-        success: true as const,
-        value: refs.map((ref, i) => {
-          const attempt = attempts[i]
-          if (!attempt.success) throw new Error('unreachable') // retryAfterMs が 0 なら、すべて success
-          writeState(tx, ref, attempt.value.next, nowMs)
-          return { lockMs: attempt.value.lockMs, failures: attempt.value.next.failures, previous: states[i] }
-        }),
-      }
-    }))
-  },
-
-  async refund(keys, acquired, nowMs) {
-    if (keys.length === 0) return
-    await withFirestoreError(() => adminDb.runTransaction(async (tx) => {
-      const refs = keys.map(refOf)
-      const snaps = await tx.getAll(...refs)
-      refs.forEach((ref, i) => {
-        const next = refundFailure(snaps[i].exists ? toState(snaps[i].data()) : null, acquired[i]?.previous ?? null, nowMs)
-        if (next === null) tx.delete(ref)
-        else writeState(tx, ref, next, next.lastFailureAtMs)
+      const states = await readStates(tx, refs)
+      return refs.map((ref, i) => {
+        const { next, lockMs, failures } = completeAttempt(states[i], attemptId, outcome, nowMs)
+        writeState(tx, ref, next, nowMs)
+        return { lockMs, failures }
       })
     }))
-  },
-
-  async reset(keys) {
-    if (keys.length === 0) return
-    await withFirestoreError(async () => {
-      const batch = adminDb.batch()
-      for (const key of keys) batch.delete(refOf(key))
-      await batch.commit()
-    })
   },
 }

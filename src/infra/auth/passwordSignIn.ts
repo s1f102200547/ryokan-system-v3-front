@@ -44,7 +44,11 @@ function errorCode(message: string): string {
   return message.split(/[\s:]/, 1)[0] ?? ''
 }
 
-export async function signInWithPassword(email: string, password: string): Promise<Result<{ idToken: string }, 'invalid_credentials'>> {
+// invalid_credentials: メールアドレスかパスワードが違う / firebase_throttled: Firebase 自身が試行を止めた（失敗として数える）。
+// code は Firebase のエラーコード（ログで、どこで断ったかを追うため。値は利用者の入力を含まない）
+export type PasswordSignInFailure = { kind: 'invalid_credentials' | 'firebase_throttled'; code: string }
+
+export async function signInWithPassword(email: string, password: string): Promise<Result<{ idToken: string }, PasswordSignInFailure>> {
   const url = endpoint()
   if (url === null) throw new InfraError('AUTH_UNAVAILABLE', 'FIREBASE_AUTH_API_KEY is not set')
 
@@ -71,7 +75,9 @@ export async function signInWithPassword(email: string, password: string): Promi
 
   const parsedError = ErrorSchema.safeParse(body)
   const code = parsedError.success ? errorCode(parsedError.data.error.message) : 'UNKNOWN'
-  if (CREDENTIAL_ERRORS.has(code)) return { success: false, error: 'invalid_credentials' }
-  // TOO_MANY_ATTEMPTS_TRY_LATER（Firebase 自身の制限。全員がサーバーの IP に見えるので障害として知らせる）、API キーの誤り、5xx など
+  if (CREDENTIAL_ERRORS.has(code)) return { success: false, error: { kind: 'invalid_credentials', code } }
+  // Firebase 自身の制限。攻撃者がこれを起こし続けても、こちらの制限で止まるよう、失敗として数える（障害にしない）
+  if (code === 'TOO_MANY_ATTEMPTS_TRY_LATER') return { success: false, error: { kind: 'firebase_throttled', code } }
+  // API キーの誤り、5xx など
   throw new InfraError('AUTH_UNAVAILABLE', `Password sign-in failed: ${code} (status ${res.status})`)
 }

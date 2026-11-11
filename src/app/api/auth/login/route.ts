@@ -14,7 +14,6 @@ import { handleRouteError } from '@/lib/api/routeHelpers'
 import { loginWithPasswordCommand } from '@/application/auth/loginWithPasswordCommand'
 import { getTodayJST } from '@/lib/dateUtils'
 
-
 // 今日の 23:00 JST までの残り時間（ms）を返す
 // ログイン時に Session Cookie の有効期限を当日 23:00 に合わせる（日次サイクル）
 function msUntilToday23JST(): number {
@@ -67,14 +66,14 @@ export async function POST(request: Request) {
       nowMs: Date.now(),
     })
     if (!result.success) {
-      if (result.error.kind === 'rate_limited') {
+      if (result.error.kind !== 'invalid_credentials') {
+        // too_many_attempts: 失敗が続いて止めている / attempt_in_progress: 同時の試行の結果を待つ（ブラウザが自動で送り直す）
         const retryAfterSeconds = Math.ceil(result.error.retryAfterMs / 1000)
         return NextResponse.json(
-          { error: 'too_many_attempts', retryAfterSeconds },
+          { error: result.error.kind === 'rate_limited' ? 'too_many_attempts' : 'attempt_in_progress', retryAfterSeconds },
           { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } },
         )
       }
-      logger.warn('ログイン失敗: メールアドレスかパスワードが違う')
       return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 })
     }
     idToken = result.value.idToken

@@ -16,11 +16,14 @@ export function useLogin() {
     setError(null)
     let succeeded = false
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: credentials.email, password: credentials.password }),
-      })
+      let response = await postLogin(credentials)
+      // 同じ PC・同じ回線で同時に試行中（attempt_in_progress）なら、少し待って自動で送り直す。押し直させない
+      for (let retry = 0; retry < MAX_BUSY_RETRIES && response.status === 429; retry++) {
+        const busy = await readErrorBody(response.clone())
+        if (busy.error !== 'attempt_in_progress') break
+        await sleep(busyWaitMs(busy.retryAfterSeconds))
+        response = await postLogin(credentials)
+      }
       if (response.ok) {
         // ダッシュボードへ直接移る（/ を経由すると proxy.ts の転送で1往復増える）。
         // 移り終わるまで isPending のままにし、ボタンを押せない「ログイン中…」にしておく（画面が移ればこの hook ごと捨てられる）
@@ -33,6 +36,10 @@ export function useLogin() {
         return
       }
       const body = await readErrorBody(response)
+      if (response.status === 429 && body.error === 'attempt_in_progress') {
+        setError('混み合っています。しばらくしてからもう一度お試しください')
+        return
+      }
       if (response.status === 429) {
         // 失敗が続いて止められている。いつまでかを分で出す（端数は切り上げ）
         const minutes = typeof body.retryAfterSeconds === 'number' && body.retryAfterSeconds > 0
@@ -61,6 +68,25 @@ export function useLogin() {
 
   return { login, isPending, error }
 }
+
+const MAX_BUSY_RETRIES = 5
+const MAX_BUSY_WAIT_MS = 3000
+
+function postLogin(credentials: { email: string; password: string }): Promise<Response> {
+  return fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: credentials.email, password: credentials.password }),
+  })
+}
+
+// サーバーの指定（秒）に従う。ただし長く待たせない（最大3秒）。指定がなければ1秒
+function busyWaitMs(retryAfterSeconds: unknown): number {
+  if (typeof retryAfterSeconds !== 'number' || !(retryAfterSeconds > 0)) return 1000
+  return Math.min(retryAfterSeconds * 1000, MAX_BUSY_WAIT_MS)
+}
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
 // 本文の error と retryAfterSeconds だけを読む。JSON でなければ空
 async function readErrorBody(response: Response): Promise<{ error?: unknown; retryAfterSeconds?: unknown }> {

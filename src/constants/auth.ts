@@ -24,3 +24,8 @@ export const LOGIN_EMAIL_MIN_LENGTH = 3
 export const LOGIN_EMAIL_MAX_LENGTH = 254
 export const LOGIN_PASSWORD_MIN_LENGTH = 3
 export const LOGIN_PASSWORD_MAX_LENGTH = 256
+
+// 試行中の札（パスワードを確かめている最中の試行）。札は確かめ終わったら外すが、外し忘れてもこの時間で自然に消える
+export const LOGIN_PENDING_TTL_MS = 15_000
+// 試行中の札が埋まっているとき（同時の試行）、ブラウザに「少し待ってもう一度」と返す時間
+export const LOGIN_BUSY_RETRY_MS = 1_000

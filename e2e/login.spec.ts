@@ -86,4 +86,3 @@ test.describe('ログイン', () => {
     expect(mismatches).toEqual([])
   })
 })
-

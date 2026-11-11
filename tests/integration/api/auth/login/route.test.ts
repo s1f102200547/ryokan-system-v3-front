@@ -372,7 +372,7 @@ describe('POST /api/auth/login', () => {
   // パスワードはサーバーが Firebase の REST で確かめる。失敗が続いたメールアドレス・IP は iPhone のように長く止める
   describe('パスワードの確認と、失敗回数の制限', () => {
     const MIN = 60
-    const wrong = () => mockSignIn.mockResolvedValue({ success: false, error: 'invalid_credentials' })
+    const wrong = () => mockSignIn.mockResolvedValue({ success: false, error: { kind: 'invalid_credentials', code: 'INVALID_LOGIN_CREDENTIALS' } })
     const from = (ip: string, body: object = VALID) => new Request('http://localhost/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'user-agent': CHROME_WIN, 'x-forwarded-for': ip },
@@ -496,10 +496,66 @@ describe('POST /api/auth/login', () => {
     it('同時に10回間違えても、Firebase に届くのは止める前の3回まで（同時に送って制限をすり抜けられない）', async () => {
       vi.useRealTimers()
       // Firebase の応答を少し待たせ、10件が同時に「確かめている最中」になるようにする
-      mockSignIn.mockImplementation(() => new Promise((r) => setTimeout(() => r({ success: false, error: 'invalid_credentials' }), 20)))
+      mockSignIn.mockImplementation(() => new Promise((r) => setTimeout(() => r({ success: false, error: { kind: 'invalid_credentials', code: 'INVALID_LOGIN_CREDENTIALS' } }), 20)))
       const statuses = await Promise.all(Array.from({ length: 10 }, () => POST(from('203.0.113.5')).then((r) => r.status)))
       expect(mockSignIn.mock.calls.length, `Firebase に届いた回数。応答: ${statuses.join(',')}`).toBeLessThanOrEqual(3)
       expect(statuses.filter((s) => s === 429).length).toBeGreaterThanOrEqual(7)
+    })
+
+    // 試行中の札（コードレビューの指摘 1〜7 への対策）
+    it('止まっているときは、トランザクション（札を出す処理）の前に安く 429 を返す', async () => {
+      wrong()
+      for (let i = 0; i < 3; i++) await POST(from('203.0.113.5'))
+      const acquire = vi.spyOn(throttle, 'acquire')
+      acquire.mockClear() // ほかのテストで付けた spy が残っていても、ここからの呼び出しだけを見る
+      expect((await POST(from('203.0.113.5'))).status).toBe(429)
+      expect(acquire).not.toHaveBeenCalled()
+    })
+
+    it('旅館の2台が同時に正しいパスワードで入っても、IP の札が埋まった方は「少し待って」になり、送り直せば入れる', async () => {
+      vi.useRealTimers()
+      // 旅館の IP はすでに2回失敗している（残り1枚）
+      wrong()
+      await POST(from('203.0.113.5', { email: 'typo1@example.com', password: 'xxx' }))
+      await POST(from('203.0.113.5', { email: 'typo2@example.com', password: 'xxx' }))
+      mockSignIn.mockImplementation(() => new Promise((r) => setTimeout(() => r({ success: true, value: { idToken: 'id-token-from-rest' } }), 20)))
+      const [a, b] = await Promise.all([
+        POST(from('203.0.113.5', { email: 'pc1@example.com', password: PASSWORD })),
+        POST(from('203.0.113.5', { email: 'pc2@example.com', password: PASSWORD })),
+      ])
+      expect([a.status, b.status].sort()).toEqual([200, 429])
+      const busy = a.status === 429 ? a : b
+      expect(await busy.json()).toEqual({ error: 'attempt_in_progress', retryAfterSeconds: 1 })
+      // 1台目が成功して IP の回数が 0 に戻ったので、送り直せば入れる（止める段に届いていない）
+      expect((await POST(from('203.0.113.5', { email: 'pc2@example.com', password: PASSWORD }))).status).toBe(200)
+    })
+
+    it('正しいパスワードなら、札を外す処理が失敗してもログインは成功のまま（札は自然に消える）', async () => {
+      vi.spyOn(throttle, 'complete').mockRejectedValueOnce(new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unreachable'))
+      const response = await POST(makeRequest())
+      expect(response.status).toBe(200)
+      expect(slackMessages()).toContain('[ALERT] ログインの回数の記録に失敗(FIRESTORE_UNAVAILABLE)。結果: success')
+    })
+
+    it('Firebase の障害のあとに札を外す処理まで失敗しても、元の障害（AUTH_UNAVAILABLE）を知らせる', async () => {
+      mockSignIn.mockRejectedValue(new InfraError('AUTH_UNAVAILABLE', 'Password sign-in request failed'))
+      vi.spyOn(throttle, 'complete').mockRejectedValueOnce(new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unreachable'))
+      const response = await POST(makeRequest())
+      expect(response.status).toBe(503)
+      expect(slackMessages().some((m) => m.startsWith('[ALERT] ログインエラー(AUTH_UNAVAILABLE)'))).toBe(true)
+    })
+
+    it('Firebase 自身が止めた（TOO_MANY_ATTEMPTS_TRY_LATER）ときは失敗として数え、503 ではなく 429', async () => {
+      mockSignIn.mockResolvedValue({ success: false, error: { kind: 'firebase_throttled', code: 'TOO_MANY_ATTEMPTS_TRY_LATER' } })
+      const first = await POST(from('203.0.113.5'))
+      expect(first.status).toBe(429)
+      expect(await first.json()).toEqual({ error: 'too_many_attempts', retryAfterSeconds: 60 })
+      expect(slackMessages().filter((m) => m.startsWith('[ALERT]'))).toEqual([])
+      for (let i = 0; i < 2; i++) await POST(from('203.0.113.5'))
+      // 3回目でこちらも止めるので、Firebase に送らなくなる
+      mockSignIn.mockClear()
+      expect((await POST(from('203.0.113.5'))).status).toBe(429)
+      expect(mockSignIn).not.toHaveBeenCalled()
     })
 
     it('API キーが設定されていなければ、回数を読まずにすぐ 503（CI の ZAP・本番の設定忘れ）', async () => {

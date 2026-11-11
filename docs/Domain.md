@@ -48,7 +48,7 @@
 
 | メソッド・パス | 内容 | 主な実装 |
 |---|---|---|
-| `POST /api/auth/login` | `{ email, password }`（メールアドレスの形式で3〜254文字、パスワードは3〜256文字。外れれば 400）をサーバーが Firebase Auth の REST で確かめ、Session Cookie を発行（期限は当日 23:00 JST、最短5分）。違えば 401 `invalid_credentials`、失敗が続いたメールアドレス・IP は 429 `too_many_attempts`（`retryAfterSeconds` と `Retry-After`）。同じアカウントの前のセッションは、次の API から 401（1アカウント1セッション。Firebase のユーザーのカスタムクレーム `sessionAuthTime` を使う）。本番の時間外は 403 `outside_business_hours`。Windows の Chrome・Edge 以外は 403 `client_not_allowed` | route 内 |
+| `POST /api/auth/login` | `{ email, password }`（メールアドレスの形式で3〜254文字、パスワードは3〜256文字。外れれば 400）をサーバーが Firebase Auth の REST で確かめ、Session Cookie を発行（期限は当日 23:00 JST、最短5分）。違えば 401 `invalid_credentials`、失敗が続いたメールアドレス・IP は 429 `too_many_attempts`、同時の試行の結果待ちは 429 `attempt_in_progress`（画面が自動で送り直す）。どちらも `retryAfterSeconds` と `Retry-After`。同じアカウントの前のセッションは、次の API から 401（1アカウント1セッション。Firebase のユーザーのカスタムクレーム `sessionAuthTime` を使う）。本番の時間外は 403 `outside_business_hours`。Windows の Chrome・Edge 以外は 403 `client_not_allowed` | route 内 |
 | `GET /api/guest-info?date=` | 対象日の `normal` / `staying` / `cancelled` / `roomConflicts` | `getGuestInfoUseCase` |
 | `GET /api/timetable?date=` | タイムテーブル印刷用 | `getTimetableUseCase` |
 | `GET /api/cleaning-board?date=` | 清掃ボード印刷用 | `getCleaningBoardUseCase` |
@@ -126,9 +126,10 @@
 | `failures` | number | 続けて失敗した回数。成功でドキュメントごと消す |
 | `lastFailureAt` | Timestamp | ここから24時間たつと、次の失敗は1から数える |
 | `lockedUntil` | Timestamp | この時刻までパスワードを確かめず 429 |
-| `expireAt` | Timestamp | TTL 用（最後の失敗 + 25時間）。Firestore の TTL ポリシーをこのフィールドに設定する |
+| `pending` | `{ id, expiresAt }[]` | 試行中の札。外し忘れても `expiresAt`（15秒後）で無効になる。札を入れる前のドキュメントにはない（空として読む） |
+| `expireAt` | Timestamp | TTL 用（最後の失敗か最後に書いた時刻 + 25時間）。Firestore の TTL ポリシーをこのフィールドに設定する |
 
-確かめる前に、止まっていないかの確認と失敗の記録を1つのトランザクションで行う（`acquire`。先に数えるので、同時の試行でもすり抜けない）。成功で消し（`reset`）、Firebase の障害なら先に数える前の状態に戻す（`refund`）。
+確かめる前に「試行中の札」（`pending`）を出し（`acquire`）、確かめ終わったら外して結果を確定させる（`complete`）。札は次に止める段までの残りの回数までしか出さない（同時の試行ですり抜けない）。判定は `domain/auth/loginThrottle.ts` の `acquireAll`・`completeAttempt`。
 
 形が違うドキュメントは、なかったものとして扱う（止めない側に倒し、次の失敗で書き直す）。
 
