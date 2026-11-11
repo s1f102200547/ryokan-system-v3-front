@@ -12,8 +12,11 @@ import { adminAuth } from '@/lib/firebase/admin'
 import { notifySlackFireAndForget } from '@/lib/slack'
 import { POST } from '@/app/api/auth/login/route'
 
+// ログインは旅館の PC（Windows）の Chrome・Edge だけ（src/lib/auth/clientCheck.ts）
+const WINDOWS_CHROME = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
+
 const login = () => POST(new Request('http://localhost/api/auth/login', {
-  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: 't' }),
+  method: 'POST', headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME }, body: JSON.stringify({ idToken: 't' }),
 }))
 
 // 画面は 6:00〜23:00 JST だけ開けるが、ログイン API は深夜でも Cookie を発行していた

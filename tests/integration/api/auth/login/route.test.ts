@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import fc from 'fast-check'
 import { setNowJST } from '@tests/utils/timeHelper'
 import { POST } from '@/app/api/auth/login/route'
 
@@ -19,10 +20,13 @@ import { notifySlackFireAndForget } from '@/lib/slack'
 const mockVerifyIdToken = vi.mocked(adminAuth.verifyIdToken)
 const mockCreateSessionCookie = vi.mocked(adminAuth.createSessionCookie)
 
-function makeRequest(body: object) {
+const CHROME_WIN = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
+
+// 既定は旅館の PC の Chrome（ログインは Windows の Chrome・Edge だけ）
+function makeRequest(body: object, userAgent: string | null = CHROME_WIN) {
   return new Request('http://localhost/api/auth/login', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(userAgent === null ? {} : { 'user-agent': userAgent }) },
     body: JSON.stringify(body),
   })
 }
@@ -178,5 +182,65 @@ describe('POST /api/auth/login', () => {
     mockVerifyIdToken.mockRejectedValue({ code: 'auth/invalid-id-token', message: 'invalid token' })
     await POST(makeRequest({ idToken: 'x' }))
     expect(notifySlackFireAndForget).not.toHaveBeenCalled()
+  })
+
+  // 旅館の PC（Windows）の Chrome・Edge だけ。パスワードが合っていても、それ以外には Cookie を発行しない
+  describe('端末・ブラウザの確認', () => {
+    beforeEach(() => {
+      mockVerifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'pc1@example.com' } as never)
+      mockCreateSessionCookie.mockResolvedValue('session-cookie-value')
+    })
+
+    it.each([
+      ['Windows の Chrome', CHROME_WIN],
+      ['Windows の Edge', `${CHROME_WIN} Edg/141.0.0.0`],
+    ])('%s は 200', async (_label, ua) => {
+      expect((await POST(makeRequest({ idToken: 't' }, ua))).status).toBe(200)
+    })
+
+    it.each([
+      ['Mac の Chrome', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36', 'Windows 以外の端末'],
+      ['Android の Chrome', 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36', 'Windows 以外の端末'],
+      ['Windows の Firefox', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0', 'Chrome・Edge 以外のブラウザ'],
+      ['Windows の Opera', `${CHROME_WIN} OPR/120.0.0.0`, 'Chrome・Edge 以外のブラウザ'],
+      ['Windows の HeadlessChrome', CHROME_WIN.replace('Chrome/', 'HeadlessChrome/'), 'Chrome・Edge 以外のブラウザ'],
+      ['User-Agent なし', null, 'Windows 以外の端末'],
+    ])('%s は 403 client_not_allowed、Cookie なし、Slack に拒否を通知', async (_label, ua, reasonLabel) => {
+      const response = await POST(makeRequest({ idToken: 't' }, ua))
+      expect(response.status).toBe(403)
+      expect(await response.json()).toEqual({ error: 'client_not_allowed' })
+      expect(response.headers.get('set-cookie')).toBeNull()
+      expect(mockCreateSessionCookie).not.toHaveBeenCalled()
+      expect(notifySlackFireAndForget).toHaveBeenCalledTimes(1)
+      const message = vi.mocked(notifySlackFireAndForget).mock.calls[0][0]
+      expect(message).toMatch(/^\[ログイン拒否\] pc1@example\.com \/ /)
+      expect(message).toContain(reasonLabel)
+    })
+
+    it('拒否の通知に、生の User-Agent と X-Forwarded-For の書式を載せない', async () => {
+      const response = await POST(new Request('http://localhost/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'user-agent': '<!channel> Mozilla/5.0 (X11; Linux x86_64)', 'x-forwarded-for': '<!here>, 203.0.113.5' },
+        body: JSON.stringify({ idToken: 't' }),
+      }))
+      expect(response.status).toBe(403)
+      const message = vi.mocked(notifySlackFireAndForget).mock.calls[0][0]
+      expect(message).not.toContain('<!')
+      expect(message).toContain('IP ?, 203.0.113.5')
+      expect(message).toContain('その他のブラウザ on Linux')
+    })
+
+    it('トークンが不正なら、User-Agent に関係なく 401（拒否の通知はしない）', async () => {
+      mockVerifyIdToken.mockRejectedValue({ code: 'auth/invalid-id-token', message: 'invalid token' })
+      expect((await POST(makeRequest({ idToken: 't' }, null))).status).toBe(401)
+      expect(notifySlackFireAndForget).not.toHaveBeenCalled()
+    })
+
+    it('どんな User-Agent でも 200 か 403（5xx にならない）', async () => {
+      await fc.assert(fc.asyncProperty(fc.string({ maxLength: 300 }), async (ua) => {
+        const status = (await POST(makeRequest({ idToken: 't' }, ua))).status
+        expect([200, 403]).toContain(status)
+      }), { numRuns: 100 })
+    })
   })
 })

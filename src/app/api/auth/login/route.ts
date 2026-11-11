@@ -4,7 +4,9 @@ import { adminAuth } from '@/lib/firebase/admin'
 import { logger } from '@/lib/logger'
 import { notifySlackFireAndForget } from '@/lib/slack'
 import { isInvalidIdTokenError } from '@/lib/auth/idTokenError'
-import { buildLoginNotice, describeUserAgent, forwardedIps } from '@/lib/auth/loginNotice'
+import { buildLoginNotice, buildLoginRejectedNotice, forwardedIps } from '@/lib/auth/loginNotice'
+import { describeUserAgent } from '@/lib/auth/userAgent'
+import { checkClient } from '@/lib/auth/clientCheck'
 import { isOutsideBusinessHours } from '@/lib/businessHours'
 import { BUSINESS_HOURS_END_JST } from '@/constants/date'
 
@@ -60,13 +62,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'server error' }, { status: 503 })
   }
 
+  // 旅館の PC（Windows）の Chrome か Edge だけ。パスワードの確認（ブラウザ側）の後なので、どのアカウントかを通知に載せられる
+  const forwardedFor = request.headers.get('x-forwarded-for')
+  const userAgent = request.headers.get('user-agent')
+  const client = checkClient(userAgent)
+  if (!client.success) {
+    logger.warn('ログイン拒否: 端末・ブラウザ', { account, reason: client.error, forwardedIps: forwardedIps(forwardedFor), client: describeUserAgent(userAgent) })
+    notifySlackFireAndForget(buildLoginRejectedNotice({ account, forwardedFor, userAgent, nowMs: Date.now(), reason: client.error }))
+    return NextResponse.json({ error: 'client_not_allowed' }, { status: 403 })
+  }
+
   try {
     const expiresIn = msUntilToday23JST()
     const sessionCookie = await adminAuth.createSessionCookie(parsed.data.idToken, { expiresIn }) // ログイン状態を維持するためのセッションCookieを作る
 
     // 旅館の外からのログインに気付けるよう、毎回 Slack に通知する（ログにも残す。Slack の失敗は気付けないため）
-    const forwardedFor = request.headers.get('x-forwarded-for')
-    const userAgent = request.headers.get('user-agent')
     logger.info('ログイン成功', { account, forwardedIps: forwardedIps(forwardedFor), client: describeUserAgent(userAgent) })
     notifySlackFireAndForget(buildLoginNotice({ account, forwardedFor, userAgent, nowMs: Date.now() }))
 

@@ -49,7 +49,12 @@ export function useLogin() {
         return
       }
       if (response.status === 403) {
-        setError('利用時間外です（6:00〜23:00）')
+        // 403 は「時間外」と「旅館の PC の Chrome・Edge でない」の2つ。本文が読めなければ時間外として扱う（今までの表示）
+        const body: unknown = await response.json().catch(() => null)
+        const reason = typeof body === 'object' && body !== null && 'error' in body ? body.error : null
+        setError(reason === 'client_not_allowed'
+          ? 'この PC・ブラウザからはログインできません。'
+          : '利用時間外です（6:00〜23:00）')
         return
       }
       // 503・500 ともに原因を明かさずあいまいに返す（監視インフラの存在を公開しない）

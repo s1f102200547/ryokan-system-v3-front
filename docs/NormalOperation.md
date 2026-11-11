@@ -54,8 +54,8 @@
 - 実装済み
   - アカウントが PC 単位
   - Slack の通知への OS の表示
+  - User-Agent が Windows でなければ、ログイン API で 403
 - まだ
-  - ★User-Agent が Windows でなければ、ログイン API で断る
   - セッションを発行したときの IP・User-Agent に結び付け、違う組からの呼び出しを `requireSession` で 401 にする（盗まれた Cookie の対策も兼ねる）
   - Firebase のアカウントが3つだけであることの定期的な確認
   - 感染していないこと: Defender の有効化、自動更新、業務専用（旅館への依頼）
@@ -64,8 +64,8 @@
 
 - 実装済み
   - Slack の通知へのブラウザの種類の表示
+  - Chrome・Edge 以外は、ログイン API で 403
 - まだ
-  - ★アカウントごとに許可するブラウザを決め（Edge のアカウントは Edge だけ）、違えばログイン API で断るー＞chorome or edge 程度で良い
   - API で `Sec-Fetch-Site: same-origin` がなければ断る（ブラウザ以外からの、Cookie を使った呼び出しを止める）
 
 ### アカウント

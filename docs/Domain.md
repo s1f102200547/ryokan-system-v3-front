@@ -48,7 +48,7 @@
 
 | メソッド・パス | 内容 | 主な実装 |
 |---|---|---|
-| `POST /api/auth/login` | `{ idToken }` を検証して Session Cookie を発行（期限は当日 23:00 JST、最短5分）。本番の時間外は 403 | route 内 |
+| `POST /api/auth/login` | `{ idToken }` を検証して Session Cookie を発行（期限は当日 23:00 JST、最短5分）。本番の時間外は 403 `outside_business_hours`。Windows の Chrome・Edge 以外は 403 `client_not_allowed` | route 内 |
 | `GET /api/guest-info?date=` | 対象日の `normal` / `staying` / `cancelled` / `roomConflicts` | `getGuestInfoUseCase` |
 | `GET /api/timetable?date=` | タイムテーブル印刷用 | `getTimetableUseCase` |
 | `GET /api/cleaning-board?date=` | 清掃ボード印刷用 | `getCleaningBoardUseCase` |
@@ -167,7 +167,7 @@
 | 部屋未割り当ての予約 | ダッシュボードには出るが、タイムテーブル（到着・夕食・朝食）と清掃ボードには出ない | 当日までに部屋を割り当てる運用。割り当て忘れると厨房の人数から漏れる |
 | 時間帯制限 | 本番はログイン API だけが時間外に 403。ほかの API は時間で制限しない | Session Cookie が 23:00 に切れる |
 | 書き込みの日付の範囲 | 実在日かつ今日 −100〜+365 日 | 画面から範囲外を開けないので実害はなく、年の打ち間違いを止められる |
-| Slack 通知 | 障害（`[ALERT]`）と、手動の追加・キャンセル・復活の記録だけ | 入力の誤り（4xx）、ログイン失敗、壊れたデータは通知しない（通知が多いと本物の障害が埋もれる） |
+| Slack 通知 | 障害（`[ALERT]`）、手動の追加・キャンセル・復活の記録、ログインの成功（`[ログイン]`）と端末・ブラウザでの拒否（`[ログイン拒否]`）だけ | 入力の誤り（4xx）、ログイン失敗、壊れたデータは通知しない（通知が多いと本物の障害が埋もれる） |
 
 ## 既知の問題（未対応）
 

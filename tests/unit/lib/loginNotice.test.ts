@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { buildLoginNotice, describeUserAgent, forwardedIps } from '@/lib/auth/loginNotice'
+import { buildLoginNotice, buildLoginRejectedNotice, forwardedIps } from '@/lib/auth/loginNotice'
+import { describeUserAgent } from '@/lib/auth/userAgent'
 
 const CHROME_WIN = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
 const EDGE_WIN = `${CHROME_WIN} Edg/141.0.0.0`
@@ -56,3 +57,23 @@ describe('buildLoginNotice', () => {
     expect(message).toContain('IP 不明')
   })
 })
+
+describe('buildLoginRejectedNotice', () => {
+  it('アカウント・理由・IP・ブラウザ・JST の時刻を1行にする', () => {
+    const message = buildLoginRejectedNotice({
+      account: 'pc1@example.com',
+      forwardedFor: '203.0.113.5',
+      userAgent: CHROME_MAC,
+      nowMs: Date.parse('2026-11-03T22:12:00Z'),
+      reason: 'os_not_allowed',
+    })
+    expect(message).toBe('[ログイン拒否] pc1@example.com / Windows 以外の端末 / IP 203.0.113.5（右端が Google の追記） / Chrome on macOS / 11/04 07:12')
+  })
+
+  it('ブラウザの理由、アカウントの < > & は無効にする', () => {
+    const message = buildLoginRejectedNotice({ account: '<a&b>', forwardedFor: null, userAgent: null, nowMs: 0, reason: 'browser_not_allowed' })
+    expect(message).toContain('Chrome・Edge 以外のブラウザ')
+    expect(message).toContain('&lt;a&amp;b&gt;')
+  })
+})
+

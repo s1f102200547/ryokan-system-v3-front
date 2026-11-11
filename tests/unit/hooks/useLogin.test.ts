@@ -69,6 +69,20 @@ describe('useLogin', () => {
     expect(push).not.toHaveBeenCalled()
   })
 
+  it.each([
+    [{ error: 'client_not_allowed' }, 'この PC・ブラウザからはログインできません。'],
+    [{ error: 'outside_business_hours' }, '利用時間外です（6:00〜23:00）'],
+    ['not json', '利用時間外です（6:00〜23:00）'],
+  ])('403 は本文の error で出し分ける: %j', async (body, message) => {
+    signInSucceeds()
+    fetchMock.mockResolvedValue(new Response(typeof body === 'string' ? body : JSON.stringify(body), { status: 403 }))
+    const { result } = renderHook(() => useLogin())
+    await act(async () => { await result.current.login(credentials) })
+    expect(result.current.error).toBe(message)
+    expect(result.current.isPending).toBe(false)
+    expect(push).not.toHaveBeenCalled()
+  })
+
   it('通信エラーは理由を出し、押せる状態に戻す', async () => {
     signInSucceeds()
     fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))

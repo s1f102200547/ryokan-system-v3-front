@@ -10,6 +10,9 @@ import { parseCookieValue } from '@/lib/api/routeHelpers'
 import { POST as LOGIN } from '@/app/api/auth/login/route'
 import { GET as GUEST_INFO } from '@/app/api/guest-info/route'
 
+// ログインはWindowsの Chrome・Edge だけ（src/lib/auth/clientCheck.ts）
+const WINDOWS_CHROME = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
+
 vi.mock('@/lib/slack', () => ({ notifySlack: vi.fn(), notifySlackFireAndForget: vi.fn() }))
 vi.mock('@/lib/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
 
@@ -45,7 +48,7 @@ async function createUser(label: string) {
 async function login(email: string): Promise<string> {
   const { idToken } = await authRest('accounts:signInWithPassword', email)
   const res = await LOGIN(new Request('http://localhost/api/auth/login', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }),
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME }, body: JSON.stringify({ idToken }),
   }))
   expect(res.status).toBe(200)
   const cookie = parseCookieValue(res.headers.get('set-cookie')?.split(';')[0] ?? null, 'session')

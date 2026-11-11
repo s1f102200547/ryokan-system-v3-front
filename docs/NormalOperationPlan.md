@@ -6,8 +6,6 @@
 
 | 順 | 項目 | NormalOperation の節 | 大きさ | 主に変える場所 |
 |---|---|---|---|---|
-| 1 | A: User-Agent が Windows でなければ断る | 端末 | 小 | ログイン API |
-| 1 | A: 許可するブラウザを決める（全アカウント共通で Chrome か Edge） | ブラウザ | 小 | ログイン API |
 | 2 | B: 1アカウント1セッション | アカウント | 小 | ログイン API、`verifySession` |
 | 3 | D: ログインのサーバー経由化と、失敗回数の制限 | 入力 | 大 | ログイン画面・API、ブラウザの Firebase SDK の削除、Firestore、CSP、API キー |
 | 4 | C: SMS の MFA（サーバー経由の上に作る） | 使う人・場所 | 大 | ログイン画面・API、Firebase の設定 |
@@ -18,37 +16,9 @@
 - **User-Agent は送る側が自由に書ける。** A は「うっかり別の端末・ブラウザで使った」と「何も考えずに盗んだパスワードを使った」を止めるもので、User-Agent をまねる攻撃者は止められない。その本命は C（MFA）
 - 判定のロジックは純粋関数にして `src/lib/auth/` に置き、unit テストで固める。Route はそれを呼ぶだけにする
 
-## 3. A: 端末とブラウザの確認
+## 3. A: 端末とブラウザの確認（実装済み）
 
-### 振る舞い
-
-アカウントには結び付けない。どのアカウントでも、Windows の Chrome か Edge なら通す。development・test でも同じく判定する（本番だけの分岐を増やさない）。
-
-| User-Agent | 結果 |
-|---|---|
-| Windows の Chrome | 通す |
-| Windows の Edge | 通す |
-| Windows の他のブラウザ（Firefox など） | 403 `client_not_allowed` |
-| Windows 以外・ヘッダーなし | 403 `client_not_allowed` |
-
-- Edge の User-Agent には `Chrome/` も入っている。`Edg/` を先に見る（今の `describeUserAgent` と同じ順）。Chrome と Edge のどちらも通すので、ここで判定を誤っても結果は変わらないが、Slack の表示のために分けておく
-- ログイン画面の表示: 「この PC・ブラウザからはログインできません。旅館の PC の Chrome か Edge で開いてください」
-  - 理由を隠しても、User-Agent は簡単にまねられるので守りは強くならない。スタッフが自分で直せることを優先する
-- D の前は `verifyIdToken` の後、`createSessionCookie` の前に置く。D の後はパスワードを確かめる前に移す
-
-### 変える場所
-
-- `src/lib/auth/loginNotice.ts` の `describeUserAgent` から、`parseUserAgent(ua): { browser: 'chrome' | 'edge' | 'other', os: 'windows' | … }` を切り出す。`describeUserAgent` はこれを使って表示を作る
-- 新規 `src/lib/auth/clientCheck.ts`: `checkClient(ua): Result<void, 'os_not_allowed' | 'browser_not_allowed'>`。許可する OS とブラウザは `src/constants/` に置く。環境変数は使わない
-- `src/app/api/auth/login/route.ts` で `checkClient` を呼ぶ
-- `src/hooks/auth/useLogin.ts` で、403 の `client_not_allowed` と時間外の 403 を `error` の値で出し分ける
-
-### テスト
-
-- unit: `parseUserAgent`（Windows・Mac・Android・iOS・Linux の Chrome・Edge・Firefox、空、壊れた値）、`checkClient` の表の全行。fast-check で「どんな文字列でも例外を投げない」
-- integration: `tests/integration/api/auth/login/` に、上の表の 403 と、Slack 通知の中身のエスケープ
-- fuzz: `tests/integration/fuzz/routes.fuzz.test.ts` で、ログイン API の User-Agent をランダムにする
-- e2e:emulator: Playwright の Chromium は Linux の User-Agent を名乗る。`e2e/emulator` の設定で Windows の Chrome の `userAgent` を指定し、1件だけ Linux のまま断られることを確かめる
+NormalOperation.md の「端末」「ブラウザ」へ移した。判定は `src/lib/auth/clientCheck.ts` の `checkClient`。今は `verifyIdToken` の後に置いている。D でパスワードの確認をサーバーへ移すときに、パスワードを確かめる前へ移す。
 
 ## 4. B: 1アカウント1セッション
 

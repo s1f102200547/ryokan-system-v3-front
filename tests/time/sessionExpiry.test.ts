@@ -11,6 +11,9 @@ vi.mock('@/lib/slack', () => ({ notifySlackFireAndForget: vi.fn() }))
 import { adminAuth } from '@/lib/firebase/admin'
 import { POST } from '@/app/api/auth/login/route'
 
+// ログインは旅館の PC（Windows）の Chrome・Edge だけ（src/lib/auth/clientCheck.ts）
+const WINDOWS_CHROME = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
+
 const MIN = 60 * 1000
 
 // Session Cookie の期限は当日 23:00 JST（最低 5 分）
@@ -30,7 +33,7 @@ describe('ログイン時の Session Cookie の期限', () => {
     vi.useFakeTimers()
     setNowJST(`2026-05-20T${time}`)
     const res = await POST(new Request('http://localhost/api/auth/login', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: 't' }),
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME }, body: JSON.stringify({ idToken: 't' }),
     }))
     expect(res.status).toBe(200)
     expect(vi.mocked(adminAuth.createSessionCookie).mock.calls.at(-1)?.[1]).toEqual({ expiresIn: expected })
