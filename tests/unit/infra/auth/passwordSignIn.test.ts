@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { signInWithPassword } from '@/infra/auth/passwordSignIn'
+import { isPasswordSignInConfigured, signInWithPassword } from '@/infra/auth/passwordSignIn'
 import { InfraError } from '@/types/errors'
 
 const PASSWORD = 'pw-must-not-leak-9f3a'
@@ -90,3 +90,17 @@ describe('signInWithPassword', () => {
     await expectUnavailable()
   })
 })
+
+describe('isPasswordSignInConfigured', () => {
+  afterEach(() => vi.unstubAllEnvs())
+  it.each([
+    ['本番でキーあり', '', 'server-key', true],
+    ['本番でキーなし', '', '', false],
+    ['Emulator ならキーなしでも確かめられる', '127.0.0.1:9099', '', true],
+  ])('%s → %s', (_label, emulatorHost, apiKey, expected) => {
+    vi.stubEnv('FIREBASE_AUTH_EMULATOR_HOST', emulatorHost)
+    vi.stubEnv('FIREBASE_AUTH_API_KEY', apiKey)
+    expect(isPasswordSignInConfigured()).toBe(expected)
+  })
+})
+

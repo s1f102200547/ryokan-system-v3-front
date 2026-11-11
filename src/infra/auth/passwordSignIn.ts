@@ -33,6 +33,12 @@ function endpoint(): string | null {
   return `${base}/v1/accounts:signInWithPassword?key=${encodeURIComponent(apiKey)}`
 }
 
+// API キーがあり、パスワードを確かめられるか。なければログインは確かめようがないので、Firestore も読まずにすぐ断る
+// （CI の ZAP は本番ビルドを環境変数なしで起動する。GCP の認証もないので、Firestore を読むと諦めるまで約8秒かかる）
+export function isPasswordSignInConfigured(): boolean {
+  return endpoint() !== null
+}
+
 // "TOO_MANY_ATTEMPTS_TRY_LATER : Access to this account..." の先頭の語だけ（説明の文は載せない）
 function errorCode(message: string): string {
   return message.split(/[\s:]/, 1)[0] ?? ''

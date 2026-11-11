@@ -5,8 +5,8 @@ import { POST } from '@/app/api/auth/login/route'
 import { InfraError } from '@/types/errors'
 
 // パスワードの確認（Firebase の REST）はモック。失敗回数の記録はメモリで数える（判定は本物の domain）
-vi.mock('@/infra/auth/passwordSignIn', () => ({ signInWithPassword: vi.fn() }))
-import { signInWithPassword } from '@/infra/auth/passwordSignIn'
+vi.mock('@/infra/auth/passwordSignIn', () => ({ signInWithPassword: vi.fn(), isPasswordSignInConfigured: vi.fn() }))
+import { isPasswordSignInConfigured, signInWithPassword } from '@/infra/auth/passwordSignIn'
 vi.mock('@/infra/auth/firestoreLoginThrottleRepository', async () => {
   const { createMemoryLoginThrottleRepository } = await import('@tests/utils/memoryLoginThrottleRepository')
   return { firestoreLoginThrottleRepository: createMemoryLoginThrottleRepository() }
@@ -57,6 +57,7 @@ describe('POST /api/auth/login', () => {
     vi.clearAllMocks()
     throttle.clear()
     mockSignIn.mockResolvedValue({ success: true, value: { idToken: 'id-token-from-rest' } })
+    vi.mocked(isPasswordSignInConfigured).mockReturnValue(true)
     mockGetUser.mockResolvedValue({ customClaims: undefined } as never)
     mockSetCustomUserClaims.mockResolvedValue(undefined)
   })
@@ -489,6 +490,16 @@ describe('POST /api/auth/login', () => {
       expect(response.headers.get('set-cookie')).toBeNull()
       expect(slackMessages()[0]).toMatch(/^\[ALERT\] ログインエラー/)
       expect(throttle.states.size).toBe(0)
+    })
+
+    it('API キーが設定されていなければ、回数を読まずにすぐ 503（CI の ZAP・本番の設定忘れ）', async () => {
+      vi.mocked(isPasswordSignInConfigured).mockReturnValue(false)
+      const read = vi.spyOn(throttle, 'read')
+      const response = await POST(makeRequest())
+      expect(response.status).toBe(503)
+      expect(read).not.toHaveBeenCalled()
+      expect(mockSignIn).not.toHaveBeenCalled()
+      expect(slackMessages()[0]).toMatch(/^\[ALERT\] ログインエラー\(AUTH_UNAVAILABLE\)/)
     })
 
     it('パスワードは、ログにも Slack にも出ない', async () => {

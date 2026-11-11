@@ -1,6 +1,7 @@
 import { checkThrottle } from '@/domain/auth/loginThrottle'
 import { firestoreLoginThrottleRepository } from '@/infra/auth/firestoreLoginThrottleRepository'
-import { signInWithPassword } from '@/infra/auth/passwordSignIn'
+import { isPasswordSignInConfigured, signInWithPassword } from '@/infra/auth/passwordSignIn'
+import { InfraError } from '@/types/errors'
 import { buildLoginLockNotice } from '@/lib/auth/loginNotice'
 import { logger } from '@/lib/logger'
 import { notifySlackFireAndForget } from '@/lib/slack'
@@ -22,6 +23,8 @@ type LoginInput = {
 // 存在しないメールアドレスも、間違ったパスワードと同じに数える（どのアドレスが本物かを探らせない）
 export async function loginWithPasswordCommand(input: LoginInput): Promise<Result<{ idToken: string }, LoginFailure>> {
   const { email, password, ip, nowMs } = input
+  // パスワードを確かめられない（API キーの設定忘れ）なら、回数を読む前に障害として断る（503・Slack）
+  if (!isPasswordSignInConfigured()) throw new InfraError('AUTH_UNAVAILABLE', 'FIREBASE_AUTH_API_KEY is not set')
   const keys: ThrottleKey[] = [
     { kind: 'email', value: email },
     { kind: 'ip', value: ip ?? 'unknown' },
