@@ -6,7 +6,6 @@
 
 | 順 | 項目 | NormalOperation の節 | 大きさ | 主に変える場所 |
 |---|---|---|---|---|
-| 2 | B: 1アカウント1セッション | アカウント | 小 | ログイン API、`verifySession` |
 | 3 | D: ログインのサーバー経由化と、失敗回数の制限 | 入力 | 大 | ログイン画面・API、ブラウザの Firebase SDK の削除、Firestore、CSP、API キー |
 | 4 | C: SMS の MFA（サーバー経由の上に作る） | 使う人・場所 | 大 | ログイン画面・API、Firebase の設定 |
 
@@ -20,44 +19,9 @@
 
 NormalOperation.md の「端末」「ブラウザ」へ移した。判定は `src/lib/auth/clientCheck.ts` の `checkClient`。今は `verifyIdToken` の後に置いている。D でパスワードの確認をサーバーへ移すときに、パスワードを確かめる前へ移す。
 
-## 4. B: 1アカウント1セッション
+## 4. B: 1アカウント1セッション（実装済み）
 
-### 振る舞い
-
-- 新しくログインすると、そのアカウントの前のセッションは、次の API の呼び出しから 401 になる（画面は `fetchWithSession` でログイン画面へ移る）
-- 前のセッションを置き換えたときは、Slack のログイン通知に「前のセッションを切った」と書く。攻撃者がログインして正しいスタッフが追い出されたら、スタッフが入り直すと攻撃者が追い出され、Slack に2回続けて出る
-
-### Firebase の仕組みで足りるか
-
-Firebase Auth に「1アカウント1セッション」の設定はない。近いのは `revokeRefreshTokens`（そのユーザーのセッションをすべて失効させる）だが、ログイン API で呼ぶと**新しい Cookie まで失効する**。
-
-- 失効の判定は「Cookie の `auth_time` が、ユーザーの `tokensValidAfterTime` より前か」（firebase-admin の `verifyDecodedJWTNotRevokedOrDisabled`）
-- `auth_time` は、パスワードを確かめた時刻。Cookie を作り直しても変わらない
-- ログイン API で `revokeRefreshTokens` を呼ぶと、`tokensValidAfterTime` が「今」になる。新しい Cookie の `auth_time` は少し前なので、失効扱いになる
-
-### 方法: カスタムクレームに「最後のログインの時刻」を書く
-
-Firebase のユーザーには、アプリが自由に値を書けるカスタムクレームという欄がある（firebase-admin の `setCustomUserClaims`）。Firestore も新しいコレクションも使わない。
-
-- ログイン API: `verifyIdToken` で得た `auth_time` を、`setCustomUserClaims(uid, { sessionAuthTime: auth_time })` で書く。その後に `createSessionCookie`。書けなければ Cookie を返さない（503）
-- `verifySession`（`src/lib/auth/verifySession.ts`）: `verifySessionCookie` が通った後に `getUser(uid)` を呼び、`customClaims.sessionAuthTime` と Cookie の `auth_time` が違えば未ログイン（401）
-  - 新しいログインがあると `sessionAuthTime` が新しい時刻になるので、前の Cookie は合わなくなる
-  - `sessionAuthTime` がない場合も 401 にする（閉じる側に倒す）
-  - `getUser` の障害は今と同じく `AUTH_UNAVAILABLE`（503・Slack）
-- 置き場所は今の `src/lib/auth/` のまま。層の依存は増えない
-
-### 注意
-
-- `setCustomUserClaims` は**クレームをまるごと置き換える**。今はほかのクレームを使っていないが、足すときは読んでから合わせて書く
-- 同じアカウントで同じ秒に2回ログインすると、両方とも通る（`auth_time` は秒単位）。実害はないので扱わない
-- API の呼び出しごとに Auth への問い合わせ（`getUser`）が1回増える。`verifySessionCookie(…, true)` も中で `getUser` をしているので、今の1回が2回になる
-- デプロイした時点では誰にも `sessionAuthTime` がないので、全員が一度ログアウトされる。時間外（23:00〜6:00）にデプロイすれば、どのセッションも 23:00 で切れているので影響はない
-
-### テスト
-
-- unit: `verifySession` で、時刻が一致・不一致・クレームなし・`getUser` の障害
-- emulator: `tests/emulator/` に、2回ログインすると1回目の Cookie が 401 になることを足す（`sessionRevocation.test.ts` の隣）
-- e2e:emulator: 2つのブラウザで同じアカウントにログインし、先の方が次の操作でログイン画面へ移ること
+NormalOperation.md の「アカウント」へ移した。ログイン API がカスタムクレーム `sessionAuthTime`（`src/constants/auth.ts`）に最後のログインの時刻を書き、`verifySession` が Cookie の `auth_time` と比べる。D でログインをサーバー経由にしても、REST API で得た ID トークンの `auth_time` を同じく書けばよい。
 
 ## 5. D: ログインのサーバー経由化と、失敗回数の制限
 

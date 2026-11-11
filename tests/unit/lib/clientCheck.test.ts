@@ -57,7 +57,13 @@ describe('checkClient', () => {
   )
 
   it('どんな文字列でも例外を投げず、通すのは Windows の Chrome・Edge と判定したものだけ', () => {
-    fc.assert(fc.property(fc.option(fc.string({ unit: 'binary', maxLength: 500 })), (ua) => {
+    // User-Agent の部品とランダムな文字列を混ぜて組み立てる（ランダムな文字列だけでは Windows・Chrome にほぼ当たらない）
+    const part = fc.oneof(
+      fc.constantFrom('Windows NT 10.0', 'Macintosh', 'Linux', 'Android', 'iPhone', 'Chrome/141', 'HeadlessChrome/141', 'Edg/141', 'Edge/18', 'OPR/120', 'Firefox/140', ' ', ';'),
+      fc.string({ unit: 'binary-ascii', maxLength: 20 }), // 'binary' は生成だけで1秒を超える
+    )
+    const userAgent = fc.option(fc.array(part, { maxLength: 8 }).map((parts) => parts.join('')))
+    fc.assert(fc.property(userAgent, (ua) => {
       const result = checkClient(ua)
       const { browser, os } = parseUserAgent(ua)
       expect(result.success).toBe(os === 'windows' && (browser === 'chrome' || browser === 'edge'))

@@ -37,12 +37,15 @@ export type LoginNoticeInput = {
   forwardedFor: string | null // X-Forwarded-For ヘッダー
   userAgent: string | null
   nowMs: number
+  replacedSession?: boolean // 同じアカウントの、まだ生きていた前のセッションを切った
 }
 
-export function buildLoginNotice({ account, forwardedFor, userAgent, nowMs }: LoginNoticeInput): string {
+export function buildLoginNotice({ account, forwardedFor, userAgent, nowMs, replacedSession = false }: LoginNoticeInput): string {
   const ips = forwardedIps(forwardedFor)
   const ipLabel = ips.length > 0 ? ips.join(', ') : '不明'
-  return `[ログイン] ${escapeSlack(account)} / IP ${ipLabel}（右端が Google の追記） / ${describeUserAgent(userAgent)} / ${formatJST(nowMs)}`
+  // 前のセッションを切った: 別の PC・ブラウザで同じアカウントに入った。攻撃者に追い出されたスタッフが入り直すと、これが2回続く
+  const replaced = replacedSession ? ' / 前のセッションを切った' : ''
+  return `[ログイン] ${escapeSlack(account)} / IP ${ipLabel}（右端が Google の追記） / ${describeUserAgent(userAgent)} / ${formatJST(nowMs)}${replaced}`
 }
 
 const REJECTION_LABELS: Record<ClientRejection, string> = {

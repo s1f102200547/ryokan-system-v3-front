@@ -9,6 +9,8 @@ import { describeUserAgent } from '@/lib/auth/userAgent'
 import { checkClient } from '@/lib/auth/clientCheck'
 import { isOutsideBusinessHours } from '@/lib/businessHours'
 import { BUSINESS_HOURS_END_JST } from '@/constants/date'
+import { SESSION_AUTH_TIME_CLAIM } from '@/constants/auth'
+import { getTodayJST } from '@/lib/dateUtils'
 
 const BodySchema = z.object({
   idToken: z.string().min(1),
@@ -31,6 +33,15 @@ function msUntilToday23JST(): number {
   return Math.max(expire23UTC - nowMs, 5 * 60 * 1000) // Firebase の最低値 5分 を保証（5分未満にするとfirebaseがエラーを返すから）
 }
 
+// 前のログインの Session Cookie がまだ生きていたか。Cookie は当日 23:00 JST に切れるので、前のログインが今日（JST）なら生きている。
+// 22:55 以降のログインは最長 23:05 まで生きるが、時間外はログインできないので扱わない
+function isLiveToday(previousAuthTime: unknown): boolean {
+  if (typeof previousAuthTime !== 'number') return false
+  const jst = new Date(previousAuthTime * 1000 + 9 * 60 * 60 * 1000)
+  if (Number.isNaN(jst.getTime())) return false // toISOString が RangeError を投げる値
+  return jst.toISOString().slice(0, 10) === getTodayJST()
+}
+
 export async function POST(request: Request) {
   // 本番は時間外のログインを断る。画面は proxy.ts で時間外に開けないが、API を直接呼ぶと
   // 深夜でもその日の 23:00 まで有効な Session Cookie が発行されていた
@@ -47,9 +58,13 @@ export async function POST(request: Request) {
 
   // idToken の整合性検証（改ざん・期限切れ・無効トークンを弾く）
   let account: string
+  let uid: string
+  let authTime: number
   try {
     const decoded = await adminAuth.verifyIdToken(parsed.data.idToken)  // このユーザは本当にログイン済みか?
     account = decoded.email ?? decoded.uid
+    uid = decoded.uid
+    authTime = decoded.auth_time
   } catch (e) {
     if (isInvalidIdTokenError(e)) {
       // 認証失敗はビジネスロジックで処理する（インフラ障害ではない）
@@ -73,12 +88,19 @@ export async function POST(request: Request) {
   }
 
   try {
+    // 1アカウント1セッション。最後のログインの時刻をクレームに書き、verifySession が Cookie の時刻と比べる（前の Cookie は合わなくなる）。
+    // setCustomUserClaims はクレームをまるごと置き換えるので、今のクレームを読んで合わせて書く。書けなければ Cookie を返さない
+    const user = await adminAuth.getUser(uid)
+    const previousAuthTime = user.customClaims?.[SESSION_AUTH_TIME_CLAIM]
+    await adminAuth.setCustomUserClaims(uid, { ...user.customClaims, [SESSION_AUTH_TIME_CLAIM]: authTime })
+    const replacedSession = isLiveToday(previousAuthTime) && previousAuthTime !== authTime
+
     const expiresIn = msUntilToday23JST()
     const sessionCookie = await adminAuth.createSessionCookie(parsed.data.idToken, { expiresIn }) // ログイン状態を維持するためのセッションCookieを作る
 
     // 旅館の外からのログインに気付けるよう、毎回 Slack に通知する（ログにも残す。Slack の失敗は気付けないため）
-    logger.info('ログイン成功', { account, forwardedIps: forwardedIps(forwardedFor), client: describeUserAgent(userAgent) })
-    notifySlackFireAndForget(buildLoginNotice({ account, forwardedFor, userAgent, nowMs: Date.now() }))
+    logger.info('ログイン成功', { account, forwardedIps: forwardedIps(forwardedFor), client: describeUserAgent(userAgent), replacedSession })
+    notifySlackFireAndForget(buildLoginNotice({ account, forwardedFor, userAgent, nowMs: Date.now(), replacedSession }))
 
     const response = NextResponse.json({ success: true })
     response.cookies.set('session', sessionCookie, {
@@ -90,7 +112,7 @@ export async function POST(request: Request) {
     })
     return response
   } catch (e) {
-    // createSessionCookie は FirebaseError を throw する（InfraError ではない）
+    // getUser・setCustomUserClaims・createSessionCookie は FirebaseError を throw する（InfraError ではない）
     logger.error('ログイン Session Cookie 作成失敗', { message: String(e) })
     notifySlackFireAndForget(`[ALERT] Session Cookie 作成失敗: ${String(e)}`)
     return NextResponse.json({ error: 'server error' }, { status: 503 })

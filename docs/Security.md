@@ -107,6 +107,7 @@
 - 開発環境で本番の認証情報や接続先があるときの、アプリの起動の停止
 - 開発用のサーバーと Emulator の、自分の PC からだけの接続の許可
 - 認証が必要な API ごとの、サーバー側でのセッションの検証（失効の確認を含む）
+- 1アカウント1セッション: 新しいログインで前のセッションを使えなくする（ユーザーのカスタムクレーム `sessionAuthTime` に最後のログインの時刻を書き、Session Cookie の `auth_time` と比べる。`revokeRefreshTokens` は新しい Cookie まで失効させるので使わない）と、前のセッションを切ったことの Slack への通知
 - Emulator 上のテストによる、失効（`revokeRefreshTokens`）・無効化・削除したユーザーの Session Cookie が直後の API で拒否されることの確認（ログインと同じ秒の `revokeRefreshTokens` は firebase-admin の仕様で効かない。運用では問題にならない）
 - ログイン時の、トークンを検証してからのセッションの発行
 - セッション Cookie の、JavaScript からの読み取りと他サイトからの送信の禁止（Emulator の E2E で、属性を外すと読める・送られることの対照実験つきで確認。Secure は本番だけで付くことを integration で確認）

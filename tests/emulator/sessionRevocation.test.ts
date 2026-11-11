@@ -104,3 +104,36 @@ describe('Session Cookie の失効', () => {
     expect(await guestInfo(oldCookie)).toBe(401)
   })
 })
+
+// 1アカウント1セッション（ログイン API がクレームに最後のログインの時刻を書き、verifySession が比べる）
+describe('1アカウント1セッション', () => {
+  it('同じアカウントで新しくログインすると、前の Cookie は 401、新しい Cookie は使える', async () => {
+    const { email, uid } = await createUser('single')
+    const first = await login(email)
+    expect(await guestInfo(first)).toBe(200)
+
+    await nextSecond() // ログインの時刻（auth_time）は秒単位。同じ秒の2回のログインは両方とも通る
+    const second = await login(email)
+
+    expect(await guestInfo(first)).toBe(401)
+    expect(await guestInfo(second)).toBe(200)
+    expect((await adminAuth.getUser(uid)).customClaims).toEqual({ sessionAuthTime: expect.any(Number) })
+  })
+
+  it('別のアカウントのログインでは切れない', async () => {
+    const a = await createUser('single-a')
+    const b = await createUser('single-b')
+    const cookieA = await login(a.email)
+    await nextSecond()
+    await login(b.email)
+    expect(await guestInfo(cookieA)).toBe(200)
+  })
+
+  it('クレームを消すと（この仕組みの前のログインと同じ）、その Cookie は 401', async () => {
+    const { email, uid } = await createUser('single-noclaim')
+    const cookie = await login(email)
+    await adminAuth.setCustomUserClaims(uid, null)
+    expect(await guestInfo(cookie)).toBe(401)
+  })
+})
+

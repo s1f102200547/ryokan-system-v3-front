@@ -7,6 +7,8 @@ import { POST } from '@/app/api/auth/login/route'
 vi.mock('@/lib/firebase/admin', () => ({
   adminAuth: {
     verifyIdToken: vi.fn(),
+    getUser: vi.fn(),
+    setCustomUserClaims: vi.fn(),
     createSessionCookie: vi.fn(),
   },
   adminDb: {},
@@ -19,6 +21,8 @@ import { notifySlackFireAndForget } from '@/lib/slack'
 
 const mockVerifyIdToken = vi.mocked(adminAuth.verifyIdToken)
 const mockCreateSessionCookie = vi.mocked(adminAuth.createSessionCookie)
+const mockGetUser = vi.mocked(adminAuth.getUser)
+const mockSetCustomUserClaims = vi.mocked(adminAuth.setCustomUserClaims)
 
 const CHROME_WIN = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
 
@@ -34,6 +38,8 @@ function makeRequest(body: object, userAgent: string | null = CHROME_WIN) {
 describe('POST /api/auth/login', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGetUser.mockResolvedValue({ customClaims: undefined } as never)
+    mockSetCustomUserClaims.mockResolvedValue(undefined)
   })
 
   it('有効な idToken がクライアントから来たら 200 と session Cookie を返す', async () => {
@@ -241,6 +247,76 @@ describe('POST /api/auth/login', () => {
         const status = (await POST(makeRequest({ idToken: 't' }, ua))).status
         expect([200, 403]).toContain(status)
       }), { numRuns: 100 })
+    })
+  })
+
+  // 1アカウント1セッション。最後のログインの時刻をユーザーのクレームに書き、verifySession が Cookie の時刻と比べる
+  describe('1アカウント1セッション', () => {
+    const AUTH_TIME = 1_700_000_000
+    afterEach(() => vi.useRealTimers())
+
+    beforeEach(() => {
+      mockVerifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'pc1@example.com', auth_time: AUTH_TIME } as never)
+      mockCreateSessionCookie.mockResolvedValue('session-cookie-value')
+    })
+
+    it('今回のログインの時刻を、ほかのクレームを残したまま書いてから Cookie を作る', async () => {
+      mockGetUser.mockResolvedValue({ customClaims: { other: 'keep', sessionAuthTime: 1 } } as never)
+      expect((await POST(makeRequest({ idToken: 't' }))).status).toBe(200)
+      expect(mockGetUser).toHaveBeenCalledWith('uid-1')
+      expect(mockSetCustomUserClaims).toHaveBeenCalledWith('uid-1', { other: 'keep', sessionAuthTime: AUTH_TIME })
+      expect(mockSetCustomUserClaims.mock.invocationCallOrder[0]).toBeLessThan(mockCreateSessionCookie.mock.invocationCallOrder[0])
+    })
+
+    it.each([
+      ['ユーザーが読めない', () => mockGetUser.mockRejectedValue(new Error('Auth down'))],
+      ['クレームが書けない', () => mockSetCustomUserClaims.mockRejectedValue(new Error('Auth down'))],
+    ])('%s なら 503 で Cookie を返さない（Slack に通知）', async (_label, fail) => {
+      fail()
+      const response = await POST(makeRequest({ idToken: 't' }))
+      expect(response.status).toBe(503)
+      expect(response.headers.get('set-cookie')).toBeNull()
+      expect(mockCreateSessionCookie).not.toHaveBeenCalled()
+      expect(vi.mocked(notifySlackFireAndForget).mock.calls[0][0]).toMatch(/^\[ALERT\]/)
+    })
+
+    // 断ったログインでクレームを書くと、正しいスタッフのセッションが切れてしまう
+    it.each([
+      ['端末・ブラウザで断った', () => makeRequest({ idToken: 't' }, null)],
+      ['トークンが不正', () => { mockVerifyIdToken.mockRejectedValue({ code: 'auth/invalid-id-token', message: 'x' }); return makeRequest({ idToken: 't' }) }],
+    ])('%s ときはクレームを書かない', async (_label, request) => {
+      await POST(request())
+      expect(mockSetCustomUserClaims).not.toHaveBeenCalled()
+    })
+
+    describe('前のセッションを切ったことの通知', () => {
+      const jstSeconds = (iso: string) => Date.parse(`${iso}+09:00`) / 1000
+      const NOW_AUTH_TIME = jstSeconds('2026-05-20T11:59:00')
+
+      beforeEach(() => {
+        vi.useFakeTimers()
+        setNowJST('2026-05-20T12:00')
+        mockVerifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'pc1@example.com', auth_time: NOW_AUTH_TIME } as never)
+      })
+      async function notice(previous: unknown): Promise<string> {
+        mockGetUser.mockResolvedValue({ customClaims: previous === undefined ? undefined : { sessionAuthTime: previous } } as never)
+        expect((await POST(makeRequest({ idToken: 't' }))).status).toBe(200)
+        return vi.mocked(notifySlackFireAndForget).mock.calls[0][0]
+      }
+
+      it('前のログインが今日（JST）なら「前のセッションを切った」', async () => {
+        expect(await notice(jstSeconds('2026-05-20T00:30:00'))).toMatch(/ \/ 前のセッションを切った$/)
+      })
+
+      it.each([
+        ['前のログインがない', undefined],
+        ['前のログインが昨日（23:00 に切れている）', jstSeconds('2026-05-19T22:59:00')],
+        ['同じログインのトークンで2回目（同じ時刻）', NOW_AUTH_TIME],
+        ['壊れた値', 'x'],
+        ['Date にできない値', 1e300],
+      ])('%s なら書かない', async (_label, previous) => {
+        expect(await notice(previous)).not.toContain('前のセッションを切った')
+      })
     })
   })
 })
