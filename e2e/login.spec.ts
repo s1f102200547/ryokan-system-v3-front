@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { LoginBodySchema } from '../src/lib/api/loginSchema'
 
 // ログイン画面。ブラウザはメールアドレスとパスワードを /api/auth/login に送るだけ（パスワードの確認はサーバー）。
 // ここでは /api/auth/login をモックし、画面の振る舞いを見る。本物のログインは e2e/emulator/
@@ -58,4 +59,31 @@ test.describe('ログイン', () => {
     await submit(page, 'test@example.com', 'password')
     await expect(page).toHaveURL('/daily-dashboard')
   })
+
+  // バグハンティング（2026-11-11）: 差分テスト。ブラウザの <input type="email"> の判定と、サーバーの Zod の判定を同じ入力で比べる。
+  // 食い違うと「画面では送れるのにサーバーで 400」か「サーバーは受け付けるのに画面で送れない」になる
+  test('メールアドレスの形式の判定が、ブラウザとサーバーで一致する', async ({ page }) => {
+    const candidates = [
+      'pc1@example.com', 'a@b', 'pc1@localhost', 'pc1+front@example.com', "!#$%&'*+/=?^_`{|}~-@example.com",
+      '.pc1@example.com', 'pc1.@example.com', 'p..c1@example.com', 'PC1@EXAMPLE.COM', 'pc1@example.com.',
+      'pc1@-example.com', 'pc1@example-.com', 'pc1@ex_ample.com', 'pc1@[127.0.0.1]', 'pc1@127.0.0.1',
+      'pc1@example..com', 'pc1@.example.com', '"pc 1"@example.com', 'pc1@exa mple.com', 'pc1@@example.com',
+      'ピーシー@example.com', 'pc1@例え.jp', 'pc1@xn--r8jz45g.jp', ` pc1@example.com`, `pc1@example.com `,
+      `${'a'.repeat(64)}@example.com`, `pc1@${'a'.repeat(63)}.com`, `pc1@${'a'.repeat(64)}.com`,
+    ]
+    await page.goto('/login')
+    const input = page.getByLabel('メールアドレス')
+    const mismatches: string[] = []
+    for (const email of candidates) {
+      await input.fill(email)
+      // 入力欄の長さ（minLength・maxLength）は別に見るので、形式（typeMismatch）だけを比べる
+      const browserOk = await input.evaluate((el) => !(el as HTMLInputElement).validity.typeMismatch)
+      // ブラウザは type="email" の値を整える（前後の空白を除くなど）。サーバーに届くのは整えた後の値
+      const sent = await input.inputValue()
+      const serverOk = LoginBodySchema.safeParse({ email: sent, password: 'abc' }).success
+      if (browserOk !== serverOk) mismatches.push(`${JSON.stringify(email)} → 送る値 ${JSON.stringify(sent)}: ブラウザ=${browserOk} サーバー=${serverOk}`)
+    }
+    expect(mismatches).toEqual([])
+  })
 })
+

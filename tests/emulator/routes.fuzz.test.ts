@@ -170,6 +170,19 @@ describe('POST /api/auth/login', () => {
     ['@ だけ', '@'],
     ['長い（254文字）', `${'a'.repeat(242)}@example.com`],
     ['日本語', 'ログイン@例え.jp'],
+    // バグハンティング（2026-11-11）: ブラウザの type="email" では正しい形だが、Firebase が別の理由で断りうるもの。
+    // 知らないエラーコードになると 503 + ALERT（入力が原因の 5xx。過去に何度も起きた種類）
+    ['記号だけのローカル部', "!#$%&'*+/=?^_`{|}~-@example.com"],
+    ['点で始まる', '.pc1@example.com'],
+    ['点が続く', 'p..c1@example.com'],
+    ['点で終わるローカル部', 'pc1.@example.com'],
+    ['ドメインに点なし', 'pc1@localhost'],
+    ['いちばん短い', 'a@b'],
+    ['punycode のドメイン', 'pc1@xn--r8jz45g.jp'],
+    ['ローカル部が64文字', `${'a'.repeat(64)}@example.com`],
+    ['ローカル部が65文字', `${'a'.repeat(65)}@example.com`],
+    ['ラベルが63文字', `pc1@${'a'.repeat(63)}.com`],
+    ['大文字', 'PC1@EXAMPLE.COM'],
   ])('Firebase が受け付けないメールアドレス（%s）は 5xx にしない', async (_label, email) => {
     expectNotServerError(await call(login.POST, '/api/auth/login', 'POST', {}, loginBody(email, 'xxx')))
   })

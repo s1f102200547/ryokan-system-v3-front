@@ -128,6 +128,8 @@
 | `lockedUntil` | Timestamp | この時刻までパスワードを確かめず 429 |
 | `expireAt` | Timestamp | TTL 用（最後の失敗 + 25時間）。Firestore の TTL ポリシーをこのフィールドに設定する |
 
+確かめる前に、止まっていないかの確認と失敗の記録を1つのトランザクションで行う（`acquire`。先に数えるので、同時の試行でもすり抜けない）。成功で消し（`reset`）、Firebase の障害なら先に数える前の状態に戻す（`refund`）。
+
 形が違うドキュメントは、なかったものとして扱う（止めない側に倒し、次の失敗で書き直す）。
 
 `cancel` `late_out` は 0/1 の数値、`a_tax_received` は boolean で、型がそろっていない。`gmail-listener` と過去のデータとの互換のため、そのままにしている。

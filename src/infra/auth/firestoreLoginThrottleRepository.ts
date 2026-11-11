@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto'
-import { Timestamp } from 'firebase-admin/firestore'
+import { Timestamp, type DocumentReference, type Transaction } from 'firebase-admin/firestore'
 import { z } from 'zod'
 import { adminDb } from '@/lib/firebase/admin'
 import { withFirestoreError } from '@/infra/firestoreError'
-import { recordFailure, type ThrottleState } from '@/domain/auth/loginThrottle'
+import { acquireAttempt, refundFailure, type ThrottleState } from '@/domain/auth/loginThrottle'
 import { LOGIN_FAILURE_RESET_MS, LOGIN_LOCK_STEPS } from '@/constants/auth'
 import type { LoginThrottleRepository, ThrottleKey } from '@/domain/ports/loginThrottleRepository'
 
@@ -37,6 +37,15 @@ function toState(data: unknown): ThrottleState | null {
 
 const refOf = (key: ThrottleKey) => adminDb.collection(COLLECTION).doc(throttleDocId(key))
 
+function writeState(tx: Transaction, ref: DocumentReference, state: ThrottleState, lastFailureAtMs: number) {
+  tx.set(ref, {
+    failures: state.failures,
+    lastFailureAt: Timestamp.fromMillis(state.lastFailureAtMs),
+    lockedUntil: Timestamp.fromMillis(state.lockedUntilMs),
+    expireAt: Timestamp.fromMillis(lastFailureAtMs + EXPIRE_AFTER_MS),
+  })
+}
+
 export const firestoreLoginThrottleRepository: LoginThrottleRepository = {
   async read(keys) {
     if (keys.length === 0) return []
@@ -46,20 +55,37 @@ export const firestoreLoginThrottleRepository: LoginThrottleRepository = {
     })
   },
 
-  async recordFailure(keys, nowMs) {
-    if (keys.length === 0) return []
+  async acquire(keys, nowMs) {
+    if (keys.length === 0) return { success: true, value: [] }
     return withFirestoreError(() => adminDb.runTransaction(async (tx) => {
       const refs = keys.map(refOf)
       const snaps = await tx.getAll(...refs)
-      return refs.map((ref, i) => {
-        const { next, lockMs } = recordFailure(snaps[i].exists ? toState(snaps[i].data()) : null, nowMs)
-        tx.set(ref, {
-          failures: next.failures,
-          lastFailureAt: Timestamp.fromMillis(next.lastFailureAtMs),
-          lockedUntil: Timestamp.fromMillis(next.lockedUntilMs),
-          expireAt: Timestamp.fromMillis(nowMs + EXPIRE_AFTER_MS),
-        })
-        return { lockMs, failures: next.failures }
+      const states = snaps.map((snap) => (snap.exists ? toState(snap.data()) : null))
+      const attempts = states.map((state) => acquireAttempt(state, nowMs))
+      // どれかが止まっていれば、何も書かない（止めている間は数えない）
+      const retryAfterMs = Math.max(0, ...attempts.map((a) => (a.success ? 0 : a.error.retryAfterMs)))
+      if (retryAfterMs > 0) return { success: false as const, error: { retryAfterMs } }
+      return {
+        success: true as const,
+        value: refs.map((ref, i) => {
+          const attempt = attempts[i]
+          if (!attempt.success) throw new Error('unreachable') // retryAfterMs が 0 なら、すべて success
+          writeState(tx, ref, attempt.value.next, nowMs)
+          return { lockMs: attempt.value.lockMs, failures: attempt.value.next.failures, previous: states[i] }
+        }),
+      }
+    }))
+  },
+
+  async refund(keys, acquired, nowMs) {
+    if (keys.length === 0) return
+    await withFirestoreError(() => adminDb.runTransaction(async (tx) => {
+      const refs = keys.map(refOf)
+      const snaps = await tx.getAll(...refs)
+      refs.forEach((ref, i) => {
+        const next = refundFailure(snaps[i].exists ? toState(snaps[i].data()) : null, acquired[i]?.previous ?? null, nowMs)
+        if (next === null) tx.delete(ref)
+        else writeState(tx, ref, next, next.lastFailureAtMs)
       })
     }))
   },

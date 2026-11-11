@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import fc from 'fast-check'
-import { checkThrottle, lockDurationMs, recordFailure, type ThrottleState } from '@/domain/auth/loginThrottle'
+import { acquireAttempt, checkThrottle, lockDurationMs, recordFailure, refundFailure, type ThrottleState } from '@/domain/auth/loginThrottle'
 import { LOGIN_FAILURE_RESET_MS } from '@/constants/auth'
 
 const MIN = 60 * 1000
@@ -96,3 +96,36 @@ describe('性質', () => {
     }))
   })
 })
+
+describe('acquireAttempt と refundFailure（先に数えて、障害なら返す）', () => {
+  it('止まっていれば数えずに retryAfterMs', () => {
+    const { state } = failTimes(3)
+    expect(acquireAttempt(state, NOW + 2000 + 10_000)).toEqual({ success: false, error: { retryAfterMs: 50_000 } })
+  })
+
+  it('間にほかの試行がなければ、先に数える前の状態にそのまま戻す（止める時間を今から数え直さない）', () => {
+    const { state: before } = failTimes(3) // 1分止まる
+    const at = NOW + 2000 + MIN // 止まりが切れた時刻
+    const acquired = acquireAttempt(before, at)
+    if (!acquired.success) throw new Error('通るはず')
+    expect(acquired.value.lockMs).toBe(5 * MIN) // 先に数えると4回目で5分止まる
+    expect(refundFailure(acquired.value.next, before, at)).toEqual(before)
+    expect(checkThrottle(refundFailure(acquired.value.next, before, at), at).success).toBe(true)
+  })
+
+  it('記録がなかったときは、返すと記録ごと消える', () => {
+    const acquired = acquireAttempt(null, NOW)
+    if (!acquired.success) throw new Error('通るはず')
+    expect(refundFailure(acquired.value.next, null, NOW)).toBeNull()
+  })
+
+  it('間にほかの試行が割り込んでいたら、回数だけ1つ減らす', () => {
+    const first = acquireAttempt(null, NOW)
+    if (!first.success) throw new Error('通るはず')
+    const second = acquireAttempt(first.value.next, NOW + 10) // 割り込んだ試行
+    if (!second.success) throw new Error('通るはず')
+    // 1つ目が障害だったので返す。今の状態は2つ目が書いたもの
+    expect(refundFailure(second.value.next, null, NOW)).toEqual({ failures: 1, lastFailureAtMs: NOW + 10, lockedUntilMs: 0 })
+  })
+})
+

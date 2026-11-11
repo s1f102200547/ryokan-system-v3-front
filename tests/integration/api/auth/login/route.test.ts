@@ -482,7 +482,7 @@ describe('POST /api/auth/login', () => {
 
     it.each([
       ['パスワードの確認', () => mockSignIn.mockRejectedValue(new InfraError('AUTH_UNAVAILABLE', 'Password sign-in failed: TOO_MANY_ATTEMPTS_TRY_LATER (status 400)'))],
-      ['回数の読み取り', () => vi.spyOn(throttle, 'read').mockRejectedValueOnce(new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unreachable'))],
+      ['回数の確認と記録', () => vi.spyOn(throttle, 'acquire').mockRejectedValueOnce(new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unreachable'))],
     ])('%s の障害は 503 と Slack の ALERT（数えない）', async (_label, fail) => {
       fail()
       const response = await POST(makeRequest())
@@ -492,9 +492,19 @@ describe('POST /api/auth/login', () => {
       expect(throttle.states.size).toBe(0)
     })
 
+    // バグハンティング（2026-11-11）: 「止まっていないか読む → Firebase で確かめる → 失敗を書く」の間に、同時のリクエストが割り込めないか
+    it('同時に10回間違えても、Firebase に届くのは止める前の3回まで（同時に送って制限をすり抜けられない）', async () => {
+      vi.useRealTimers()
+      // Firebase の応答を少し待たせ、10件が同時に「確かめている最中」になるようにする
+      mockSignIn.mockImplementation(() => new Promise((r) => setTimeout(() => r({ success: false, error: 'invalid_credentials' }), 20)))
+      const statuses = await Promise.all(Array.from({ length: 10 }, () => POST(from('203.0.113.5')).then((r) => r.status)))
+      expect(mockSignIn.mock.calls.length, `Firebase に届いた回数。応答: ${statuses.join(',')}`).toBeLessThanOrEqual(3)
+      expect(statuses.filter((s) => s === 429).length).toBeGreaterThanOrEqual(7)
+    })
+
     it('API キーが設定されていなければ、回数を読まずにすぐ 503（CI の ZAP・本番の設定忘れ）', async () => {
       vi.mocked(isPasswordSignInConfigured).mockReturnValue(false)
-      const read = vi.spyOn(throttle, 'read')
+      const read = vi.spyOn(throttle, 'acquire')
       const response = await POST(makeRequest())
       expect(response.status).toBe(503)
       expect(read).not.toHaveBeenCalled()

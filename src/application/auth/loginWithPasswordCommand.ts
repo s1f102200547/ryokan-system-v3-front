@@ -1,4 +1,3 @@
-import { checkThrottle } from '@/domain/auth/loginThrottle'
 import { firestoreLoginThrottleRepository } from '@/infra/auth/firestoreLoginThrottleRepository'
 import { isPasswordSignInConfigured, signInWithPassword } from '@/infra/auth/passwordSignIn'
 import { InfraError } from '@/types/errors'
@@ -30,18 +29,22 @@ export async function loginWithPasswordCommand(input: LoginInput): Promise<Resul
     { kind: 'ip', value: ip ?? 'unknown' },
   ]
 
-  // 止めている間は確かめない。回数も足さない（押すたびに延びないように）
-  const states = await firestoreLoginThrottleRepository.read(keys)
-  const retryAfterMs = Math.max(0, ...states.map((s) => {
-    const r = checkThrottle(s, nowMs)
-    return r.success ? 0 : r.error.retryAfterMs
-  }))
-  if (retryAfterMs > 0) return { success: false, error: { kind: 'rate_limited', retryAfterMs } }
+  // 止まっていないかの確認と失敗の記録を、確かめる前に1度に行う（先に数える）。
+  // 止めている間は確かめず、回数も足さない（押すたびに延びないように）。同時に送られても、止める前の回数しか通らない
+  const acquired = await firestoreLoginThrottleRepository.acquire(keys, nowMs)
+  if (!acquired.success) return { success: false, error: { kind: 'rate_limited', retryAfterMs: acquired.error.retryAfterMs } }
 
-  const signIn = await signInWithPassword(email, password)
+  let signIn: Awaited<ReturnType<typeof signInWithPassword>>
+  try {
+    signIn = await signInWithPassword(email, password)
+  } catch (e) {
+    // Firebase の障害で確かめられなかった。先に数えた1回分を返す（障害が続いても、スタッフが止められないように）
+    await firestoreLoginThrottleRepository.refund(keys, acquired.value, nowMs)
+    throw e
+  }
+
   if (!signIn.success) {
-    const recorded = await firestoreLoginThrottleRepository.recordFailure(keys, nowMs)
-    recorded.forEach(({ lockMs, failures }, i) => {
+    acquired.value.forEach(({ lockMs, failures }, i) => {
       if (lockMs === null) return
       // 止め始めたときだけ知らせる。正しいスタッフが止められたときに開発者が気付けるように
       logger.warn('ログイン制限', { kind: keys[i].kind, failures, lockMs })

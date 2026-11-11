@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { z } from 'zod'
 import { adminAuth } from '@/lib/firebase/admin'
 import { logger } from '@/lib/logger'
 import { notifySlackFireAndForget } from '@/lib/slack'
@@ -9,19 +8,12 @@ import { describeUserAgent } from '@/lib/auth/userAgent'
 import { checkClient } from '@/lib/auth/clientCheck'
 import { isOutsideBusinessHours } from '@/lib/businessHours'
 import { BUSINESS_HOURS_END_JST } from '@/constants/date'
-import {
-  LOGIN_EMAIL_MAX_LENGTH, LOGIN_EMAIL_MIN_LENGTH, LOGIN_PASSWORD_MAX_LENGTH, LOGIN_PASSWORD_MIN_LENGTH, SESSION_AUTH_TIME_CLAIM,
-} from '@/constants/auth'
+import { SESSION_AUTH_TIME_CLAIM } from '@/constants/auth'
+import { LoginBodySchema } from '@/lib/api/loginSchema'
 import { handleRouteError } from '@/lib/api/routeHelpers'
 import { loginWithPasswordCommand } from '@/application/auth/loginWithPasswordCommand'
 import { getTodayJST } from '@/lib/dateUtils'
 
-// パスワードはこのサーバーを通る（ブラウザから Firebase を呼ばない）。body はログに出さない。
-// メールアドレスの形式は、ログイン画面の <input type="email"> と同じ規則（画面で通るのにここで断られる、をなくす）
-const BodySchema = z.object({
-  email: z.email({ pattern: z.regexes.html5Email }).min(LOGIN_EMAIL_MIN_LENGTH).max(LOGIN_EMAIL_MAX_LENGTH),
-  password: z.string().min(LOGIN_PASSWORD_MIN_LENGTH).max(LOGIN_PASSWORD_MAX_LENGTH),
-})
 
 // 今日の 23:00 JST までの残り時間（ms）を返す
 // ログイン時に Session Cookie の有効期限を当日 23:00 に合わせる（日次サイクル）
@@ -58,7 +50,7 @@ export async function POST(request: Request) {
   }
 
   // 不正な JSON や空の body、長すぎる入力は 400（Firebase に送らず、失敗としても数えない）
-  const parsed = BodySchema.safeParse(await request.json().catch(() => null))
+  const parsed = LoginBodySchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
     return NextResponse.json({ error: 'invalid request' }, { status: 400 })
   }

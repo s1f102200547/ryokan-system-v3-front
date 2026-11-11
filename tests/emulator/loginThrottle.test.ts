@@ -85,19 +85,41 @@ describe('ログインの失敗回数の制限（本物の REST と Firestore）
     expect(state).toBeNull()
   })
 
-  it('同時に5回失敗しても、数え漏れがない（トランザクション）', async () => {
+  // 確認と記録を1つのトランザクションで行うので、同時に試しても止める前の3回しか通らない（すり抜けない）
+  it('同時に10回試しても、通るのは3回で、回数は3（トランザクション）', async () => {
     const key = { kind: 'email' as const, value: `${RUN_ID}-concurrent@example.com` }
     const now = Date.now()
-    await Promise.all(Array.from({ length: 5 }, (_, i) => firestoreLoginThrottleRepository.recordFailure([key], now + i)))
+    const results = await Promise.all(Array.from({ length: 10 }, () => firestoreLoginThrottleRepository.acquire([key], now)))
+    expect(results.filter((r) => r.success)).toHaveLength(3)
     const [state] = await firestoreLoginThrottleRepository.read([key])
-    expect(state?.failures).toBe(5)
+    expect(state?.failures).toBe(3)
+  })
+
+  it('同時に10回、本物のログイン API で間違えても、Firebase まで届くのは3回（残りは 429）', async () => {
+    const email = await createUser()
+    const ip = nextIp()
+    const statuses = await Promise.all(Array.from({ length: 10 }, () => login(email, 'wrong-password', ip).then((r) => r.status)))
+    expect(statuses.filter((s) => s === 401)).toHaveLength(3)
+    expect(statuses.filter((s) => s === 429)).toHaveLength(7)
+  })
+
+  it('先に数えた1回は、障害のときに返せる（refund）', async () => {
+    const key = { kind: 'ip' as const, value: nextIp() }
+    const t0 = Date.now()
+    for (let i = 0; i < 2; i++) await firestoreLoginThrottleRepository.acquire([key], t0 + i)
+    const third = await firestoreLoginThrottleRepository.acquire([key], t0 + 2) // 3回目で止まるはず
+    if (!third.success) throw new Error('3回目は通るはず')
+    await firestoreLoginThrottleRepository.refund([key], third.value, t0 + 2)
+    const [state] = await firestoreLoginThrottleRepository.read([key])
+    // 3回目を数える前の状態に戻る（最後の失敗の時刻も2回目のまま、止めない）
+    expect(state).toEqual({ failures: 2, lastFailureAtMs: t0 + 1, lockedUntilMs: 0 })
   })
 
   it('形の崩れたドキュメントは、なかったものとして扱う（止めず、次の失敗で書き直す）', async () => {
     const key = { kind: 'ip' as const, value: nextIp() }
     await adminDb.collection('loginThrottle').doc(throttleDocId(key)).set({ failures: 'many', lockedUntil: 'forever' })
     expect(await firestoreLoginThrottleRepository.read([key])).toEqual([null])
-    await firestoreLoginThrottleRepository.recordFailure([key], Date.now())
+    expect((await firestoreLoginThrottleRepository.acquire([key], Date.now())).success).toBe(true)
     expect((await firestoreLoginThrottleRepository.read([key]))[0]?.failures).toBe(1)
   })
 })
