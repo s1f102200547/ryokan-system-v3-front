@@ -7,6 +7,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { firestoreReservationRepository } from '@/infra/reservation/firestoreReservationRepository'
 import { addDays, getTodayJST } from '@/lib/dateUtils'
 import * as login from '@/app/api/auth/login/route'
+import * as loginVerify from '@/app/api/auth/login/verify/route'
 import * as safeBalanceChecker from '@/app/api/daily/[date]/safe-balance-checker/route'
 import * as todos from '@/app/api/daily/[date]/todos/route'
 import * as aTax from '@/app/api/reservations/[id]/a-tax/route'
@@ -30,7 +31,8 @@ const createdReservationIds: string[] = []
 async function call(handler: unknown, path: string, method: string, params: Record<string, string>, rawBody?: string) {
   const request = new Request(`http://localhost${path}`, {
     method,
-    headers: { 'Content-Type': 'application/json', cookie: 'session=emulator-test' },
+    // mfa_pending: verify が Firestore の途中の状態まで読むように（知らない ID）
+    headers: { 'Content-Type': 'application/json', cookie: 'session=emulator-test; mfa_pending=emutest-unknown-pending' },
     body: method === 'GET' ? undefined : (rawBody ?? ''),
   })
   return (handler as Handler)(request, { params: Promise.resolve(params) })
@@ -185,5 +187,19 @@ describe('POST /api/auth/login', () => {
     ['大文字', 'PC1@EXAMPLE.COM'],
   ])('Firebase が受け付けないメールアドレス（%s）は 5xx にしない', async (_label, email) => {
     expectNotServerError(await call(login.POST, '/api/auth/login', 'POST', {}, loginBody(email, 'xxx')))
+  })
+})
+
+// --- SMS のコードの確認（途中の状態は Firestore Emulator。知らない ID・壊れた Cookie でも 5xx にしない） ---
+
+describe('POST /api/auth/login/verify', () => {
+  const codeBody = (code: unknown) => JSON.stringify({ code })
+
+  it.each(RAW_BODIES)('body: %s', async (_label, raw) => {
+    expectNotServerError(await call(loginVerify.POST, '/api/auth/login/verify', 'POST', {}, raw))
+  })
+
+  it.each(FIELD_VALUES)('code: %s', async (_label, code) => {
+    expectNotServerError(await call(loginVerify.POST, '/api/auth/login/verify', 'POST', {}, codeBody(code)))
   })
 })

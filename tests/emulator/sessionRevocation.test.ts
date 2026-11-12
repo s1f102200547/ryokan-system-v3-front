@@ -7,19 +7,15 @@ import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest'
 import { adminAuth } from '@/lib/firebase/admin'
 import { getTodayJST } from '@/lib/dateUtils'
 import { parseCookieValue } from '@/lib/api/routeHelpers'
-import { POST as LOGIN } from '@/app/api/auth/login/route'
+import { createMfaUser, loginWithMfa } from '@tests/utils/emulatorMfa'
 import { GET as GUEST_INFO } from '@/app/api/guest-info/route'
 import { logger } from '@/lib/logger'
-
-// ログインはWindowsの Chrome・Edge だけ（src/lib/auth/clientCheck.ts）
-const WINDOWS_CHROME = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
 
 vi.mock('@/lib/slack', () => ({ notifySlack: vi.fn(), notifySlackFireAndForget: vi.fn() }))
 vi.mock('@/lib/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
 
 const RUN_ID = `emutest-revoke-${Date.now()}`
 const PASSWORD = 'emutest-password'
-const AUTH_URL = `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1`
 const createdUids: string[] = []
 
 // firebase-admin は失効の時刻（秒に切り捨て）とログインの時刻（秒）を「より前か」で比べるので、
@@ -27,31 +23,19 @@ const createdUids: string[] = []
 // 要件は「失効から数秒以内に使えなくなる」こと。ここでは失効の直後の API で確かめる
 const nextSecond = () => new Promise((r) => setTimeout(r, 1100))
 
-async function signUp(email: string): Promise<string> {
-  const res = await fetch(`${AUTH_URL}/accounts:signUp?key=demo-api-key`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password: PASSWORD, returnSecureToken: true }),
-  })
-  const body = (await res.json()) as { localId?: string }
-  if (!res.ok || !body.localId) throw new Error(`accounts:signUp に失敗: ${res.status}`)
-  return body.localId
-}
-
 async function createUser(label: string) {
   const email = `${RUN_ID}-${label}-${createdUids.length}@example.com`
-  const uid = await signUp(email)
+  const uid = await createMfaUser(email, PASSWORD) // ログインには SMS の2要素目が要る
   createdUids.push(uid)
+  // Emulator はユーザーを作った秒を tokensValidAfterTime にする。WSL の時計は1秒近く戻ることがあり（2026-11-12 に Date.now が
+  // 約 0.7 秒戻るのを観察）、直後のログインの auth_time がそれより前になると auth/id-token-revoked で落ちる。作った秒をまたいでからログインする
+  await nextSecond()
   return { email, uid }
 }
 
-// 本物のログイン API（パスワードの確認は Auth Emulator の REST）で Session Cookie を受け取る
+// 本物のログイン API（パスワード・SMS・コードの確認は Auth Emulator の REST）で Session Cookie を受け取る
 async function login(email: string): Promise<string> {
-  const res = await LOGIN(new Request('http://localhost/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME },
-    body: JSON.stringify({ email, password: PASSWORD }),
-  }))
+  const res = await loginWithMfa(email, PASSWORD)
   // 落ちたときは、応答と、ログイン API が残した直近のログ（失敗の理由のコード）を載せる
   const message = res.status === 200 ? undefined : JSON.stringify({
     nowMs: Date.now(),

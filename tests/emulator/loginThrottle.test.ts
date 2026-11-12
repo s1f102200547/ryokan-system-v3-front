@@ -5,6 +5,7 @@ import { Timestamp } from 'firebase-admin/firestore'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { POST as LOGIN } from '@/app/api/auth/login/route'
 import { firestoreLoginThrottleRepository, throttleDocId } from '@/infra/auth/firestoreLoginThrottleRepository'
+import { createMfaUser } from '@tests/utils/emulatorMfa'
 
 vi.mock('@/lib/slack', () => ({ notifySlack: vi.fn(), notifySlackFireAndForget: vi.fn() }))
 vi.mock('@/lib/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
@@ -18,8 +19,7 @@ let ipSeq = 0
 
 async function createUser(): Promise<string> {
   const email = `${RUN_ID}-${createdUids.length}@example.com`
-  const user = await adminAuth.createUser({ email, password: PASSWORD })
-  createdUids.push(user.uid)
+  createdUids.push(await createMfaUser(email, PASSWORD)) // パスワードが合えば SMS まで進む
   return email
 }
 
@@ -30,7 +30,9 @@ const login = (email: string, password: string, ip: string) => LOGIN(new Request
 }))
 // テストごとに別の IP（IP の回数がほかのテストに残らないように）
 const nextIp = () => `198.51.100.${++ipSeq}`
-const clearThrottle = () => adminDb.recursiveDelete(adminDb.collection('loginThrottle'))
+const clearThrottle = async () => {
+  for (const c of ['loginThrottle', 'mfaPending', 'mfaSmsQuota']) await adminDb.recursiveDelete(adminDb.collection(c))
+}
 
 beforeAll(async () => {
   expect(process.env.FIRESTORE_EMULATOR_HOST).toMatch(/^127\.0\.0\.1:/)
@@ -44,11 +46,12 @@ afterAll(async () => {
 })
 
 describe('ログインの失敗回数の制限（本物の REST と Firestore）', () => {
-  it('正しいパスワードなら 200 と Cookie', async () => {
+  it('正しいパスワードなら 200 と途中の状態の Cookie（Session Cookie は SMS のコードの後）', async () => {
     const email = await createUser()
     const res = await login(email, PASSWORD, nextIp())
     expect(res.status).toBe(200)
-    expect(res.headers.get('set-cookie')).toContain('session=')
+    expect(res.headers.get('set-cookie')).toContain('mfa_pending=')
+    expect(res.headers.get('set-cookie')).not.toContain('session=')
   })
 
   it('間違いが3回で 429。正しいパスワードでも止まる。回数はメールアドレスのハッシュの ID で残る', async () => {

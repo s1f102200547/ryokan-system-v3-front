@@ -52,6 +52,7 @@ jobs:
       - { name: "PATCH reservations/[id]/restore", method: PATCH, url: "http://127.0.0.1:3000/api/reservations/zap-none/restore", headers: ["Content-Type:application/json"], data: '{"staff_name":"zap","target_date":"2026-05-20","reason":"zap"}', responseCode: 401 }
       # ログインは時間外に 403、不正な body で 400 になるので status は見ない（5xx は能動的な検査で見つける）
       - { name: "POST auth/login", method: POST, url: "http://127.0.0.1:3000/api/auth/login", headers: ["Content-Type:application/json"], data: '{"email":"zap@example.com","password":"zap-password"}' }
+      - { name: "POST auth/login/verify", method: POST, url: "http://127.0.0.1:3000/api/auth/login/verify", headers: ["Content-Type:application/json"], data: '{"code":"123456"}' }
 
   - type: spider
     parameters:

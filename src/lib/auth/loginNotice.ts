@@ -48,13 +48,19 @@ export function buildLoginNotice({ account, forwardedFor, userAgent, nowMs, repl
   return `[ログイン] ${escapeSlack(account)} / IP ${ipLabel}（右端が Google の追記） / ${describeUserAgent(userAgent)} / ${formatJST(nowMs)}${replaced}`
 }
 
-const REJECTION_LABELS: Record<ClientRejection, string> = {
+// パスワードが合った後に断った理由。端末・ブラウザ（A）と、SMS の2要素目（C）
+export type LoginRejection = ClientRejection | 'mfa_not_enrolled' | 'no_second_factor' | 'ip_mismatch'
+
+const REJECTION_LABELS: Record<LoginRejection, string> = {
   os_not_allowed: 'Windows 以外の端末',
   browser_not_allowed: 'Chrome・Edge 以外のブラウザ',
+  mfa_not_enrolled: 'SMS の2要素目が未登録のアカウント',
+  no_second_factor: '2要素目を通っていないトークン',
+  ip_mismatch: 'パスワードと SMS のコードで接続元が違う',
 }
 
-// 端末・ブラウザの確認で断ったときの通知。パスワードは合っているので、別の端末での利用か、盗まれたパスワードの利用
-export function buildLoginRejectedNotice(input: LoginNoticeInput & { reason: ClientRejection }): string {
+// パスワードが合った後に断ったときの通知。別の端末での利用か、盗まれたパスワードの利用か、設定の誤り
+export function buildLoginRejectedNotice(input: LoginNoticeInput & { reason: LoginRejection }): string {
   const { account, forwardedFor, userAgent, nowMs, reason } = input
   const ips = forwardedIps(forwardedFor)
   const ipLabel = ips.length > 0 ? ips.join(', ') : '不明'

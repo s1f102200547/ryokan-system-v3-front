@@ -14,6 +14,8 @@ vi.mock('@/lib/firebase/admin', () => ({
 }))
 vi.mock('@/application/aTaxTable/getATaxTableUseCase', () => ({ getATaxTableUseCase: vi.fn() }))
 vi.mock('@/application/auth/loginWithPasswordCommand', () => ({ loginWithPasswordCommand: vi.fn() }))
+vi.mock('@/application/auth/startMfaCommand', () => ({ startMfaCommand: vi.fn() }))
+vi.mock('@/application/auth/verifyMfaCodeCommand', () => ({ verifyMfaCodeCommand: vi.fn() }))
 vi.mock('@/application/cleaningBoard/getCleaningBoardUseCase', () => ({ getCleaningBoardUseCase: vi.fn() }))
 vi.mock('@/application/guestInfo/getGuestInfoUseCase', () => ({ getGuestInfoUseCase: vi.fn() }))
 vi.mock('@/application/timetable/getTimetableUseCase', () => ({ getTimetableUseCase: vi.fn() }))
@@ -37,6 +39,7 @@ import { notifySlackFireAndForget } from '@/lib/slack'
 import { adminAuth } from '@/lib/firebase/admin'
 import { getATaxTableUseCase } from '@/application/aTaxTable/getATaxTableUseCase'
 import { loginWithPasswordCommand } from '@/application/auth/loginWithPasswordCommand'
+import { verifyMfaCodeCommand } from '@/application/auth/verifyMfaCodeCommand'
 import { getCleaningBoardUseCase } from '@/application/cleaningBoard/getCleaningBoardUseCase'
 import { getGuestInfoUseCase } from '@/application/guestInfo/getGuestInfoUseCase'
 import { getTimetableUseCase } from '@/application/timetable/getTimetableUseCase'
@@ -49,6 +52,7 @@ import { firestoreDailyRepository } from '@/infra/daily/firestoreDailyRepository
 
 import * as aTaxTable from '@/app/api/a-tax-table/route'
 import * as login from '@/app/api/auth/login/route'
+import * as loginVerify from '@/app/api/auth/login/verify/route'
 import * as cleaningBoard from '@/app/api/cleaning-board/route'
 import * as safeBalanceChecker from '@/app/api/daily/[date]/safe-balance-checker/route'
 import * as todos from '@/app/api/daily/[date]/todos/route'
@@ -80,6 +84,7 @@ const ROUTES: RouteCase[] = [
   { route: 'a-tax-table', method: 'GET', handler: asHandler(aTaxTable.GET),
     query: { year: { valid: '2026', kind: 'number' }, month: { valid: '5', kind: 'number' } } },
   { route: 'auth/login', method: 'POST', handler: asHandler(login.POST), body: { email: 'pc1@example.com', password: 'pw1' } },
+  { route: 'auth/login/verify', method: 'POST', handler: asHandler(loginVerify.POST), body: { code: '123456' } },
   { route: 'cleaning-board', method: 'GET', handler: asHandler(cleaningBoard.GET),
     query: { date: { valid: FIXED_TODAY, kind: 'date' } } },
   { route: 'daily/[date]/safe-balance-checker', method: 'GET', handler: asHandler(safeBalanceChecker.GET),
@@ -165,7 +170,7 @@ async function send(r: RouteCase, input: Input): Promise<Response> {
   for (const [k, v] of Object.entries(input.query ?? {})) if (v !== undefined) url.searchParams.set(k, v)
   const request = new Request(url, {
     method: r.method,
-    headers: { 'Content-Type': 'application/json', cookie: 'session=valid' },
+    headers: { 'Content-Type': 'application/json', cookie: 'session=valid; mfa_pending=pending-id' },
     body: r.method === 'GET' ? undefined : (input.rawBody ?? ''),
   })
   const params = r.param ? { [r.param.key]: input.param ?? '' } : {}
@@ -179,6 +184,8 @@ beforeEach(() => {
   vi.mocked(verifySession).mockResolvedValue({ uid: 'user-1' })
   // ログインはパスワードが違う（401）。でたらめな値で 5xx にならないことを見る
   vi.mocked(loginWithPasswordCommand).mockResolvedValue({ success: false, error: { kind: 'invalid_credentials' } })
+  // SMS のコードは違う（401）
+  vi.mocked(verifyMfaCodeCommand).mockResolvedValue({ success: false, error: { kind: 'invalid_code' } })
   // 本物の firebase-admin は、でたらめなトークンに auth/argument-error を返す
   vi.mocked(adminAuth.verifyIdToken).mockRejectedValue({
     code: 'auth/argument-error', message: 'Decoding Firebase ID token failed.',
@@ -219,8 +226,8 @@ describe('Route の漏れがない', () => {
 describe.each(ROUTES.map((r) => [`${r.method} /api/${r.route}`, r] as const))('%s', (_name, r) => {
   it('正しい入力は 2xx（mock が正しく効いている）', async () => {
     const res = await send(r, validInput(r))
-    // ログインは mock の Command が常に「パスワードが違う」を返すので 401
-    expect(res.status, await res.clone().text()).toBe(r.route === 'auth/login' ? 401 : r.method === 'POST' ? 201 : 200)
+    // ログインは mock の Command が常に「パスワードが違う」「コードが違う」を返すので 401
+    expect(res.status, await res.clone().text()).toBe(r.route.startsWith('auth/login') ? 401 : r.method === 'POST' ? 201 : 200)
   })
 
   it.each(fuzzInputs(r).map((input) => [input.label, input] as const))('%s', async (_label, input) => {
@@ -232,7 +239,7 @@ describe.each(ROUTES.map((r) => [`${r.method} /api/${r.route}`, r] as const))('%
 
 // セッションの確認が try の外にあり、Firebase Auth の障害（AUTH_UNAVAILABLE）で
 // 全 API が 500 になり、ログにも Slack にも残らなかった
-describe.each(ROUTES.filter((r) => r.route !== 'auth/login').map((r) => [`${r.method} /api/${r.route}`, r] as const))(
+describe.each(ROUTES.filter((r) => !r.route.startsWith('auth/login')).map((r) => [`${r.method} /api/${r.route}`, r] as const))(
   '%s: 認証基盤の障害',
   (_name, r) => {
     it('503 を返し、Slack に通知する', async () => {
