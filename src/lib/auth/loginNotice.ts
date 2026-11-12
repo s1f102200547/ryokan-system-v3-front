@@ -67,3 +67,11 @@ export function buildLoginLockNotice({ key, failures, lockMs }: { key: { kind: '
   return `[ログイン制限] ${target} / ${failures}回続けて失敗 / ${Math.round(lockMs / 60000)}分止める`
 }
 
+
+// 1アカウントの1日の SMS の数が上限に達して、はじめて断ったときの通知（1日1回）。
+// 不正な大量送信（SMS pumping）か、パスワードを知る誰かが SMS を送らせ続けている
+export function buildSmsLimitNotice({ account, limit, forwardedFor, nowMs }: { account: string; limit: number; forwardedFor: string | null; nowMs: number }): string {
+  const ips = forwardedIps(forwardedFor)
+  const ipLabel = ips.length > 0 ? ips.join(', ') : '不明'
+  return `[SMS 上限] ${escapeSlack(account)} / 今日 ${limit} 通を超えたので送らない / IP ${ipLabel}（右端が Google の追記） / ${formatJST(nowMs)}`
+}

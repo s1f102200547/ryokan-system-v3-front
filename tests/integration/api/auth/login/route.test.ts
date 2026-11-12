@@ -450,12 +450,14 @@ describe('POST /api/auth/login', () => {
       expect(slackMessages().at(-2)).toBe('[ログイン制限] アカウント pc1@example.com / 4回続けて失敗 / 5分止める')
     })
 
-    it('成功すると、メールアドレスと IP の回数を 0 に戻す', async () => {
+    // 0 に戻すのは SMS のコードが合ったとき（verify）。パスワードが合っただけで戻すと、コードを無限に試せる
+    it('パスワードが合っても、メールアドレスと IP の回数は 0 に戻さない（札は外す）', async () => {
       wrong()
       for (let i = 0; i < 2; i++) await POST(from('203.0.113.5'))
       mockSignIn.mockResolvedValue({ success: true, value: { kind: 'signed_in', idToken: 'id-token-from-rest' } })
-      expect((await POST(from('203.0.113.5'))).status).toBe(200)
-      expect(throttle.states.size).toBe(0)
+      await POST(from('203.0.113.5'))
+      expect(throttle.states.size).toBe(2)
+      expect([...throttle.states.values()].every((st) => st.failures === 2 && st.pending.length === 0)).toBe(true)
     })
 
     it('IP ごとにも数える: 同じ IP から別のアドレスを順に試しても、3回で止まる', async () => {
@@ -545,7 +547,7 @@ describe('POST /api/auth/login', () => {
       vi.spyOn(throttle, 'complete').mockRejectedValueOnce(new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unreachable'))
       const response = await POST(makeRequest())
       expect(response.status).toBe(200)
-      expect(slackMessages()).toContain('[ALERT] ログインの回数の記録に失敗(FIRESTORE_UNAVAILABLE)。結果: success')
+      expect(slackMessages()).toContain('[ALERT] ログインの回数の記録に失敗(FIRESTORE_UNAVAILABLE)。結果: void')
     })
 
     it('Firebase の障害のあとに札を外す処理まで失敗しても、元の障害（AUTH_UNAVAILABLE）を知らせる', async () => {

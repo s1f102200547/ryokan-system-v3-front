@@ -77,13 +77,14 @@ describe('ログインの失敗回数の制限（本物の REST と Firestore）
     expect((await login(email, 'xxx', ip)).status).toBe(429)
   })
 
-  it('成功で数え直す', async () => {
+  // 0 に戻すのは SMS のコードが合ったとき（tests/emulator/mfaLogin.test.ts）
+  it('パスワードが合っただけでは数え直さない', async () => {
     const email = await createUser()
     const ip = nextIp()
     for (let i = 0; i < 2; i++) await login(email, 'wrong-password', ip)
-    expect((await login(email, PASSWORD, ip)).status).toBe(200)
+    await login(email, PASSWORD, ip)
     const [state] = await firestoreLoginThrottleRepository.read([{ kind: 'email', value: email }])
-    expect(state).toBeNull()
+    expect(state).toMatchObject({ failures: 2, pending: [] })
   })
 
   // 試行中の札は、次に止める段までの残り（失敗0回なら3枚）までしか出ない。同時に試してもすり抜けない
