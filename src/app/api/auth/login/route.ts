@@ -76,6 +76,11 @@ export async function POST(request: Request) {
       }
       return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 })
     }
+    // 2要素目（SMS）はまだつないでいない。今までどおり障害として断る
+    if (result.value.kind === 'mfa_required') {
+      logger.error('ログイン: 2要素目が要るが、まだ扱えない')
+      return NextResponse.json({ error: 'server error' }, { status: 503 })
+    }
     idToken = result.value.idToken
   } catch (e) {
     return handleRouteError(e, 'ログイン')

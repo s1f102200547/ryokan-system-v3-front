@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { checkThrottle, type AttemptOutcome } from '@/domain/auth/loginThrottle'
 import { firestoreLoginThrottleRepository } from '@/infra/auth/firestoreLoginThrottleRepository'
-import { isPasswordSignInConfigured, signInWithPassword } from '@/infra/auth/passwordSignIn'
+import { isPasswordSignInConfigured, signInWithPassword, type PasswordSignInSuccess } from '@/infra/auth/passwordSignIn'
 import { buildLoginLockNotice } from '@/lib/auth/loginNotice'
 import { logger } from '@/lib/logger'
 import { notifySlackFireAndForget } from '@/lib/slack'
@@ -27,7 +27,7 @@ const FIREBASE_THROTTLED_RETRY_MS = 60_000
 // パスワードを確かめる。失敗が続いたメールアドレス・IP は、しばらく Firebase に送らずに断る（iPhone 方式）。
 // 存在しないメールアドレスも、間違ったパスワードと同じに数える（どのアドレスが本物かを探らせない）。
 // 確かめる前に「試行中の札」を出し、確かめ終わったら外して結果を確定させる（domain/auth/loginThrottle.ts）
-export async function loginWithPasswordCommand(input: LoginInput): Promise<Result<{ idToken: string }, LoginFailure>> {
+export async function loginWithPasswordCommand(input: LoginInput): Promise<Result<PasswordSignInSuccess, LoginFailure>> {
   const { email, password, ip, nowMs } = input
   // パスワードを確かめられない（API キーの設定忘れ）なら、回数を読む前に障害として断る（503・Slack）
   if (!isPasswordSignInConfigured()) throw new InfraError('AUTH_UNAVAILABLE', 'FIREBASE_AUTH_API_KEY is not set')

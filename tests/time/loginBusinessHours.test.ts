@@ -13,7 +13,7 @@ vi.mock('@/lib/firebase/admin', () => ({
 }))
 // パスワードの確認（Firebase の REST）は常に成功。失敗回数の記録はメモリで数える
 vi.mock('@/infra/auth/passwordSignIn', () => ({
-  signInWithPassword: vi.fn().mockResolvedValue({ success: true, value: { idToken: 'id-token' } }),
+  signInWithPassword: vi.fn().mockResolvedValue({ success: true, value: { kind: 'signed_in', idToken: 'id-token' } }),
   isPasswordSignInConfigured: () => true,
 }))
 vi.mock('@/infra/auth/firestoreLoginThrottleRepository', async () => {

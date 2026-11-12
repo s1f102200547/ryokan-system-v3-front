@@ -56,7 +56,7 @@ describe('POST /api/auth/login', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     throttle.clear()
-    mockSignIn.mockResolvedValue({ success: true, value: { idToken: 'id-token-from-rest' } })
+    mockSignIn.mockResolvedValue({ success: true, value: { kind: 'signed_in', idToken: 'id-token-from-rest' } })
     vi.mocked(isPasswordSignInConfigured).mockReturnValue(true)
     mockGetUser.mockResolvedValue({ customClaims: undefined } as never)
     mockSetCustomUserClaims.mockResolvedValue(undefined)
@@ -169,6 +169,17 @@ describe('POST /api/auth/login', () => {
     const response = await POST(makeRequest())
 
     expect(response.status).toBe(503)
+  })
+
+  // 2要素目（SMS）をつなぐまでは、今までどおり 503 で Cookie を返さない（docs/NormalOperationPlan.md の C）
+  it('2要素目が要るアカウントは、まだ 503 で Cookie を返さない', async () => {
+    mockSignIn.mockResolvedValue({ success: true, value: { kind: 'mfa_required', mfaPendingCredential: 'p', mfaEnrollmentId: 'e', phoneHint: '+81***' } })
+
+    const response = await POST(makeRequest())
+
+    expect(response.status).toBe(503)
+    expect(response.cookies.get('session')).toBeUndefined()
+    expect(mockVerifyIdToken).not.toHaveBeenCalled()
   })
 
   // request.json() を catch しておらず 500 になっていた
@@ -416,7 +427,7 @@ describe('POST /api/auth/login', () => {
       ])
 
       mockSignIn.mockClear()
-      mockSignIn.mockResolvedValue({ success: true, value: { idToken: 'id-token-from-rest' } }) // 正しいパスワードでも
+      mockSignIn.mockResolvedValue({ success: true, value: { kind: 'signed_in', idToken: 'id-token-from-rest' } }) // 正しいパスワードでも
       const response = await POST(from('203.0.113.5'))
       expect(response.status).toBe(429)
       expect(await response.json()).toEqual({ error: 'too_many_attempts', retryAfterSeconds: 1 * MIN })
@@ -442,7 +453,7 @@ describe('POST /api/auth/login', () => {
     it('成功すると、メールアドレスと IP の回数を 0 に戻す', async () => {
       wrong()
       for (let i = 0; i < 2; i++) await POST(from('203.0.113.5'))
-      mockSignIn.mockResolvedValue({ success: true, value: { idToken: 'id-token-from-rest' } })
+      mockSignIn.mockResolvedValue({ success: true, value: { kind: 'signed_in', idToken: 'id-token-from-rest' } })
       expect((await POST(from('203.0.113.5'))).status).toBe(200)
       expect(throttle.states.size).toBe(0)
     })
@@ -518,7 +529,7 @@ describe('POST /api/auth/login', () => {
       wrong()
       await POST(from('203.0.113.5', { email: 'typo1@example.com', password: 'xxx' }))
       await POST(from('203.0.113.5', { email: 'typo2@example.com', password: 'xxx' }))
-      mockSignIn.mockImplementation(() => new Promise((r) => setTimeout(() => r({ success: true, value: { idToken: 'id-token-from-rest' } }), 20)))
+      mockSignIn.mockImplementation(() => new Promise((r) => setTimeout(() => r({ success: true, value: { kind: 'signed_in', idToken: 'id-token-from-rest' } }), 20)))
       const [a, b] = await Promise.all([
         POST(from('203.0.113.5', { email: 'pc1@example.com', password: PASSWORD })),
         POST(from('203.0.113.5', { email: 'pc2@example.com', password: PASSWORD })),

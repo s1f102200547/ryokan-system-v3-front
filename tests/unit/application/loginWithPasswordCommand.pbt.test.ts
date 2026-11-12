@@ -60,7 +60,7 @@ describe('loginWithPasswordCommand（1つのメールアドレス・1つの IP�
         vi.mocked(signInWithPassword).mockReset()
         if (s.op === 'wrong') vi.mocked(signInWithPassword).mockResolvedValue({ success: false, error: { kind: 'invalid_credentials', code: 'INVALID_LOGIN_CREDENTIALS' } })
         if (s.op === 'throttled') vi.mocked(signInWithPassword).mockResolvedValue({ success: false, error: { kind: 'firebase_throttled', code: 'TOO_MANY_ATTEMPTS_TRY_LATER' } })
-        if (s.op === 'right') vi.mocked(signInWithPassword).mockResolvedValue({ success: true, value: { idToken: 't' } })
+        if (s.op === 'right') vi.mocked(signInWithPassword).mockResolvedValue({ success: true, value: { kind: 'signed_in', idToken: 't' } })
         if (s.op === 'outage') vi.mocked(signInWithPassword).mockRejectedValue(new InfraError('AUTH_UNAVAILABLE', 'down'))
 
         const actual = await loginWithPasswordCommand({ email: 'pc1@example.com', password: 'pw1', ip: '203.0.113.5', nowMs: now })
@@ -97,7 +97,7 @@ describe('loginWithPasswordCommand（1つのメールアドレス・1つの IP�
     for (let i = 0; i < 10; i++) {
       await expect(loginWithPasswordCommand({ email: 'pc1@example.com', password: 'pw1', ip: '203.0.113.5', nowMs: now + i })).rejects.toThrow(InfraError)
     }
-    vi.mocked(signInWithPassword).mockResolvedValue({ success: true, value: { idToken: 't' } })
+    vi.mocked(signInWithPassword).mockResolvedValue({ success: true, value: { kind: 'signed_in', idToken: 't' } })
     expect((await loginWithPasswordCommand({ email: 'pc1@example.com', password: 'pw1', ip: '203.0.113.5', nowMs: now + 10 })).success).toBe(true)
   })
 })
