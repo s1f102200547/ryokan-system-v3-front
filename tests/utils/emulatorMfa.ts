@@ -21,6 +21,10 @@ export async function createMfaUser(email: string, password: string): Promise<st
     emailVerified: true,
     multiFactor: { enrolledFactors: [{ factorId: 'phone', phoneNumber: EMULATOR_MFA_PHONE, displayName: 'emutest' }] },
   })
+  // Emulator はユーザーを作った秒を tokensValidAfterTime にし、それより前の auth_time のトークンを失効扱いにする。
+  // WSL の時計は約1秒戻ることがあり（2026-11-12 に開発サーバーのログの時刻が戻るのを観察）、直後のログインが auth/id-token-revoked で落ちた。
+  // 作った秒をまたいでから返す
+  await new Promise((r) => setTimeout(r, 1100))
   return user.uid
 }
 

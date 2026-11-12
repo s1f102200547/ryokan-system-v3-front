@@ -1,6 +1,7 @@
 import { test, expect, type Page, type BrowserContext } from '@playwright/test'
 import { initializeApp, getApps } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
+import { createMfaUser, loginFromUi as loginWithCode } from './mfa'
 
 // セッション Cookie の属性が、それぞれ防ぐはずのことを実際に止めていること。Cookie は本物のログイン（Auth Emulator）で受け取る。
 // 各テストには対照実験を入れる: ログインの Set-Cookie からその属性だけを外すと止まらなくなること。
@@ -22,14 +23,14 @@ test.afterAll(async () => {
 
 async function createUser(): Promise<{ email: string; uid: string }> {
   const email = `${RUN_ID}-${createdUids.length}@example.com`
-  const user = await adminAuth.createUser({ email, password: PASSWORD })
-  createdUids.push(user.uid)
-  return { email, uid: user.uid }
+  const uid = await createMfaUser(adminAuth, email, PASSWORD)
+  createdUids.push(uid)
+  return { email, uid }
 }
 
-// ログインの Set-Cookie から属性を外す（対照実験）
+// ログインの Set-Cookie から属性を外す（対照実験）。session Cookie を発行するのは2段目（SMS のコードの確認）
 async function stripCookieAttribute(context: BrowserContext, attribute: RegExp) {
-  await context.route(`${APP}/api/auth/login`, async (route) => {
+  await context.route(`${APP}/api/auth/login/verify`, async (route) => {
     const response = await route.fetch()
     const headers = { ...response.headers() }
     headers['set-cookie'] = headers['set-cookie'].replace(attribute, '')
@@ -37,13 +38,9 @@ async function stripCookieAttribute(context: BrowserContext, attribute: RegExp) 
   })
 }
 
-// 画面からログインする（ブラウザの Firebase SDK → Auth Emulator → /api/auth/login）
+// 画面からログインする（/api/auth/login → Auth Emulator の SMS → /api/auth/login/verify）
 async function loginFromUi(page: Page, email: string) {
-  await page.goto('/login')
-  await page.getByLabel('メールアドレス').fill(email)
-  await page.getByLabel('パスワード').fill(PASSWORD)
-  await page.getByRole('button', { name: 'ログイン' }).click()
-  await page.waitForURL('**/daily-dashboard**')
+  await loginWithCode(page, '/login', email, PASSWORD)
 }
 
 async function sessionCookie(context: BrowserContext) {
@@ -125,7 +122,7 @@ test.describe('SameSite=Strict: 他のサイトから、ログイン中のスタ
 })
 
 test.describe('Max-Age: ブラウザが Cookie を消す時刻を、サーバーの期限に合わせる', () => {
-  // サーバーの期限: 当日 23:00 JST まで。残りが5分未満なら5分（src/app/api/auth/login/route.ts）
+  // サーバーの期限: 当日 23:00 JST まで。残りが5分未満なら5分（src/lib/auth/loginSession.ts）
   function serverExpiry(nowMs: number): number {
     const jst = new Date(nowMs + 9 * 3600_000)
     const at23 = Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate(), 14, 0, 0)

@@ -27,9 +27,6 @@ async function createUser(label: string) {
   const email = `${RUN_ID}-${label}-${createdUids.length}@example.com`
   const uid = await createMfaUser(email, PASSWORD) // ログインには SMS の2要素目が要る
   createdUids.push(uid)
-  // Emulator はユーザーを作った秒を tokensValidAfterTime にする。WSL の時計は1秒近く戻ることがあり（2026-11-12 に Date.now が
-  // 約 0.7 秒戻るのを観察）、直後のログインの auth_time がそれより前になると auth/id-token-revoked で落ちる。作った秒をまたいでからログインする
-  await nextSecond()
   return { email, uid }
 }
 

@@ -1,8 +1,9 @@
 import { test, expect, type Page } from '@playwright/test'
 import { initializeApp, getApps } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
+import { createMfaUser, loginFromUi as loginWithCode } from './mfa'
 
-// 1アカウント1セッション（src/app/api/auth/login/route.ts がクレームに最後のログインの時刻を書き、src/lib/auth/verifySession.ts が比べる）。
+// 1アカウント1セッション（src/lib/auth/loginSession.ts がクレームに最後のログインの時刻を書き、src/lib/auth/verifySession.ts が比べる）。
 // 2つのブラウザ（別の PC のつもり）で同じアカウントに入ると、先に入っていた方が次の操作でログイン画面に移る
 
 const APP = 'http://127.0.0.1:3200'
@@ -21,17 +22,12 @@ test.afterAll(async () => {
 
 async function createUser(): Promise<string> {
   const email = `${RUN_ID}-${createdUids.length}@example.com`
-  const user = await adminAuth.createUser({ email, password: PASSWORD })
-  createdUids.push(user.uid)
+  createdUids.push(await createMfaUser(adminAuth, email, PASSWORD))
   return email
 }
 
 async function loginFromUi(page: Page, email: string) {
-  await page.goto(`${APP}/login`)
-  await page.getByLabel('メールアドレス').fill(email)
-  await page.getByLabel('パスワード').fill(PASSWORD)
-  await page.getByRole('button', { name: 'ログイン' }).click()
-  await page.waitForURL('**/daily-dashboard**')
+  await loginWithCode(page, `${APP}/login`, email, PASSWORD)
 }
 
 test('同じアカウントに別のブラウザで入ると、先のブラウザは次の操作でログイン画面に移る', async ({ browser }) => {
