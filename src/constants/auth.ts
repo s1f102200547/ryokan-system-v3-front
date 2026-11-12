@@ -29,3 +29,15 @@ export const LOGIN_PASSWORD_MAX_LENGTH = 256
 export const LOGIN_PENDING_TTL_MS = 15_000
 // 試行中の札が埋まっているとき（同時の試行）、ブラウザに「少し待ってもう一度」と返す時間
 export const LOGIN_BUSY_RETRY_MS = 1_000
+
+// SMS の2要素目（docs/NormalOperationPlan.md の C）。
+// コードの桁数。ログイン画面の入力欄と verify API の Zod で同じ値を使う
+export const MFA_CODE_LENGTH = 6
+// パスワードが合ってから、コードを打ち終えるまでの時間。途中の状態（Firestore の mfaPending）と Cookie の寿命
+export const MFA_PENDING_TTL_MS = 5 * MINUTE_MS
+// 途中の状態の ID を運ぶ Cookie。ログイン API と verify API にだけ送られる
+export const MFA_PENDING_COOKIE = 'mfa_pending'
+export const MFA_PENDING_COOKIE_PATH = '/api/auth/login'
+// 1アカウントが1日（JST）に送れる SMS の数。セッションは毎日 23:00 に切れるので、普段は1日1通。
+// 不正な大量送信（SMS pumping）で料金を取られないための上限。超えたら 429 と Slack
+export const MFA_SMS_DAILY_LIMIT = 10
