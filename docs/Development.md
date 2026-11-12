@@ -11,7 +11,7 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 
 - 必要なもの: Node（CI・Docker は 24）、Java（Firestore Emulator）、`firebase-tools`（グローバル。依存には入れていない）
 - 開発サーバー http://127.0.0.1:3000、Emulator UI http://127.0.0.1:4000、Firestore 8080、Auth 9099。すべて `127.0.0.1` に bind する（`firebase.json`, `package.json` の `dev`）
-- ログイン: `dev@example.com` / `dev-password`（Emulator 専用。`scripts/localdev/constants.ts`）
+- ログイン: `dev@example.com` / `dev-password`（Emulator 専用。`scripts/localdev/constants.ts`）。続けて SMS のコードを求められるので、別の端末で `make mfa-code` を実行して出た6桁を入れる（Emulator は SMS を送らず、ターミナルと Emulator の REST にコードを出す。使ったコードは消える）
 - 投入データ: `.localdev/data/` に匿名化データがあればそれ、なければ `tests/fixtures/localdev/` の人工データ。人工データには本番によくある崩れ（型違い、`""` と `null`、壊れた日付、長さ違いの配列）をわざと入れてある
 - Emulator は止めるとデータが消える。`make seed` で入れ直す（全消去してから入れる）
 - 別々に起動するとき: `make emulators` と `make dev`（別の端末で `make seed`）
@@ -27,7 +27,29 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 
 本番の Admin SDK は ADC（Cloud Run の実行用サービスアカウント）で認証する。鍵ファイルは使わない。
 
-ブラウザは Firebase を呼ばないので、`NEXT_PUBLIC_FIREBASE_*` の変数はない。パスワードの確認（`src/infra/auth/passwordSignIn.ts`）は、本番では `FIREBASE_AUTH_API_KEY`（Identity Toolkit API だけに絞った API キー。Secret Manager から Cloud Run に渡す）を使う。Emulator に接続しているときは、Auth Emulator がキーを見ないのでダミーの値を使い、設定は要らない。本番で設定がなければ、ログインが 503 になり Slack に通知される（起動は止めない。CI の ZAP は本番ビルドを環境変数なしで起動するため）。
+ブラウザは Firebase を呼ばないので、`NEXT_PUBLIC_FIREBASE_*` の変数はない。パスワードと SMS のコードの確認（`src/infra/auth/identityToolkit.ts`）は、本番では `FIREBASE_AUTH_API_KEY`（Identity Toolkit API だけに絞った API キー。Secret Manager から Cloud Run に渡す）を使う。Emulator に接続しているときは、Auth Emulator がキーを見ないのでダミーの値を使い、設定は要らない。本番で設定がなければ、ログインが 503 になり Slack に通知される（起動は止めない。CI の ZAP は本番ビルドを環境変数なしで起動するため）。
+
+### SMS の2要素目（MFA）
+
+ログインは「パスワード（`/api/auth/login`）→ SMS のコード（`/api/auth/login/verify`）」の2段（[Domain.md](Domain.md) の API）。2要素目を通っていないトークンには Session Cookie を出さないので、**電話を登録していないアカウントはログインできない**。
+
+- 開発: `npm run seed` が開発用ユーザーに架空の番号 `+15555550100` を登録する。コードは `make mfa-code`
+- テスト: Emulator のテストは `tests/utils/emulatorMfa.ts`（Vitest）と `e2e/emulator/mfa.ts`（Playwright）で、電話を登録したユーザーを作り、コードを Emulator の REST から読む。Emulator はユーザーを作った秒を `tokensValidAfterTime` にするので、どちらもユーザーを作った後に1秒待つ（WSL の時計が約1秒戻ることがあり、直後のログインが `auth/id-token-revoked` で落ちた）
+- 登録（本番。**人だけが実行する**）: `scripts/mfa/enrollPhone.ts`。ADC（`gcloud auth application-default login`）で、`--project` は必ず指定する。書き込みの前に確認を求める。電話番号は +81 だけ、画面には末尾4桁だけ出す
+  ```bash
+  npm run mfa:enroll -- --project <project ID> --list                                  # 全アカウントの登録状況
+  npm run mfa:enroll -- --project <project ID> --email <PC のアカウント> --phone +81...  # 登録（置き換え）
+  npm run mfa:enroll -- --project <project ID> --email <PC のアカウント> --remove        # 解除（ログインできなくなる）
+  ```
+- 電話をなくした・電池が切れた: その間はログインできない。新しい電話の番号で全アカウントを登録し直す（`--phone`。置き換わる）
+- 本番の準備（コードの外）: Identity Platform への切り替え（SMS の MFA に必要。課金が変わる）、SMS の地域を日本だけにする、MFA（SMS）の有効化、Firestore の TTL ポリシー（`mfaPending.expireAt`・`mfaSmsQuota.expireAt`）。`mfaSignIn:start` に reCAPTCHA の token を求められたら、ログインが 503 になり Slack に `MFA sign-in start failed: MISSING_RECAPTCHA_TOKEN` などと出る（その場合は [NormalOperationPlan.md](NormalOperationPlan.md) の reCAPTCHA の段）
+
+本番への切り替え（23:00〜6:00 の時間外に、一度に行う）:
+
+1. Identity Platform と SMS の MFA を有効にする（済みなら省く）
+2. このコードをデプロイする（この時点で全アカウントがログインできなくなるが、時間外なので使われない）
+3. `--phone` で全アカウントに登録し、`--list` で確かめる
+4. 6:00 以降に1台でログインして確かめる。だめなら前のリビジョンに戻し、`--remove` で登録を外す（前のコードは2要素目が要るアカウントを 503 にする）
 
 ### 本番データの匿名化（人だけが実行する）
 
@@ -47,11 +69,11 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 | Fuzz | `tests/integration/fuzz/` | 同上 | 全 Route に壊れた入力を送り、5xx を返さない・Slack に通知しないこと |
 | PBT | `tests/pbt/` | 同上 | fast-check。読み取りの正規化、更新の検証、部屋の状態の性質 |
 | 時刻・TZ | `tests/time/` | `npm run test:tz` | JST の境界（0:00〜9:00 は UTC で前日、6:00 / 23:00 は時間帯制限）。TZ=UTC / Asia/Tokyo / America/Los_Angeles で3回 |
-| Emulator | `tests/emulator/` | `npm run test:emulator` | Route → Firestore Emulator に書いて読み戻す往復、状態遷移、Rules の全拒否、Emulator 上の fuzz、Session Cookie の失効（Auth Emulator のユーザーで本物のログイン API を通す） |
+| Emulator | `tests/emulator/` | `npm run test:emulator` | Route → Firestore Emulator に書いて読み戻す往復、状態遷移、Rules の全拒否、Emulator 上の fuzz、Session Cookie の失効（Auth Emulator のユーザーで本物のログイン API を通す）、SMS の2要素目の本物の流れ（パスワード → SMS → コード → Cookie、コードの誤りの回数、接続元の違い） |
 | E2E | `e2e/` | `npm run e2e` | ログイン、ルーティング、ダッシュボード、予約の編集、宿泊税。重要なフローに絞る |
 | E2E（本番ビルド） | `e2e/prod/` | `npm run e2e:prod` | セキュリティヘッダー・CSP が、防ぐはずのこと（外への送信、埋め込み、注入した script、他のサイトからの読み込み・操作、カメラなど）を実際に止めること。各テストに対照実験（そのヘッダーだけを外すと止まらない）を置く |
 | 表示までの時間 | `e2e/perf/` | `npm run perf` | ゲストカードが出るまでの時間を場面ごとに測る（合否なし）。下の「表示までの時間を測る」 |
-| E2E（Emulator） | `e2e/emulator/` | `npm run e2e:emulator` | 本物のログイン（Auth Emulator）で受け取ったセッション Cookie の HttpOnly・SameSite=Strict・Max-Age が目的どおりに働くこと（属性を外す対照実験つき）。失効・無効化のあと、Cookie が残っていても画面がログインに戻ること |
+| E2E（Emulator） | `e2e/emulator/` | `npm run e2e:emulator` | 本物のログイン（Auth Emulator）で受け取ったセッション Cookie の HttpOnly・SameSite=Strict・Max-Age が目的どおりに働くこと（属性を外す対照実験つき）。失効・無効化のあと、Cookie が残っていても画面がログインに戻ること。画面から SMS のコードを入れてログインすること、コードを3回間違えると止まること |
 
 - Vitest の既定の設定（`vitest.config.ts`）は Emulator の接続先を **到達できないアドレス**（`127.0.0.1:1`）にしている。誤って Firestore を呼んだテストはすぐ失敗し、本番にも届かない
 - 「今日」は `tests/utils/routeTestHelper.ts` の `setupFakeToday()` で 2026-05-20（JST）に固定する。JST の時刻を指定するときは `tests/utils/timeHelper.ts` の `setNowJST`

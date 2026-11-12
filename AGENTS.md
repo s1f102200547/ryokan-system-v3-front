@@ -13,7 +13,7 @@
 
 ## 前提（コードからは読み取れないこと）
 
-- 利用者は旅館スタッフ約10名、PC 4〜5台。Firebase Auth のアカウントは **人ではなく PC 単位**。新規登録は無効、ロールなし（ログインできれば全機能を使える）。人単位の認可・監査は作らない。ログインの MFA は SMS で PC のアカウントごとに入れる予定（[docs/SecurityImplementation.md](docs/SecurityImplementation.md) の 2）
+- 利用者は旅館スタッフ約10名、PC 4〜5台。Firebase Auth のアカウントは **人ではなく PC 単位**。新規登録は無効、ロールなし（ログインできれば全機能を使える）。人単位の認可・監査は作らない。ログインは パスワード → フロントの電話への SMS のコード の2段（PC のアカウントごとに電話を登録。登録は `scripts/mfa/enrollPhone.ts` を人が実行する。[docs/Development.md](docs/Development.md)「SMS の2要素目」）
 - 利用時間は 6:00〜23:00 JST。本番はこの時間外に画面もログインも使えない
 - **Firestore は別リポジトリ `gmail-listener`（予約メールの取り込み）と共有している。** `guestInfoV2` の大半はそちらが書く。フィールド名・形式を変えると向こうが壊れる（[docs/Domain.md](docs/Domain.md)「予約の作成元」）
 - 本番 DB には過去のシステムが書いた **形の崩れたデータ** が残っている。読み取りは「壊れていても落ちない」ことを前提に書かれている
@@ -22,7 +22,7 @@
 ## コマンド
 
 ```bash
-make                 # Emulator 起動 → データ投入 → 開発サーバー（http://127.0.0.1:3000、dev@example.com / dev-password）
+make                 # Emulator 起動 → データ投入 → 開発サーバー（http://127.0.0.1:3000、dev@example.com / dev-password、SMS のコードは make mfa-code）
 npm run lint
 npx tsc --noEmit
 npm run test -- --run  # unit / integration / PBT / fuzz（Vitest。Emulator 不要）
@@ -68,7 +68,7 @@ Next.js 16.4（App Router）/ React 19.3 / MUI 9.5 + X Date Pickers 9.16 / Emoti
 | `src/constants/` | 定数（部屋、時刻の許容値、上限値、営業時間）。純粋 TS | — |
 | `src/types/` | 共有型。`Reservation`, `ReservationPatch`, `InfraError`, `Result` | — |
 
-既存の例外（真似してよい）: 単純な読み書き（`daily/*`、`reservations/[id]/a-tax`）は Route から infra を直接呼ぶ。ログイン API は `adminAuth` を直接使う。
+既存の例外（真似してよい）: 単純な読み書き（`daily/*`、`reservations/[id]/a-tax`）は Route から infra を直接呼ぶ。ログイン API（`auth/login`・`auth/login/verify`）は `requireSession` を使わず（ログイン前）、`adminAuth` を直接使う（`lib/auth/loginSession.ts`）。
 
 ## 実装ルール
 
@@ -108,7 +108,7 @@ Next.js 16.4（App Router）/ React 19.3 / MUI 9.5 + X Date Pickers 9.16 / Emoti
 3. **泊別配列の長さ = 泊数**（`dinner_time`, `dinner_info`, `breakfast_time`, `open_air_bath_time`, `timetable_info`）、`age_groups` の長さ = 大人の人数。C/O 日や人数を変える更新は配列も一緒に送る。検査は `validateReservationPatch` を **トランザクションの中で** DB の今の値に対して行う
 4. **起動ガード**: development / test は Emulator と `demo-*` project にだけ接続し、本番の鍵があれば起動しない。production は Emulator 系の変数があれば起動しない（`src/instrumentation.ts`, `src/lib/firebase/runtimeEnvGuard.ts`）。外さない・緩めない。開発サーバーと Emulator は `127.0.0.1` に bind
 5. **セキュリティの境界は各 Route Handler の `requireSession`**。`proxy.ts` の Cookie 有無の確認は画面遷移のためで、境界ではない。新しい API には必ず `requireSession` を入れる
-6. **ブラウザから Firebase を呼ばない**（`firestore.rules` は全拒否。CSP の `connect-src` は `'self'` だけ）。ログインもブラウザはメールアドレスとパスワードを `/api/auth/login` に送るだけで、サーバーが REST で確かめる（失敗回数を数えるため）。`src/` からの `firebase` パッケージの import は ESLint で禁止
+6. **ブラウザから Firebase を呼ばない**（`firestore.rules` は全拒否。CSP の `connect-src` は `'self'` だけ）。ログインもブラウザはメールアドレスとパスワードを `/api/auth/login` に、SMS のコードを `/api/auth/login/verify` に送るだけで、サーバーが REST で確かめる（失敗回数を数えるため）。Session Cookie は2要素目を通ったトークンにだけ出す（`lib/auth/secondFactor.ts`）。`src/` からの `firebase` パッケージの import は ESLint で禁止
 7. **CSP は nonce ベース**（`src/lib/csp.ts`、`proxy.ts`）。外部の API・画像・フォント・iframe・analytics を足すときは CSP と COEP/CORP を変える必要がある。`tests/unit/lib/csp.test.ts` が本番の CSP を固定している
 8. **本番データ・本物の認証情報をコード・テスト・ログ・会話に入れない**。`npm run anonymize` / `make anonymize`（本番を読む）は **AI エージェントは実行しない**
 
