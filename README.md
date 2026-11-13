@@ -101,7 +101,6 @@ flowchart LR
 |---|---|
 | 毎週月曜 | **Dependabot**（npm・Actions・Docker）。`development` 宛ての PR で CI を通してから本番へ。公開から7日たった版だけ |
 | 毎週月曜 | **ZAP full scan**。本番ビルドを未ログインで、Emulator 環境をログイン済みで、全 API を攻撃する |
-| PR ごと | **ZAP Baseline**（`/login` の受け身の検査） |
 
 実際に悪用されている脆弱性（CISA KEV など）だけは、7日を待たずに上げてすぐデプロイする。
 
