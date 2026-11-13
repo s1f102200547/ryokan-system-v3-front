@@ -41,3 +41,15 @@ export const MFA_PENDING_COOKIE_PATH = '/api/auth/login'
 // 1アカウントが1日（JST）に送れる SMS の数。セッションは毎日 23:00 に切れるので、普段は1日1通。
 // 不正な大量送信（SMS pumping）で料金を取られないための上限。超えたら 429 と Slack
 export const MFA_SMS_DAILY_LIMIT = 10
+
+// reCAPTCHA Enterprise。Identity Platform は、SMS を送る前にブラウザで作った token を求める（API キーだけ・管理者のトークンでは
+// 断られる。2026-11-12 のスパイク）。ログイン画面だけが読み込み、CSP も /login だけ広げる（src/lib/csp.ts）。
+// サイトキーは Cloud Run の環境変数 RECAPTCHA_SITE_KEY（公開の値）。設定がなければ（開発・Emulator）reCAPTCHA を使わない
+export const RECAPTCHA_ENTERPRISE_SCRIPT_URL = 'https://www.google.com/recaptcha/enterprise.js'
+// reCAPTCHA が作る iframe と、それが呼ぶ先（CSP の frame-src・connect-src に足す）
+export const RECAPTCHA_FRAME_SOURCES = ['https://www.google.com/recaptcha/', 'https://recaptcha.google.com/recaptcha/'] as const
+export const RECAPTCHA_CONNECT_SOURCES = ['https://www.google.com/recaptcha/'] as const
+// Identity Platform が SMS の2要素目の token に求める action の名前
+export const MFA_RECAPTCHA_ACTION = 'mfaSmsSignIn'
+// token の長さの上限（実物は 2,000 文字前後）。ログイン API の Zod で使う
+export const RECAPTCHA_TOKEN_MAX_LENGTH = 4096

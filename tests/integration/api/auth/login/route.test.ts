@@ -82,7 +82,7 @@ describe('POST /api/auth/login', () => {
     const response = await POST(makeRequest())
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ mfaRequired: true, phoneHint: '+81*******1234' })
-    expect(startPhoneMfa).toHaveBeenCalledWith('pending-cred-must-not-leak', 'phone-1')
+    expect(startPhoneMfa).toHaveBeenCalledWith('pending-cred-must-not-leak', 'phone-1', null) // 開発・Emulator は token なし
     expect(response.cookies.get('session')).toBeUndefined()
     expect(mockVerifyIdToken).not.toHaveBeenCalled()
     expect(mockCreateSessionCookie).not.toHaveBeenCalled()
@@ -126,6 +126,41 @@ describe('POST /api/auth/login', () => {
     expect(startPhoneMfa).not.toHaveBeenCalled()
     expect(mockCreateSessionCookie).not.toHaveBeenCalled()
     expect(vi.mocked(notifySlackFireAndForget).mock.calls[0][0]).toMatch(/^\[ログイン拒否\] pc1@example\.com \/ SMS の2要素目が未登録のアカウント \/ /)
+  })
+
+  // 本番の Identity Platform は、SMS の前にブラウザで作った reCAPTCHA Enterprise の token を求める
+  describe('reCAPTCHA の token', () => {
+    it('body の recaptchaToken を、そのまま SMS の送信に渡す', async () => {
+      expect((await POST(makeRequest({ ...VALID, recaptchaToken: 'token-from-browser' }))).status).toBe(200)
+      expect(startPhoneMfa).toHaveBeenCalledWith('pending-cred-must-not-leak', 'phone-1', 'token-from-browser')
+    })
+
+    it.each([
+      ['空', ''],
+      ['長すぎる（4097 文字）', 't'.repeat(4097)],
+      ['文字列でない', 123],
+    ])('token が%sなら 400（パスワードを確かめず、数えない）', async (_label, recaptchaToken) => {
+      expect((await POST(makeRequest({ ...VALID, recaptchaToken }))).status).toBe(400)
+      expect(mockSignIn).not.toHaveBeenCalled()
+      expect(throttle.states.size).toBe(0)
+    })
+
+    it('Google が token を断ったら 403 recaptcha_failed。途中の状態の Cookie なし、Slack に拒否（数えない）', async () => {
+      vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'recaptcha_rejected', code: 'INVALID_RECAPTCHA_TOKEN' } })
+      const response = await POST(makeRequest({ ...VALID, recaptchaToken: 'stale-token' }))
+      expect(response.status).toBe(403)
+      expect(await response.json()).toEqual({ error: 'recaptcha_failed' })
+      expect(response.headers.get('set-cookie')).toBeNull()
+      expect(vi.mocked(notifySlackFireAndForget).mock.calls[0][0]).toMatch(/^\[ログイン拒否\] pc1@example\.com \/ reCAPTCHA の確認で断られた/)
+      expect([...throttle.states.values()].every((st) => st.failures === 0)).toBe(true)
+    })
+
+    it('token はログにも Slack にも出ない', async () => {
+      vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'recaptcha_rejected', code: 'INVALID_RECAPTCHA_TOKEN' } })
+      await POST(makeRequest({ ...VALID, recaptchaToken: 'token-must-not-leak-77' }))
+      const everything = JSON.stringify([vi.mocked(logger.info).mock.calls, vi.mocked(logger.warn).mock.calls, vi.mocked(notifySlackFireAndForget).mock.calls])
+      expect(everything).not.toContain('token-must-not-leak-77')
+    })
   })
 
   describe('SMS の送信', () => {

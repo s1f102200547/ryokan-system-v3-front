@@ -41,5 +41,7 @@ export default defineConfig({
     // 既に動いているサーバー（古いビルド）でテストしないよう、毎回ビルドし直す。ポートが使われていれば失敗する
     reuseExistingServer: false,
     timeout: 300_000,
+    // ログイン画面が reCAPTCHA Enterprise を使う状態にする（e2e/prod/recaptcha.spec.ts。Google の script はテストの中で偽物に差し替える）
+    env: { RECAPTCHA_SITE_KEY: 'e2e-site-key-000000000000000000' },
   },
 })

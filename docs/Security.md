@@ -114,6 +114,7 @@
 - API キーのサーバー専用化: パスワードの確認に使う API キー（`FIREBASE_AUTH_API_KEY`）はサーバーだけが持つ（Secret Manager から Cloud Run に渡す）
 - ログインの失敗回数の制限: メールアドレスごと・IP（`X-Forwarded-For` の右端）ごとに数え、3回で1分、4回で5分、5回で15分、6回以降は1時間止める。止めている間は Firebase に送らず 429。存在しないメールアドレスも同じに数える。確かめる前に「試行中の札」を出す（止まっていないかの確認と札を1つのトランザクションで行う）。札は次に止める段までの残りの回数までしか出さないので、同時に送って制限をすり抜けられない。札が埋まっていれば「少し待って」の 429（画面が自動で送り直す）。確定した失敗はパスワードか SMS のコードが違ったときと Firebase 自身が止めたときだけ増え、SMS のコードが合ったときだけ 0 に戻る（パスワードが合っただけで戻すと、パスワードを知る攻撃者がコードを無限に試せる）。札は確かめ終わったら外し、外し忘れても15秒で消える。止まっているときは、トランザクションの前の普通の読み取りで 429 にする。回数は Firestore の `loginThrottle`（ID は値の SHA-256）。止め始めたら Slack に通知
 - SMS による MFA: パスワードが合った後、サーバーが Identity Platform の REST（`accounts/mfaSignIn:start`・`finalize`）でフロントの電話に SMS を送り、コードを確かめる。Session Cookie は、2要素目を通った ID トークン（`firebase.sign_in_second_factor === 'phone'`）にだけ発行する（電話を登録していないアカウントは 403。Slack に `[ログイン拒否]`）。途中の状態（`mfaPendingCredential`・`sessionInfo`）はブラウザに渡さず Firestore の `mfaPending` に5分だけ置き、ブラウザには推測できない ID を HttpOnly・SameSite=Strict の Cookie で渡す。コードはパスワードのときと同じ接続元からだけ受け付ける。SMS は端末・ブラウザの確認を通った後にだけ送り、1アカウント1日10通まで（超えたら 429 と Slack の `[SMS 上限]`）。電話の登録は `scripts/mfa/enrollPhone.ts`（画面は作らない）
+- SMS の送信の前の reCAPTCHA Enterprise: Identity Platform の SMS defense（ENFORCE）により、ブラウザで作った token がなければ SMS を送らない（SMS pumping の対策）。点数で判断し、画像の問題は出さない。token を作るのはログイン画面だけで、ログイン画面だけ CSP に Google の reCAPTCHA の iframe（`frame-src`）と通信（`connect-src`）を足し、COEP を付けない（Google の iframe が COEP を返さないため。ログイン画面には宿泊客の情報がない）。script は `'strict-dynamic'` のまま（こちらの script が足した `enterprise.js` だけが動く）
 - ログイン API での入力の確認: メールアドレスはブラウザの `type="email"` と同じ形式で3〜254文字、パスワードは3〜256文字、SMS のコードは半角数字6桁。外れれば 400（Firebase に送らず、失敗としても数えない）。ログイン画面の入力欄も同じ値（`src/constants/auth.ts`）
 - セッション Cookie の、JavaScript からの読み取りと他サイトからの送信の禁止（Emulator の E2E で、属性を外すと読める・送られることの対照実験つきで確認。Secure は本番だけで付くことを integration で確認）
 - セッションの期限の、当日の 23:00 まで（22:55 以降のログインは Firebase の最低値の 5 分後まで）への限定
@@ -133,7 +134,7 @@
 
 ### 条件待ち
 
-- SMS による MFA の本番での有効化：コードは実装済み。Identity Platform への切り替え、SMS の地域を日本だけにする設定、本番で `mfaSignIn:start` に reCAPTCHA の token が要るかのスパイク、`mfaPending.expireAt`・`mfaSmsQuota.expireAt` の TTL ポリシー、全アカウントへの電話の登録の後に、夜間に切り替える（[Development.md](Development.md)「SMS の2要素目」）
+- SMS による MFA の本番での有効化：コードは実装済み（reCAPTCHA Enterprise を含む）。Identity Platform への切り替え、SMS の地域を日本だけにする設定、reCAPTCHA Enterprise（Fraud Defense）の設定とサイトキー、GitHub の Variables への `RECAPTCHA_SITE_KEY` の登録、`mfaPending.expireAt`・`mfaSmsQuota.expireAt` の TTL ポリシー、全アカウントへの電話の登録の後に、夜間に切り替える（[Development.md](Development.md)「SMS の2要素目」）
 - デプロイ用の secrets の、Environment `production` への移動：GitHub Pro で可能になった（未着手）
 - WIF の属性条件への、Environment `production` の追加：Environment の作成後
 - ルールセットと Environment の保護が効いていることの確認：Environment の作成後

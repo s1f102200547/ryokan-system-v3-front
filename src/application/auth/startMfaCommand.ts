@@ -17,16 +17,17 @@ type StartMfaInput = {
   mfaPendingCredential: string
   mfaEnrollmentId: string
   phoneHint: string
+  recaptchaToken: string | null // ログイン画面が作った reCAPTCHA Enterprise の token（開発・Emulator では null）
   nowMs: number
 }
 
-// sms_limit: 今日の上限を超えた / sms_throttled: Firebase 自身が SMS の送信を止めた
-export type StartMfaFailure = { kind: 'sms_limit' } | { kind: 'sms_throttled'; retryAfterMs: number }
+// sms_limit: 今日の上限を超えた / sms_throttled: Firebase 自身が SMS の送信を止めた / recaptcha_rejected: reCAPTCHA の token を断られた
+export type StartMfaFailure = { kind: 'sms_limit' } | { kind: 'sms_throttled'; retryAfterMs: number } | { kind: 'recaptcha_rejected' }
 
 // パスワードが合った後に、登録済みの電話へ SMS を送り、途中の状態を保存する。返す pendingId は Cookie で運ぶ（推測できない乱数）。
 // 呼ぶのは、パスワードと端末・ブラウザの確認を通った後だけ（条件に合わない端末には送らない）
 export async function startMfaCommand(input: StartMfaInput): Promise<Result<{ pendingId: string; phoneHint: string }, StartMfaFailure>> {
-  const { email, ip, forwardedFor, mfaPendingCredential, mfaEnrollmentId, phoneHint, nowMs } = input
+  const { email, ip, forwardedFor, mfaPendingCredential, mfaEnrollmentId, phoneHint, recaptchaToken, nowMs } = input
 
   // 送る前に数える（送ってから数えると、同時に送られたときに上限を超える）
   const quota = await firestoreSmsQuotaRepository.consume(email, getTodayJST())
@@ -36,7 +37,11 @@ export async function startMfaCommand(input: StartMfaInput): Promise<Result<{ pe
     return { success: false, error: { kind: 'sms_limit' } }
   }
 
-  const started = await startPhoneMfa(mfaPendingCredential, mfaEnrollmentId)
+  const started = await startPhoneMfa(mfaPendingCredential, mfaEnrollmentId, recaptchaToken)
+  if (!started.success && started.error.kind === 'recaptcha_rejected') {
+    logger.warn('ログイン: reCAPTCHA の token を断られた', { code: started.error.code })
+    return { success: false, error: { kind: 'recaptcha_rejected' } }
+  }
   if (!started.success) {
     logger.warn('ログイン: Firebase が SMS の送信を止めた', { code: started.error.code })
     return { success: false, error: { kind: 'sms_throttled', retryAfterMs: FIREBASE_THROTTLED_RETRY_MS } }

@@ -48,7 +48,7 @@
 
 | メソッド・パス | 内容 | 主な実装 |
 |---|---|---|
-| `POST /api/auth/login` | ログインの1段目。`{ email, password }`（メールアドレスの形式で3〜254文字、パスワードは3〜256文字。外れれば 400）をサーバーが Firebase Auth の REST で確かめ、合っていればフロントの電話に SMS のコードを送る（`mfaSignIn:start`）。200 `{ mfaRequired: true, phoneHint }`（伏せ字の番号）と、途中の状態の Cookie `mfa_pending`（HttpOnly・SameSite=Strict・Path=`/api/auth/login`・5分）。Session Cookie はまだ出さない。違えば 401 `invalid_credentials`、失敗が続いたメールアドレス・IP は 429 `too_many_attempts`、同時の試行の結果待ちは 429 `attempt_in_progress`（画面が自動で送り直す）。どちらも `retryAfterSeconds` と `Retry-After`。1アカウントの SMS が今日（JST）10通を超えたら 429 `sms_limit`。本番の時間外は 403 `outside_business_hours`。Windows の Chrome・Edge 以外は 403 `client_not_allowed`（SMS は送らない）。電話を登録していないアカウントは 403 `mfa_not_enrolled`。再送は同じ body をもう一度送る | route 内 → `loginWithPasswordCommand`・`startMfaCommand` |
+| `POST /api/auth/login` | ログインの1段目。`{ email, password, recaptchaToken? }`（メールアドレスの形式で3〜254文字、パスワードは3〜256文字、`recaptchaToken` は reCAPTCHA Enterprise の token で1〜4096文字。外れれば 400）をサーバーが Firebase Auth の REST で確かめ、合っていればフロントの電話に SMS のコードを送る（`mfaSignIn:start`）。200 `{ mfaRequired: true, phoneHint }`（伏せ字の番号）と、途中の状態の Cookie `mfa_pending`（HttpOnly・SameSite=Strict・Path=`/api/auth/login`・5分）。Session Cookie はまだ出さない。違えば 401 `invalid_credentials`、失敗が続いたメールアドレス・IP は 429 `too_many_attempts`、同時の試行の結果待ちは 429 `attempt_in_progress`（画面が自動で送り直す）。どちらも `retryAfterSeconds` と `Retry-After`。1アカウントの SMS が今日（JST）10通を超えたら 429 `sms_limit`。本番の時間外は 403 `outside_business_hours`。Windows の Chrome・Edge 以外は 403 `client_not_allowed`（SMS は送らない）。電話を登録していないアカウントは 403 `mfa_not_enrolled`。Google が reCAPTCHA の token を断ったら 403 `recaptcha_failed`（SMS は送らない。数えない）。再送は token を作り直して同じ body をもう一度送る | route 内 → `loginWithPasswordCommand`・`startMfaCommand` |
 | `POST /api/auth/login/verify` | ログインの2段目。`{ code }`（半角数字6桁。外れれば 400）と Cookie `mfa_pending` のコードを確かめ（`mfaSignIn:finalize`）、2要素目を通った ID トークン（`firebase.sign_in_second_factor === 'phone'`）だけに Session Cookie を発行（期限は当日 23:00 JST、最短5分）。コードが違えば 401 `invalid_code`（打ち直せる。パスワードの誤りと同じ表で数える）、途中の状態がない・期限切れ・パスワードのときと接続元が違えば 401 `mfa_expired`（パスワードからやり直す）、2要素目を通っていなければ 403 `no_second_factor`、そのほかの 429・403 は1段目と同じ。同じアカウントの前のセッションは、次の API から 401（1アカウント1セッション。Firebase のユーザーのカスタムクレーム `sessionAuthTime` を使う） | route 内 → `verifyMfaCodeCommand`、`lib/auth/loginSession.ts` |
 | `GET /api/guest-info?date=` | 対象日の `normal` / `staying` / `cancelled` / `roomConflicts` | `getGuestInfoUseCase` |
 | `GET /api/timetable?date=` | タイムテーブル印刷用 | `getTimetableUseCase` |
@@ -203,7 +203,7 @@
 | 部屋未割り当ての予約 | ダッシュボードには出るが、タイムテーブル（到着・夕食・朝食）と清掃ボードには出ない | 当日までに部屋を割り当てる運用。割り当て忘れると厨房の人数から漏れる |
 | 時間帯制限 | 本番はログイン API（1段目・2段目）だけが時間外に 403。ほかの API は時間で制限しない | Session Cookie が 23:00 に切れる |
 | 書き込みの日付の範囲 | 実在日かつ今日 −100〜+365 日 | 画面から範囲外を開けないので実害はなく、年の打ち間違いを止められる |
-| Slack 通知 | 障害（`[ALERT]`）、手動の追加・キャンセル・復活の記録、ログインの成功（`[ログイン]`）、パスワードが合った後の拒否（`[ログイン拒否]`: 端末・ブラウザ、電話の未登録、2要素目のないトークン、接続元の違い）、失敗が続いて止め始めたこと（`[ログイン制限]`）、1日の SMS の上限（`[SMS 上限]`、1日1回）だけ | 入力の誤り（4xx）、ログイン失敗、壊れたデータは通知しない（通知が多いと本物の障害が埋もれる） |
+| Slack 通知 | 障害（`[ALERT]`）、手動の追加・キャンセル・復活の記録、ログインの成功（`[ログイン]`）、パスワードが合った後の拒否（`[ログイン拒否]`: 端末・ブラウザ、電話の未登録、2要素目のないトークン、接続元の違い）、失敗が続いて止め始めたこと（`[ログイン制限]`）、1日の SMS の上限（`[SMS 上限]`、1日1回）だけ。`[ログイン拒否]` には reCAPTCHA で断られたことも入る | 入力の誤り（4xx）、ログイン失敗、壊れたデータは通知しない（通知が多いと本物の障害が埋もれる） |
 
 ## 既知の問題（未対応）
 

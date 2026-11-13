@@ -10,18 +10,25 @@ import type { Result } from '@/types/result'
 const StartSchema = z.object({ phoneResponseInfo: z.object({ sessionInfo: z.string().min(1) }) })
 const FinalizeSchema = z.object({ idToken: z.string().min(1) })
 
-// throttled: Firebase 自身が SMS の送信やコードの確認を止めた（同じ電話への送りすぎなど）
-export type StartPhoneMfaFailure = { kind: 'throttled'; code: string }
+// throttled: Firebase 自身が SMS の送信やコードの確認を止めた（同じ電話への送りすぎなど）/
+// recaptcha_rejected: ブラウザが作った reCAPTCHA の token を断った（期限切れ・使い回し・別のサイトで作った token）
+export type StartPhoneMfaFailure = { kind: 'throttled' | 'recaptcha_rejected'; code: string }
 
 // SMS を送る。返す sessionInfo を finalize に渡す。
-// reCAPTCHA の token を求められたとき（MISSING_RECAPTCHA_TOKEN・INVALID_APP_CREDENTIAL など）は、設定の問題なので障害（503・Slack）
+// 本番の Identity Platform は reCAPTCHA Enterprise の token を求める（recaptchaToken。ブラウザが作る）。Emulator は見ない。
+// token を求められたのに渡していないとき（MISSING_RECAPTCHA_TOKEN・MISSING_CLIENT_IDENTIFIER: サイトキーの設定忘れ）は、
+// 設定の問題なので障害（503・Slack）
 export async function startPhoneMfa(
   mfaPendingCredential: string,
   mfaEnrollmentId: string,
+  recaptchaToken: string | null,
 ): Promise<Result<{ sessionInfo: string }, StartPhoneMfaFailure>> {
+  const phoneSignInInfo = recaptchaToken === null
+    ? {}
+    : { captchaResponse: recaptchaToken, clientType: 'CLIENT_TYPE_WEB', recaptchaVersion: 'RECAPTCHA_ENTERPRISE' }
   const res = await callIdentityToolkit(
     'v2/accounts/mfaSignIn:start',
-    { mfaPendingCredential, mfaEnrollmentId, phoneSignInInfo: {} },
+    { mfaPendingCredential, mfaEnrollmentId, phoneSignInInfo },
     'MFA sign-in start',
   )
   if (res.ok) {
@@ -30,8 +37,13 @@ export async function startPhoneMfa(
     return { success: true, value: { sessionInfo: parsed.data.phoneResponseInfo.sessionInfo } }
   }
   if (THROTTLED_ERRORS.has(res.code)) return { success: false, error: { kind: 'throttled', code: res.code } }
+  // 利用者のブラウザが作った token が原因（数分たった・2回使った）。こちらから token を渡したときだけ（渡していなければ設定の問題）
+  if (recaptchaToken !== null && RECAPTCHA_REJECTED_ERRORS.has(res.code)) return { success: false, error: { kind: 'recaptcha_rejected', code: res.code } }
   throw new InfraError('AUTH_UNAVAILABLE', `MFA sign-in start failed: ${res.code} (status ${res.status})`)
 }
+
+// reCAPTCHA の token が使えない。点数が低くて送らなかったときのコードはまだ確かめていない（その場合は 503・Slack に出る）
+const RECAPTCHA_REJECTED_ERRORS = new Set(['INVALID_RECAPTCHA_TOKEN'])
 
 // invalid_code: コードが違う（打ち直せる。失敗として数える）/ expired: コードか途中の状態の期限が切れた（最初からやり直す）
 export type FinalizePhoneMfaFailure = { kind: 'invalid_code' | 'expired' | 'throttled'; code: string }

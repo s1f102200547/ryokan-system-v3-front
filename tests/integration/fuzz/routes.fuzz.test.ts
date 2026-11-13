@@ -83,7 +83,7 @@ const staffBody = { staff_name: 'スタッフ', target_date: FIXED_TODAY, reason
 const ROUTES: RouteCase[] = [
   { route: 'a-tax-table', method: 'GET', handler: asHandler(aTaxTable.GET),
     query: { year: { valid: '2026', kind: 'number' }, month: { valid: '5', kind: 'number' } } },
-  { route: 'auth/login', method: 'POST', handler: asHandler(login.POST), body: { email: 'pc1@example.com', password: 'pw1' } },
+  { route: 'auth/login', method: 'POST', handler: asHandler(login.POST), body: { email: 'pc1@example.com', password: 'pw1', recaptchaToken: 'recaptcha-token' } },
   { route: 'auth/login/verify', method: 'POST', handler: asHandler(loginVerify.POST), body: { code: '123456' } },
   { route: 'cleaning-board', method: 'GET', handler: asHandler(cleaningBoard.GET),
     query: { date: { valid: FIXED_TODAY, kind: 'date' } } },

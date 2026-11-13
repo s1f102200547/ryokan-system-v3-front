@@ -61,10 +61,13 @@ export async function POST(request: Request) {
       mfaPendingCredential: result.value.mfaPendingCredential,
       mfaEnrollmentId: result.value.mfaEnrollmentId,
       phoneHint: result.value.phoneHint,
+      recaptchaToken: parsed.data.recaptchaToken ?? null,
       nowMs: Date.now(),
     })
     if (!started.success) {
-      // sms_limit: 今日の上限（明日まで送れない）/ sms_throttled: Firebase 自身が止めた（しばらく待てば送れる）
+      // sms_limit: 今日の上限（明日まで送れない）/ sms_throttled: Firebase 自身が止めた（しばらく待てば送れる）/
+      // recaptcha_rejected: パスワードは合っているのに、ブラウザの確認で断られた（読み込み直せば通ることが多い。続けば Slack で気付く）
+      if (started.error.kind === 'recaptcha_rejected') return reject('recaptcha_rejected', 'recaptcha_failed')
       if (started.error.kind === 'sms_limit') return NextResponse.json({ error: 'sms_limit' }, { status: 429 })
       return tooManyAttempts('too_many_attempts', started.error.retryAfterMs)
     }

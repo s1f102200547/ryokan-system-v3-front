@@ -65,10 +65,13 @@ jobs:
           service: ${{ env.SERVICE }}
           region: ${{ env.REGION }}
           image: ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ github.event.workflow_run.head_sha }}
-          # サーバーサイド専用の環境変数（Firebase Admin は ADC で自動認証、NEXT_PUBLIC_ 不要）
+          # サーバーサイド専用の環境変数（Firebase Admin は ADC で自動認証、NEXT_PUBLIC_ 不要）。
+          # RECAPTCHA_SITE_KEY: ログイン画面の reCAPTCHA Enterprise のサイトキー。公開の値なので Secrets ではなく Variables から渡す。
+          # SMS を送る前に Identity Platform が token を求める。空だとログインが 503 になる（docs/Development.md「SMS の2要素目」）
           env_vars: |
             SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}
-          # パスワードの確認（src/infra/auth/passwordSignIn.ts）に使う API キー。Identity Toolkit API だけに絞ったもの。
+            RECAPTCHA_SITE_KEY=${{ vars.RECAPTCHA_SITE_KEY }}
+          # パスワードと SMS のコードの確認（src/infra/auth/identityToolkit.ts）に使う API キー。Identity Toolkit API だけに絞ったもの。
           # Secret Manager から実行時に渡す（実行用の SA に roles/secretmanager.secretAccessor が要る。docs/Development.md）
           secrets: |
             FIREBASE_AUTH_API_KEY=firebase-auth-api-key:latest

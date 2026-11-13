@@ -8,8 +8,10 @@ type Credentials = { email: string; password: string }
 // ログイン処理＋UI状態（loading / error / 遷移）をまとめる。2段に分かれる:
 //   1. credentials: メールアドレスとパスワードを /api/auth/login に送る。合っていれば、サーバーがフロントの電話に SMS を送る
 //   2. code: SMS のコードを /api/auth/login/verify に送る。合っていれば、サーバーが Session Cookie を発行する
-// パスワード・コードの確認と Cookie の発行はサーバーが行う（ブラウザから Firebase を呼ばない。失敗回数をサーバーで数えるため）
-export function useLogin() {
+// パスワード・コードの確認と Cookie の発行はサーバーが行う（ブラウザから Firebase を呼ばない。失敗回数をサーバーで数えるため）。
+// getRecaptchaToken: 1段目を送る直前に reCAPTCHA Enterprise の token を作る（本番。SMS の送信に Identity Platform が求める）。
+// サイトキーを設定していない開発・Emulator では渡さない（token なしで送る）
+export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Promise<string> } = {}) {
   const [step, setStep] = useState<'credentials' | 'code'>('credentials')
   const [phoneHint, setPhoneHint] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
@@ -73,7 +75,19 @@ export function useLogin() {
     setError(null)
     setNotice(null)
     try {
-      const response = await postWithBusyRetry('/api/auth/login', { email: credentials.email, password: credentials.password })
+      let recaptchaToken: string | undefined
+      if (getRecaptchaToken) {
+        try {
+          recaptchaToken = await getRecaptchaToken()
+        } catch {
+          // Google の reCAPTCHA を読み込めない（回線・拡張機能が止めている）。パスワードはまだ送っていない
+          setError('ブラウザの確認（reCAPTCHA）を読み込めませんでした。ページを読み込み直して、もう一度お試しください')
+          return
+        }
+      }
+      const response = await postWithBusyRetry('/api/auth/login', {
+        email: credentials.email, password: credentials.password, ...(recaptchaToken === undefined ? {} : { recaptchaToken }),
+      })
       const body = await readBody(response)
       if (response.ok && body.mfaRequired === true) {
         credentialsRef.current = credentials
@@ -159,6 +173,7 @@ const FORBIDDEN_MESSAGES: Record<string, string> = {
   client_not_allowed: 'この PC・ブラウザからはログインできません。',
   mfa_not_enrolled: 'このアカウントは SMS の確認が設定されていません。管理者に連絡してください',
   no_second_factor: 'このアカウントは SMS の確認が設定されていません。管理者に連絡してください',
+  recaptcha_failed: 'ブラウザの確認（reCAPTCHA）で止められました。ページを読み込み直して、もう一度お試しください',
 }
 
 // 「あと 4:59」の形（秒は切り上げ。0:00 は出さない）

@@ -27,7 +27,7 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 
 本番の Admin SDK は ADC（Cloud Run の実行用サービスアカウント）で認証する。鍵ファイルは使わない。
 
-ブラウザは Firebase を呼ばないので、`NEXT_PUBLIC_FIREBASE_*` の変数はない。パスワードと SMS のコードの確認（`src/infra/auth/identityToolkit.ts`）は、本番では `FIREBASE_AUTH_API_KEY`（Identity Toolkit API だけに絞った API キー。Secret Manager から Cloud Run に渡す）を使う。Emulator に接続しているときは、Auth Emulator がキーを見ないのでダミーの値を使い、設定は要らない。本番で設定がなければ、ログインが 503 になり Slack に通知される（起動は止めない。CI の ZAP は本番ビルドを環境変数なしで起動するため）。
+ブラウザは Firebase を呼ばないので、`NEXT_PUBLIC_FIREBASE_*` の変数はない。ブラウザが外を呼ぶのは、ログイン画面の reCAPTCHA Enterprise（`RECAPTCHA_SITE_KEY`、下の「SMS の2要素目」）だけ。パスワードと SMS のコードの確認（`src/infra/auth/identityToolkit.ts`）は、本番では `FIREBASE_AUTH_API_KEY`（Identity Toolkit API だけに絞った API キー。Secret Manager から Cloud Run に渡す）を使う。Emulator に接続しているときは、Auth Emulator がキーを見ないのでダミーの値を使い、設定は要らない。本番で設定がなければ、ログインが 503 になり Slack に通知される（起動は止めない。CI の ZAP は本番ビルドを環境変数なしで起動するため）。
 
 ### SMS の2要素目（MFA）
 
@@ -42,7 +42,8 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
   npm run mfa:enroll -- --project <project ID> --email <PC のアカウント> --remove        # 解除（ログインできなくなる）
   ```
 - 電話をなくした・電池が切れた: その間はログインできない。新しい電話の番号で全アカウントを登録し直す（`--phone`。置き換わる）
-- 本番の準備（コードの外）: Identity Platform への切り替え（SMS の MFA に必要。課金が変わる）、SMS の地域を日本だけにする、MFA（SMS）の有効化、Firestore の TTL ポリシー（`mfaPending.expireAt`・`mfaSmsQuota.expireAt`）。`mfaSignIn:start` に reCAPTCHA の token を求められたら、ログインが 503 になり Slack に `MFA sign-in start failed: MISSING_RECAPTCHA_TOKEN` などと出る（その場合は [NormalOperationPlan.md](NormalOperationPlan.md) の reCAPTCHA の段）
+- reCAPTCHA Enterprise: 本番の Identity Platform は、SMS を送る前にブラウザで作った reCAPTCHA Enterprise の token を求める（API キーだけ・管理者のトークンでは `MISSING_CLIENT_IDENTIFIER`・401 で断られる。2026-11-12 のスパイク）。ログイン画面が「ログイン」「コードを再送」のたびに token を作り（`src/hooks/auth/recaptchaEnterprise.ts`、action は `mfaSmsSignIn`）、`/api/auth/login` が `mfaSignIn:start` に `captchaResponse` として添える。点数で判断する方式なので画像の問題は出ない。**`localhost` で作った token は受け付けない**（`INVALID_RECAPTCHA_TOKEN: localhost is not supported`）。サイトキーは Cloud Run の環境変数 `RECAPTCHA_SITE_KEY`（公開の値。GitHub の Variables から `deploy.yml` で渡す）。設定がなければ reCAPTCHA を使わない（開発・Emulator。Emulator は token を見ない）。本番で設定がないと、ログインが 503 になり Slack に `MFA sign-in start failed: MISSING_RECAPTCHA_TOKEN` などと出る。ログイン画面だけ CSP に Google の reCAPTCHA を足し、COEP を付けない（`src/lib/csp.ts`、`src/proxy.ts`。`e2e/prod/recaptcha.spec.ts` が偽物の Google で確かめる）
+- 本番の準備（コードの外）: Identity Platform への切り替え（SMS の MFA に必要。課金が変わる）、MFA（SMS）の有効化（`mfa.state: ENABLED`、`enabledProviders: [PHONE_SMS]`）、SMS の地域を日本だけにする（`smsRegionConfig.allowlistOnly.allowedRegions: [JP]`。空のままだと `OPERATION_NOT_ALLOWED: SMS unable to be sent until this region enabled`）、reCAPTCHA Enterprise の API の有効化と、Firebase コンソールの Authentication → Settings → Fraud Defense で SMS defense を ENFORCE にして Web のサイトキーを作る（API からの設定ではキーが作られなかった）、そのサイトキーの許可ドメインと Identity Platform の承認済みドメインに本番のドメインを入れる、GitHub の Variables に `RECAPTCHA_SITE_KEY`、Firestore の TTL ポリシー（`mfaPending.expireAt`・`mfaSmsQuota.expireAt`）。Fraud Defense の「SMS fraud risk threshold score」は、テスト用のプロジェクトで出た点数を見て決める（既定の 0 は危険度が少しでもあれば送らない）
 
 本番への切り替え（23:00〜6:00 の時間外に、一度に行う）:
 

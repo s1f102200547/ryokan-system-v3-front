@@ -108,8 +108,8 @@ Next.js 16.4（App Router）/ React 19.3 / MUI 9.5 + X Date Pickers 9.16 / Emoti
 3. **泊別配列の長さ = 泊数**（`dinner_time`, `dinner_info`, `breakfast_time`, `open_air_bath_time`, `timetable_info`）、`age_groups` の長さ = 大人の人数。C/O 日や人数を変える更新は配列も一緒に送る。検査は `validateReservationPatch` を **トランザクションの中で** DB の今の値に対して行う
 4. **起動ガード**: development / test は Emulator と `demo-*` project にだけ接続し、本番の鍵があれば起動しない。production は Emulator 系の変数があれば起動しない（`src/instrumentation.ts`, `src/lib/firebase/runtimeEnvGuard.ts`）。外さない・緩めない。開発サーバーと Emulator は `127.0.0.1` に bind
 5. **セキュリティの境界は各 Route Handler の `requireSession`**。`proxy.ts` の Cookie 有無の確認は画面遷移のためで、境界ではない。新しい API には必ず `requireSession` を入れる
-6. **ブラウザから Firebase を呼ばない**（`firestore.rules` は全拒否。CSP の `connect-src` は `'self'` だけ）。ログインもブラウザはメールアドレスとパスワードを `/api/auth/login` に、SMS のコードを `/api/auth/login/verify` に送るだけで、サーバーが REST で確かめる（失敗回数を数えるため）。Session Cookie は2要素目を通ったトークンにだけ出す（`lib/auth/secondFactor.ts`）。`src/` からの `firebase` パッケージの import は ESLint で禁止
-7. **CSP は nonce ベース**（`src/lib/csp.ts`、`proxy.ts`）。外部の API・画像・フォント・iframe・analytics を足すときは CSP と COEP/CORP を変える必要がある。`tests/unit/lib/csp.test.ts` が本番の CSP を固定している
+6. **ブラウザから Firebase を呼ばない**（`firestore.rules` は全拒否。CSP の `connect-src` は `'self'` だけ。例外はログイン画面の reCAPTCHA Enterprise だけで、SMS を送る前に Identity Platform が token を求めるため。`/login` だけ Google の reCAPTCHA を許す）。ログインもブラウザはメールアドレスとパスワードを `/api/auth/login` に、SMS のコードを `/api/auth/login/verify` に送るだけで、サーバーが REST で確かめる（失敗回数を数えるため）。Session Cookie は2要素目を通ったトークンにだけ出す（`lib/auth/secondFactor.ts`）。`src/` からの `firebase` パッケージの import は ESLint で禁止
+7. **CSP は nonce ベース**（`src/lib/csp.ts`、`proxy.ts`）。外部の API・画像・フォント・iframe・analytics を足すときは CSP と COEP/CORP を変える必要がある。`tests/unit/lib/csp.test.ts` が本番の CSP（ログイン画面の分も）を固定している。ログイン画面だけ reCAPTCHA のために COEP を付けない
 8. **本番データ・本物の認証情報をコード・テスト・ログ・会話に入れない**。`npm run anonymize` / `make anonymize`（本番を読む）は **AI エージェントは実行しない**
 
 ## 一緒に更新するもの
@@ -118,7 +118,7 @@ Next.js 16.4（App Router）/ React 19.3 / MUI 9.5 + X Date Pickers 9.16 / Emoti
 |---|---|
 | 予約フィールドの追加・許容値の変更 | `types/reservation.ts`, `types/guestInfo.ts`（`ReservationPatch`）, `lib/api/reservationSchemas.ts`, infra の `FirestoreReservationSchema`/`toReservation`, `constants/guestInfo.ts`, `scripts/localdev/lib/allowlist.ts`（匿名化。未登録のフィールドはマスクされる）, [docs/Domain.md](docs/Domain.md) |
 | API の追加 | `requireSession`、Zod、`tests/integration/api/` のテスト、`tests/integration/fuzz/routes.fuzz.test.ts` |
-| 外部通信の追加 | `src/lib/csp.ts`, `proxy.ts` のヘッダー, `tests/unit/lib/csp.test.ts` |
+| 外部通信の追加 | `src/lib/csp.ts`, `proxy.ts` のヘッダー, `tests/unit/lib/csp.test.ts`, `e2e/prod/` |
 | CI/CD | `.github/workflows/*.yml` と [docs/Development.md](docs/Development.md) |
 
 <!-- BEGIN:nextjs-agent-rules -->

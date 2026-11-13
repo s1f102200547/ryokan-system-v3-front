@@ -315,4 +315,56 @@ describe('useLogin', () => {
       expect(result.current.isPending).toBe(false)
     })
   })
+
+  // 本番: SMS を送る前に、reCAPTCHA Enterprise の token を作って一緒に送る
+  describe('reCAPTCHA の token', () => {
+    it('1段目を送る直前に token を作り、body に入れる', async () => {
+      const getRecaptchaToken = vi.fn().mockResolvedValue('token-1')
+      fetchMock.mockResolvedValue(mfaRequired())
+      const { result } = renderHook(() => useLogin({ getRecaptchaToken }))
+      await act(async () => { await result.current.login(credentials) })
+      expect(fetchMock).toHaveBeenCalledWith('/api/auth/login', expect.objectContaining({
+        body: JSON.stringify({ email: 'pc1@example.com', password: 'pw', recaptchaToken: 'token-1' }),
+      }))
+      expect(result.current.step).toBe('code')
+    })
+
+    it('再送のたびに新しい token を作る（token は使い捨て）', async () => {
+      const getRecaptchaToken = vi.fn().mockResolvedValueOnce('token-1').mockResolvedValueOnce('token-2')
+      fetchMock.mockResolvedValue(mfaRequired())
+      const { result } = renderHook(() => useLogin({ getRecaptchaToken }))
+      await act(async () => { await result.current.login(credentials) })
+      await act(async () => { await result.current.resend() })
+      expect(getRecaptchaToken).toHaveBeenCalledTimes(2)
+      expect(JSON.parse(String((fetchMock.mock.calls[1] as [string, RequestInit])[1].body)).recaptchaToken).toBe('token-2')
+    })
+
+    it('コードの確認（2段目）では作らない', async () => {
+      const getRecaptchaToken = vi.fn().mockResolvedValue('token-1')
+      fetchMock.mockResolvedValueOnce(mfaRequired()).mockResolvedValueOnce(new Response('{}', { status: 200 }))
+      const { result } = renderHook(() => useLogin({ getRecaptchaToken }))
+      await act(async () => { await result.current.login(credentials) })
+      await act(async () => { await result.current.verify('123456') })
+      expect(getRecaptchaToken).toHaveBeenCalledTimes(1)
+    })
+
+    it('reCAPTCHA を読み込めなければ、パスワードを送らずに理由を出す', async () => {
+      const getRecaptchaToken = vi.fn().mockRejectedValue(new Error('reCAPTCHA load failed'))
+      const { result } = renderHook(() => useLogin({ getRecaptchaToken }))
+      await act(async () => { await result.current.login(credentials) })
+      expect(fetchMock).not.toHaveBeenCalled()
+      expect(result.current.error).toBe('ブラウザの確認（reCAPTCHA）を読み込めませんでした。ページを読み込み直して、もう一度お試しください')
+      expect(result.current.isPending).toBe(false)
+    })
+
+    it('Google が token を断った（403 recaptcha_failed）ら、読み込み直しを促す', async () => {
+      const result = await loginWith(new Response(JSON.stringify({ error: 'recaptcha_failed' }), { status: 403 }))
+      expect(result.current.error).toBe('ブラウザの確認（reCAPTCHA）で止められました。ページを読み込み直して、もう一度お試しください')
+    })
+
+    it('token を作る関数がなければ（開発・Emulator）、token なしで送る', async () => {
+      await loginWith(mfaRequired())
+      expect(JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body))).toEqual({ email: 'pc1@example.com', password: 'pw' })
+    })
+  })
 })

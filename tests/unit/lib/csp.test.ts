@@ -28,4 +28,24 @@ describe('buildCsp', () => {
   it('development でも connect-src は自分の API だけ（Auth Emulator にもブラウザからはつながない）', () => {
     expect(buildCsp({ nonce: 'abc', isDev: true })).toContain(`connect-src 'self';`)
   })
+
+  // ログイン画面だけ: SMS の送信に Identity Platform が求める reCAPTCHA Enterprise（Google の iframe と通信）を許す
+  it('ログイン画面（recaptcha）は、基準値に reCAPTCHA の frame-src と connect-src だけを足す', () => {
+    expect(buildCsp({ nonce: 'abc', isDev: false, recaptcha: true })).toBe([
+      `default-src 'self'`,
+      `script-src 'self' 'nonce-abc' 'strict-dynamic'`,
+      `style-src 'self' 'unsafe-inline'`,
+      `img-src 'self'`,
+      `font-src 'self'`,
+      `connect-src 'self' https://www.google.com/recaptcha/`,
+      `frame-src https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/`,
+      `frame-ancestors 'none'`,
+      `base-uri 'self'`,
+      `form-action 'self'`,
+    ].join('; '))
+  })
+
+  it('既定（ログイン画面以外）は reCAPTCHA を許さない', () => {
+    expect(buildCsp({ nonce: 'abc', isDev: false })).not.toContain('google')
+  })
 })

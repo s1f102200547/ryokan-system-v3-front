@@ -51,7 +51,7 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 const start = () => startMfaCommand({
-  email: EMAIL, ip: IP, forwardedFor: IP, mfaPendingCredential: SECRET_PENDING, mfaEnrollmentId: 'phone-1', phoneHint: '+81***1234', nowMs: Date.now(),
+  email: EMAIL, ip: IP, forwardedFor: IP, mfaPendingCredential: SECRET_PENDING, mfaEnrollmentId: 'phone-1', phoneHint: '+81***1234', recaptchaToken: 'recaptcha-token', nowMs: Date.now(),
 })
 
 // ログの引数にも Slack にも秘密の値が入っていない
@@ -66,7 +66,7 @@ describe('startMfaCommand', () => {
     if (!r.success) throw new Error('expected success')
     expect(r.value.phoneHint).toBe('+81***1234')
     expect(r.value.pendingId).toMatch(/^[A-Za-z0-9_-]{43}$/) // 32 バイト
-    expect(startPhoneMfa).toHaveBeenCalledWith(SECRET_PENDING, 'phone-1')
+    expect(startPhoneMfa).toHaveBeenCalledWith(SECRET_PENDING, 'phone-1', 'recaptcha-token')
     expect(pendings.items.get(r.value.pendingId)).toEqual({
       email: EMAIL, ip: IP, mfaPendingCredential: SECRET_PENDING, sessionInfo: SECRET_SESSION, phoneHint: '+81***1234',
       expiresAtMs: Date.now() + MFA_PENDING_TTL_MS,
@@ -93,6 +93,12 @@ describe('startMfaCommand', () => {
     expect(await start()).toEqual({ success: false, error: { kind: 'sms_throttled', retryAfterMs: 60_000 } })
     expect(pendings.items.size).toBe(0)
     expectNoSecretsLogged()
+  })
+
+  it('reCAPTCHA の token を断られたら recaptcha_rejected。途中の状態は保存しない', async () => {
+    vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'recaptcha_rejected', code: 'INVALID_RECAPTCHA_TOKEN' } })
+    expect(await start()).toEqual({ success: false, error: { kind: 'recaptcha_rejected' } })
+    expect(pendings.items.size).toBe(0)
   })
 
   it('Firebase の障害はそのまま投げる（Route が 503・Slack）', async () => {

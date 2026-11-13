@@ -35,7 +35,34 @@ async function expectUnavailable(run: () => Promise<unknown>): Promise<InfraErro
 }
 
 describe('startPhoneMfa', () => {
-  const start = () => startPhoneMfa(PENDING, 'phone-1')
+  const TOKEN = 'recaptcha-token-must-not-leak'
+  const start = () => startPhoneMfa(PENDING, 'phone-1', null)
+  const startWithToken = () => startPhoneMfa(PENDING, 'phone-1', TOKEN)
+
+  it('reCAPTCHA Enterprise の token があれば、Web の Enterprise の token として添える', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ phoneResponseInfo: { sessionInfo: SESSION } }), { status: 200 }))
+    expect(await startWithToken()).toEqual({ success: true, value: { sessionInfo: SESSION } })
+    expect(JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body)).phoneSignInInfo)
+      .toEqual({ captchaResponse: TOKEN, clientType: 'CLIENT_TYPE_WEB', recaptchaVersion: 'RECAPTCHA_ENTERPRISE' })
+  })
+
+  it('token を断られたら recaptcha_rejected（利用者のブラウザが原因。障害にしない）', async () => {
+    fetchMock.mockResolvedValue(errorResponse(400, 'INVALID_RECAPTCHA_TOKEN : localhost is not supported'))
+    expect(await startWithToken()).toEqual({ success: false, error: { kind: 'recaptcha_rejected', code: 'INVALID_RECAPTCHA_TOKEN' } })
+  })
+
+  it('token を渡していないのに断られたら、設定の問題として AUTH_UNAVAILABLE（サイトキーの設定忘れ）', async () => {
+    for (const message of ['INVALID_RECAPTCHA_TOKEN', 'MISSING_CLIENT_IDENTIFIER']) {
+      fetchMock.mockResolvedValueOnce(errorResponse(400, message))
+      await expectUnavailable(start)
+    }
+  })
+
+  it('token は例外のメッセージにも入らない', async () => {
+    fetchMock.mockResolvedValue(errorResponse(500, 'INTERNAL_ERROR'))
+    const e = await expectUnavailable(startWithToken)
+    expect(`${e.message} ${String(e.cause)}`).not.toContain(TOKEN)
+  })
 
   it('v2 の mfaSignIn:start に、サーバーの API キーで送り、sessionInfo を返す', async () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ phoneResponseInfo: { sessionInfo: SESSION } }), { status: 200 }))
