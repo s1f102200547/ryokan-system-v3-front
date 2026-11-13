@@ -8,6 +8,8 @@
     "seed": "tsx --env-file=.env.development scripts/localdev/seed.ts",
     "mfa-code": "tsx --env-file=.env.development scripts/localdev/mfaCode.ts",
     "mfa:enroll": "tsx scripts/mfa/enrollPhone.ts",
+    "spike:mfa": "tsx scripts/spike/mfaStart.ts",
+    "spike:recaptcha": "tsx scripts/spike/recaptchaServer.ts",
     "anonymize": "bash scripts/localdev/anonymize.sh",
     "build": "next build",
     "start": "next start",
