@@ -429,7 +429,17 @@ test.describe('ヘッダーが付く範囲', () => {
 
   // 未ログインの 401、不正な body の 400、存在しない API のパスの 404（ZAP が CSP なしと指摘した）のどれにも付くこと
   test('API: nosniff・CORP・CSP', async ({ request }) => {
-    for (const [path, status] of [['/api/guest-info?date=2026-05-20', 401], ['/api/auth/login', 400], ['/api/auth', 404]] as const) {
+    // 本番は時間外の API を 403 にする（ログイン API は 23:00 から、ほかは 23:05 から 6:00 まで）。どの時刻でも成り立つように期待する status を決める
+    const outside = (endMinute: number) => {
+      const jst = new Date(Date.now() + 9 * 60 * 60 * 1000)
+      const minute = jst.getUTCHours() * 60 + jst.getUTCMinutes()
+      return minute < 6 * 60 || minute >= endMinute
+    }
+    for (const [path, status] of [
+      ['/api/guest-info?date=2026-05-20', outside(23 * 60 + 5) ? 403 : 401],
+      ['/api/auth/login', outside(23 * 60) ? 403 : 400],
+      ['/api/auth', 404],
+    ] as const) {
       const response = path === '/api/auth/login' ? await request.post(path, { data: {} }) : await request.get(path)
       expect(response.status(), path).toBe(status)
       const headers = response.headers()
