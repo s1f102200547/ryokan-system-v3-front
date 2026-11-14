@@ -170,7 +170,7 @@ const DEFAULT_LOCK_MS = 60_000
 // 403 の理由。本文が読めなければ時間外として扱う（今までの表示）
 const FORBIDDEN_MESSAGES: Record<string, string> = {
   outside_business_hours: '利用時間外です（6:00〜23:00）',
-  client_not_allowed: 'この PC・ブラウザからはログインできません。',
+  client_not_allowed: 'この PC もしくはブラウザからはログインできません。',
   mfa_not_enrolled: 'このアカウントは SMS の確認が設定されていません。管理者に連絡してください',
   no_second_factor: 'このアカウントは SMS の確認が設定されていません。管理者に連絡してください',
   recaptcha_failed: 'ブラウザの確認（reCAPTCHA）で止められました。ページを読み込み直して、もう一度お試しください',

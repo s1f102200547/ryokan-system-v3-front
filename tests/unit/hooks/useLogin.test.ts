@@ -68,7 +68,7 @@ describe('useLogin', () => {
     [429, { error: 'too_many_attempts', retryAfterSeconds: 3600 }, 'ログインの失敗が続いたため、あと 60:00 はログインできません'],
     [429, 'not json', 'ログインの失敗が続いたため、あと 1:00 はログインできません'], // 指定がなければ1分
     [429, { error: 'too_many_attempts', retryAfterSeconds: 'x' }, 'ログインの失敗が続いたため、あと 1:00 はログインできません'],
-    [403, { error: 'client_not_allowed' }, 'この PC・ブラウザからはログインできません。'],
+    [403, { error: 'client_not_allowed' }, 'この PC もしくはブラウザからはログインできません。'],
     [403, { error: 'mfa_not_enrolled' }, 'このアカウントは SMS の確認が設定されていません。管理者に連絡してください'],
     [429, { error: 'sms_limit' }, '今日の SMS の送信回数の上限に達しました。管理者に連絡してください'],
     [403, { error: 'outside_business_hours' }, '利用時間外です（6:00〜23:00）'],
@@ -255,7 +255,7 @@ describe('useLogin', () => {
 
     it.each([
       [429, { error: 'too_many_attempts', retryAfterSeconds: 60 }, 'ログインの失敗が続いたため、あと 1:00 はログインできません'],
-      [403, { error: 'client_not_allowed' }, 'この PC・ブラウザからはログインできません。'],
+      [403, { error: 'client_not_allowed' }, 'この PC もしくはブラウザからはログインできません。'],
       [403, { error: 'no_second_factor' }, 'このアカウントは SMS の確認が設定されていません。管理者に連絡してください'],
       [403, { error: 'outside_business_hours' }, '利用時間外です（6:00〜23:00）'],
       [503, {}, 'サービスが一時的に利用できません。しばらくお待ちください'],

@@ -37,7 +37,7 @@ test('Linux の Chrome は、パスワードが合っていても断られ、SMS
   const email = await createUser()
   await page.goto(`${APP}/login`)
   await submitPassword(page, email, PASSWORD)
-  await expect(page.getByText('この PC・ブラウザからはログインできません')).toBeVisible()
+  await expect(page.getByText('この PC もしくはブラウザからはログインできません')).toBeVisible()
   await expect(page.getByLabel('確認コード')).toHaveCount(0)
   expect(page.url()).toContain('/login')
   expect((await context.cookies(APP)).find((c) => c.name === 'session')).toBeUndefined()
