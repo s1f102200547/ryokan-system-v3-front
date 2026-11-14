@@ -49,7 +49,7 @@ export function buildLoginNotice({ account, forwardedFor, userAgent, nowMs, repl
 }
 
 // パスワードが合った後に断った理由。端末・ブラウザ（A）と、SMS の2要素目（C）
-export type LoginRejection = ClientRejection | 'mfa_not_enrolled' | 'no_second_factor' | 'ip_mismatch' | 'recaptcha_rejected'
+export type LoginRejection = ClientRejection | 'mfa_not_enrolled' | 'no_second_factor' | 'ip_mismatch' | 'recaptcha_rejected' | 'token_rejected'
 
 const REJECTION_LABELS: Record<LoginRejection, string> = {
   os_not_allowed: 'Windows 以外の端末',
@@ -58,14 +58,18 @@ const REJECTION_LABELS: Record<LoginRejection, string> = {
   no_second_factor: '2要素目を通っていないトークン',
   ip_mismatch: 'パスワードと SMS のコードで接続元が違う',
   recaptcha_rejected: 'reCAPTCHA の確認で断られた（SMS は送っていない）',
+  // 無効化・失効の直後のログインか、時計のずれ。detail に Firebase のコード（auth/user-disabled など）
+  token_rejected: 'SMS のコードは合ったが、ID トークンが無効',
 }
 
-// パスワードが合った後に断ったときの通知。別の端末での利用か、盗まれたパスワードの利用か、設定の誤り
-export function buildLoginRejectedNotice(input: LoginNoticeInput & { reason: LoginRejection }): string {
-  const { account, forwardedFor, userAgent, nowMs, reason } = input
+// パスワードが合った後に断ったときの通知。別の端末での利用か、盗まれたパスワードの利用か、設定の誤り。
+// detail: 理由の補足（Firebase のエラーコードなど）。書式は無効にする
+export function buildLoginRejectedNotice(input: LoginNoticeInput & { reason: LoginRejection; detail?: string }): string {
+  const { account, forwardedFor, userAgent, nowMs, reason, detail } = input
   const ips = forwardedIps(forwardedFor)
   const ipLabel = ips.length > 0 ? ips.join(', ') : '不明'
-  return `[ログイン拒否] ${escapeSlack(account)} / ${REJECTION_LABELS[reason]} / IP ${ipLabel}（右端が Google の追記） / ${describeUserAgent(userAgent)} / ${formatJST(nowMs)}`
+  const reasonLabel = detail ? `${REJECTION_LABELS[reason]}（${escapeSlack(detail)}）` : REJECTION_LABELS[reason]
+  return `[ログイン拒否] ${escapeSlack(account)} / ${reasonLabel} / IP ${ipLabel}（右端が Google の追記） / ${describeUserAgent(userAgent)} / ${formatJST(nowMs)}`
 }
 
 // ログインの失敗が続いて止め始めたときの通知。メールアドレスは利用者が書いた値なので書式を無効にする。IP は IP の形でなければ「?」

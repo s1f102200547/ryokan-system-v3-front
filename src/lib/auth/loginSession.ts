@@ -40,20 +40,26 @@ function isLiveToday(previousAuthTime: unknown): boolean {
   return jst.toISOString().slice(0, 10) === getTodayJST()
 }
 
-// idToken の整合性検証（改ざん・期限切れ・無効トークンを弾く）。失敗なら返す Response（401 か 503）
-export async function verifyLoginIdToken(idToken: string): Promise<Result<DecodedIdToken, NextResponse>> {
+// idToken の検証に失敗した理由。
+// invalid: トークンが無効（失効・期限切れ・無効化したアカウント・改ざん）。code は Firebase のエラーコード（ログと Slack に載せる。ブラウザには返さない）/
+// unavailable: Firebase の障害（ここでログと Slack の ALERT を出し済み）
+export type IdTokenRejection = { kind: 'invalid'; code: string } | { kind: 'unavailable' }
+
+// idToken の整合性検証（改ざん・期限切れ・無効トークンを弾く）。応答は呼び出し側が作る
+export async function verifyLoginIdToken(idToken: string): Promise<Result<DecodedIdToken, IdTokenRejection>> {
   try {
     return { success: true, value: await adminAuth.verifyIdToken(idToken) }
   } catch (e) {
     if (isInvalidIdTokenError(e)) {
       // 認証失敗はビジネスロジックで処理する（インフラ障害ではない）
-      logger.warn('ログイン失敗: idToken 検証エラー', { code: (e as { code: string }).code })
-      return { success: false, error: NextResponse.json({ error: 'invalid_credentials' }, { status: 401 }) }
+      const code = (e as { code: string }).code
+      logger.warn('ログイン失敗: idToken 検証エラー', { code })
+      return { success: false, error: { kind: 'invalid', code } }
     }
     // ネットワーク障害・Firebase サービス障害などはインフラ障害として 503
     logger.error('ログイン idToken 検証 インフラ障害', { message: String(e) })
     notifySlackFireAndForget(`[ALERT] idToken 検証でインフラ障害: ${String(e)}`)
-    return { success: false, error: NextResponse.json({ error: 'server error' }, { status: 503 }) }
+    return { success: false, error: { kind: 'unavailable' } }
   }
 }
 

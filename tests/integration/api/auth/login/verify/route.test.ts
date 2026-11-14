@@ -263,12 +263,18 @@ describe('POST /api/auth/login/verify', () => {
       expect(mockCreateSessionCookie).not.toHaveBeenCalled()
     })
 
-    it('verifyIdToken が認証失敗コードを返したら 401（Slack に通知しない）', async () => {
-      mockVerifyIdToken.mockRejectedValue({ code: 'auth/invalid-id-token', message: 'invalid token' })
+    // コードは合っている（途中の状態は使い終わっている）ので、打ち直させない。理由はブラウザに返さず、Slack に Firebase のコードで残す
+    it.each([
+      'auth/id-token-revoked', 'auth/id-token-expired', 'auth/invalid-id-token', 'auth/user-disabled',
+    ])('verifyIdToken が %s なら 401 login_failed。途中の状態の Cookie を消し、Slack に拒否（コードつき）', async (code) => {
+      mockVerifyIdToken.mockRejectedValue({ code, message: 'invalid token' })
       const response = await POST(makeRequest())
       expect(response.status).toBe(401)
-      expect(await response.json()).toEqual({ error: 'invalid_credentials' })
-      expect(notifySlackFireAndForget).not.toHaveBeenCalled()
+      expect(await response.json()).toEqual({ error: 'login_failed' })
+      expect(response.cookies.get('session')).toBeUndefined()
+      expect(response.headers.get('set-cookie')).toMatch(/mfa_pending=;.*Max-Age=0/i)
+      expect(slackMessages()).toHaveLength(1)
+      expect(slackMessages()[0]).toMatch(new RegExp(`^\\[ログイン拒否\\] pc1@example\\.com / SMS のコードは合ったが、ID トークンが無効（${code}） / IP 203\\.0\\.113\\.5`))
     })
 
     // firebase-admin は不正なトークンにも公開鍵の取得失敗にも auth/argument-error を返すため、メッセージで分ける
@@ -278,13 +284,18 @@ describe('POST /api/auth/login/verify', () => {
       ['公開鍵の取得失敗', 'Error fetching public keys for Google certs: 500', 503],
     ])('auth/argument-error（%s）は %s', async (_label, message, status) => {
       mockVerifyIdToken.mockRejectedValue({ code: 'auth/argument-error', message })
-      expect((await POST(makeRequest())).status).toBe(status)
-      expect(vi.mocked(notifySlackFireAndForget).mock.calls.length > 0).toBe(status === 503)
+      const response = await POST(makeRequest())
+      expect(response.status).toBe(status)
+      const messages = slackMessages()
+      expect(messages).toHaveLength(1)
+      expect(messages[0]).toMatch(status === 503 ? /^\[ALERT\] idToken 検証でインフラ障害/ : /^\[ログイン拒否\] .*（auth\/argument-error）/)
     })
 
-    it('verifyIdToken のインフラ障害は 503', async () => {
+    it('verifyIdToken のインフラ障害は 503（login_failed にしない）', async () => {
       mockVerifyIdToken.mockRejectedValue({ code: 'auth/internal-error', message: 'Firebase down' })
-      expect((await POST(makeRequest())).status).toBe(503)
+      const response = await POST(makeRequest())
+      expect(response.status).toBe(503)
+      expect(await response.json()).toEqual({ error: 'server error' })
     })
   })
 

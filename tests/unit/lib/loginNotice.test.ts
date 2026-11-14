@@ -75,6 +75,13 @@ describe('buildLoginRejectedNotice', () => {
     expect(message).toContain('Chrome・Edge 以外のブラウザ')
     expect(message).toContain('&lt;a&amp;b&gt;')
   })
+
+  it('detail（Firebase のコード）を理由の後に括弧で付け、書式は無効にする', () => {
+    const base = { account: 'pc1@example.com', forwardedFor: null, userAgent: null, nowMs: 0, reason: 'token_rejected' } as const
+    expect(buildLoginRejectedNotice({ ...base, detail: 'auth/user-disabled' })).toContain(' / SMS のコードは合ったが、ID トークンが無効（auth/user-disabled） / ')
+    expect(buildLoginRejectedNotice({ ...base, detail: '<!channel>' })).toContain('（&lt;!channel&gt;）')
+    expect(buildLoginRejectedNotice(base)).toContain(' / SMS のコードは合ったが、ID トークンが無効 / ')
+  })
 })
 
 describe('buildLoginLockNotice', () => {

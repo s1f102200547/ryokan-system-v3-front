@@ -253,6 +253,13 @@ describe('useLogin', () => {
       expect(result.current.error).toBe('コードの有効期限が切れました。もう一度ログインしてください')
     })
 
+    it('login_failed（コードは合ったがサーバーが通さなかった）なら、パスワードの段へ戻し「コードが違う」とは言わない', async () => {
+      const result = await verifyWith(new Response(JSON.stringify({ error: 'login_failed' }), { status: 401 }))
+      expect(result.current.step).toBe('credentials')
+      expect(result.current.error).toBe('ログインできませんでした。もう一度ログインしてください')
+      expect(push).not.toHaveBeenCalled()
+    })
+
     it.each([
       [429, { error: 'too_many_attempts', retryAfterSeconds: 60 }, 'ログインの失敗が続いたため、あと 1:00 はログインできません'],
       [403, { error: 'client_not_allowed' }, 'この PC もしくはブラウザからはログインできません。'],

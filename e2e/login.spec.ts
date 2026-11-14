@@ -108,6 +108,16 @@ test.describe('ログイン', () => {
       await expect(page.getByLabel('パスワード')).toHaveValue('password') // 押し直すだけで入り直せる
     })
 
+    test('コードは合ったがサーバーが通さなければ（login_failed）、パスワードの画面に戻し、コードの誤りとは言わない', async ({ page }) => {
+      await mockLogin(page, (route) => route.fulfill({ status: 401, json: { error: 'login_failed' } }))
+      await submit(page, 'test@example.com', 'password')
+      await page.getByLabel('確認コード').fill('123456')
+      await page.getByRole('button', { name: '確認' }).click()
+      await expect(page.getByText('ログインできませんでした。もう一度ログインしてください')).toBeVisible()
+      await expect(page.getByText('コードが正しくありません')).toHaveCount(0)
+      await expect(page.getByLabel('パスワード')).toHaveValue('password')
+    })
+
     test('再送は1段目を送り直し、知らせを出す。戻るでパスワードの画面へ', async ({ page }) => {
       let logins = 0
       await page.route('**/api/auth/login', (route) => { logins++; return route.fulfill({ status: 200, json: { mfaRequired: true, phoneHint: '+81*******1234' } }) })

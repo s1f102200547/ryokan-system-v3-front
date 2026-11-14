@@ -132,6 +132,12 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
         setError('コードの有効期限が切れました。もう一度ログインしてください')
         return
       }
+      if (response.status === 401 && body.error === 'login_failed') {
+        // コードは合ったが、サーバーがログインを通さなかった（理由は返ってこない）。打ち直しても通らないので、パスワードからやり直す
+        setStep('credentials')
+        setError('ログインできませんでした。もう一度ログインしてください')
+        return
+      }
       if (response.status === 401) {
         setError('コードが正しくありません')
         return

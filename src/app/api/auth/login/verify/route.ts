@@ -14,7 +14,7 @@ import { MFA_PENDING_COOKIE } from '@/constants/auth'
 
 // ログインの2段目: SMS のコードを確かめ、Session Cookie を発行する。
 // ログイン前の API なので requireSession は使わない。代わりに、1段目で発行した途中の状態の Cookie（mfa_pending）を求める。
-// 順番: 時間帯 → コードの形 → 途中の状態（期限・接続元）→ 失敗回数 → コード → 2要素目を通ったトークンか → A → B → Cookie
+// 順番: 時間帯 → コードの形 → 途中の状態（期限・接続元）→ 失敗回数 → コード → トークンの検証 → 2要素目を通ったトークンか → A → B → Cookie
 export async function POST(request: Request) {
   if (process.env.NODE_ENV === 'production' && isOutsideBusinessHours()) {
     logger.warn('ログイン拒否: 時間外')
@@ -62,7 +62,13 @@ export async function POST(request: Request) {
   }
 
   const decoded = await verifyLoginIdToken(verified.idToken)
-  if (!decoded.success) return decoded.error
+  if (!decoded.success) {
+    if (decoded.error.kind === 'unavailable') return NextResponse.json({ error: 'server error' }, { status: 503 })
+    // コードは合ったのに、トークンが無効（失効・無効化したアカウントなど）。途中の状態は使い終わっていて、打ち直しても通らない。
+    // ブラウザには理由を返さない（アカウントを止めたことを攻撃者に教えない）。理由は Firebase のコードでログと Slack に残す
+    notifyRejected('token_rejected', verified.email, forwardedFor, userAgent, decoded.error.code)
+    return clearMfaPendingCookie(NextResponse.json({ error: 'login_failed' }, { status: 401 }))
+  }
 
   // 2要素目を通ったトークンだけ。ここは Firebase の応答を信じない最後の確認（docs/NormalOperationPlan.md の C の 5）
   if (!hasPhoneSecondFactor(decoded.value)) {
@@ -85,8 +91,9 @@ function mfaExpired(): NextResponse {
 }
 
 // account が null: 途中の状態を信じられない（接続元が違う）ので、アカウントは載せない
-function notifyRejected(reason: LoginRejection, account: string | null, forwardedFor: string | null, userAgent: string | null) {
+// detail: Firebase のエラーコードなど、理由の補足（利用者の入力を含まない値だけ）
+function notifyRejected(reason: LoginRejection, account: string | null, forwardedFor: string | null, userAgent: string | null, detail?: string) {
   const label = account ?? '（不明）'
-  logger.warn('ログイン拒否', { account: label, reason, forwardedIps: forwardedIps(forwardedFor), client: describeUserAgent(userAgent) })
-  notifySlackFireAndForget(buildLoginRejectedNotice({ account: label, forwardedFor, userAgent, nowMs: Date.now(), reason }))
+  logger.warn('ログイン拒否', { account: label, reason, detail, forwardedIps: forwardedIps(forwardedFor), client: describeUserAgent(userAgent) })
+  notifySlackFireAndForget(buildLoginRejectedNotice({ account: label, forwardedFor, userAgent, nowMs: Date.now(), reason, detail }))
 }
