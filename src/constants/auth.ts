@@ -53,3 +53,6 @@ export const RECAPTCHA_CONNECT_SOURCES = ['https://www.google.com/recaptcha/'] a
 export const MFA_RECAPTCHA_ACTION = 'mfaSmsSignIn'
 // token の長さの上限（実物は 2,000 文字前後）。ログイン API の Zod で使う
 export const RECAPTCHA_TOKEN_MAX_LENGTH = 4096
+// サイトキーの形（正規表現の文字列）。アプリ（src/lib/auth/recaptchaSiteKey.ts）と、デプロイの前の確認（.github/workflows/deploy.yml）で
+// 同じ規則を使う。ずれると「ワークフローは通ったのにログインが 503」になる（tests/unit/config/deployWorkflow.test.ts が突き合わせる）
+export const RECAPTCHA_SITE_KEY_PATTERN = '^[A-Za-z0-9_-]{20,100}$'

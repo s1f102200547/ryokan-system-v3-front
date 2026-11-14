@@ -161,6 +161,7 @@ zizmor を手元で試す: ci.yml の zizmor ジョブと同じ版の本体を�
 - 実行用サービスアカウント `ryokan-runtime`。Firestore の読み書きと Session Cookie の発行・確認だけの権限
 - Dockerfile は3段（deps → builder → runner）、`output: 'standalone'`、非 root、`PORT=8080`
 - GitHub Secrets: `WORKLOAD_IDENTITY_PROVIDER`, `SERVICE_ACCOUNT`, `GCP_PROJECT_ID`, `SLACK_WEBHOOK_URL`（Cloud Run の実行時の環境変数）
+- GitHub Variables: `RECAPTCHA_SITE_KEY`（ログイン画面の reCAPTCHA Enterprise のサイトキー。公開の値なので Secrets ではない）。**未設定かサイトキーの形でなければ、最初のステップでワークフローを落とす**（ビルドもデプロイもしない。空のままデプロイすると SMS の所で 503 になり、誰もログインできないため）。確かめるのは形だけで、本番のプロジェクトのキーか・許可ドメインは見ない。規則は `RECAPTCHA_SITE_KEY_PATTERN`（`src/constants/auth.ts`）と同じで、`tests/unit/config/deployWorkflow.test.ts` が突き合わせ、確認のスクリプトを実際に動かす
 - `firestore.rules` は自動では反映されない。変えたら開発者が `firebase deploy --only firestore:rules` を手で実行する
 - デプロイの開始・結果と PR の作成は、Slack の GitHub アプリが通知する（ワークフローの中では通知しない）
 

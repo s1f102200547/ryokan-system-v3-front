@@ -27,6 +27,20 @@ jobs:
       id-token: write  # Workload Identity Federation に必要
 
     steps:
+      # ログイン画面の reCAPTCHA Enterprise のサイトキー（GitHub の Variables）が設定されていなければ、ビルドもデプロイもせずに落とす。
+      # 空のままデプロイすると、パスワードは通るのに SMS の所で 503 になり、誰もログインできなくなる（docs/Development.md「SMS の2要素目」）。
+      # 確かめるのは形だけ（本番のプロジェクトのキーか・許可ドメインは見ない）。規則は src/constants/auth.ts の RECAPTCHA_SITE_KEY_PATTERN と同じ
+      # （tests/unit/config/deployWorkflow.test.ts が突き合わせる）。値は env で渡し、run に ${{ }} を直接書かない（スクリプトの注入を防ぐ）
+      - name: Check RECAPTCHA_SITE_KEY
+        env:
+          RECAPTCHA_SITE_KEY: ${{ vars.RECAPTCHA_SITE_KEY }}
+        run: |
+          pattern='^[A-Za-z0-9_-]{20,100}$'
+          if [[ ! "$RECAPTCHA_SITE_KEY" =~ $pattern ]]; then
+            echo "::error::GitHub の Variables に RECAPTCHA_SITE_KEY がないか、サイトキーの形ではありません（docs/Development.md「SMS の2要素目」）"
+            exit 1
+          fi
+
       # CI が検査したコミットを取得する。workflow_run の github.sha は「deploy が始まった時点の main の最新」で、
       # CI のあとに push されたコミットを指すことがあるため、head_sha を使う
       # Semgrep は「workflow_run で PR のコードを checkout している」と指摘するが、上の if: で main への push の CI に限っているので、
