@@ -34,7 +34,7 @@ async function expectUnavailable(): Promise<InfraError> {
 describe('signInWithPassword', () => {
   it('本番は identitytoolkit に、サーバーの API キーで、メールアドレスとパスワードを送る', async () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ idToken: 'id-token', localId: 'u1' }), { status: 200 }))
-    expect(await signInWithPassword('pc1@example.com', PASSWORD)).toEqual({ success: true, value: { idToken: 'id-token' } })
+    expect(await signInWithPassword('pc1@example.com', PASSWORD)).toEqual({ success: true, value: { kind: 'signed_in', idToken: 'id-token' } })
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(url).toBe('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=server-key')
     expect(JSON.parse(String(init.body))).toEqual({ email: 'pc1@example.com', password: PASSWORD, returnSecureToken: true })
@@ -85,8 +85,24 @@ describe('signInWithPassword', () => {
     expect((await expectUnavailable()).message).toBe('Password sign-in failed: UNKNOWN (status 502)')
   })
 
-  it('idToken のない成功（2要素目が要る、など）は AUTH_UNAVAILABLE', async () => {
-    fetchMock.mockResolvedValue(new Response(JSON.stringify({ mfaPendingCredential: 'x', mfaInfo: [] }), { status: 200 }))
+  it('2要素目が要る応答は mfa_required（電話の登録の ID と伏せ字の番号）', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({
+      mfaPendingCredential: 'pending-cred',
+      mfaInfo: [{ mfaEnrollmentId: 'totp-1', totpInfo: {} }, { mfaEnrollmentId: 'phone-1', phoneInfo: '+81*******1234', displayName: 'フロント' }],
+      localId: 'u1',
+    }), { status: 200 }))
+    expect(await signInWithPassword('a@example.com', PASSWORD)).toEqual({
+      success: true,
+      value: { kind: 'mfa_required', mfaPendingCredential: 'pending-cred', mfaEnrollmentId: 'phone-1', phoneHint: '+81*******1234' },
+    })
+  })
+
+  it.each([
+    ['電話の登録がない', { mfaPendingCredential: 'x', mfaInfo: [{ mfaEnrollmentId: 'totp-1' }] }],
+    ['mfaInfo が空', { mfaPendingCredential: 'x', mfaInfo: [] }],
+    ['idToken も mfaPendingCredential もない', { localId: 'u1' }],
+  ])('%s成功は AUTH_UNAVAILABLE', async (_label, body) => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }))
     await expectUnavailable()
   })
 

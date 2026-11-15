@@ -3,12 +3,12 @@
 #   make help   ターゲット一覧
 
 .DEFAULT_GOAL := local
-.PHONY: local emulators seed dev anonymize check help
+.PHONY: local emulators seed dev mfa-code anonymize check help
 
 # 匿名化データ（.localdev/data/）があればそれを、なければ人工データ（tests/fixtures/localdev/）を投入する
 SEED_ARGS := $(if $(wildcard .localdev/data/guestInfoV2.json),,-- --fixture)
 
-local: ## Emulator 起動 → 投入 → 開発サーバー（http://127.0.0.1:3000、dev@example.com / dev-password）
+local: ## Emulator 起動 → 投入 → 開発サーバー（http://127.0.0.1:3000、dev@example.com / dev-password、SMS のコードは make mfa-code）
 	firebase emulators:exec --project demo-ryokan --only firestore,auth --ui "npm run seed $(SEED_ARGS) && npm run dev"
 
 emulators: ## Emulator だけを起動する（データは空。別の端末で make seed を実行する）
@@ -19,6 +19,9 @@ seed: ## 起動中の Emulator にデータを投入し直す（全データと�
 
 dev: ## 開発サーバーだけを起動する（Emulator は別に起動しておく）
 	npm run dev
+
+mfa-code: ## ログインの2段目の SMS のコード（Emulator が出したもの）を表示する。ログイン画面でパスワードを送ってから実行する
+	@npm run --silent mfa-code
 
 anonymize: ## 本番から匿名化データを作る（ブラウザでログイン。終了時に認証情報を削除）
 	npm run anonymize -- --project ryokan-system --sa anon-reader@ryokan-system.iam.gserviceaccount.com
@@ -34,4 +37,4 @@ check: ## lint・型チェック・unit/integration test・Emulator の往復検
 	npm run e2e:emulator
 
 help: ## ターゲット一覧
-	@grep -E '^[a-z]+:.*## ' $(MAKEFILE_LIST) | sed -E 's/:.*## /\t/'
+	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | sed -E 's/:.*## /\t/'

@@ -4,3 +4,4 @@
 10055	IGNORE	CSP style-src unsafe-inline is required by MUI/Emotion. Production CSP is pinned by tests/unit/lib/csp.test.ts
 10109	IGNORE	Modern Web Application (informational only)
 10049	IGNORE	Non-Storable Content (no extra handling needed for business pages)
+90004	IGNORE	COEP is omitted on /login on purpose for the reCAPTCHA Enterprise iframe (src/proxy.ts). This scan only covers /login. COEP on other pages is pinned by e2e/prod/securityHeaders.spec.ts and .zap/full-prod.yaml (URL-limited filter). OUTOFSCOPE still counts the rule as WARN in ZAP 2.17

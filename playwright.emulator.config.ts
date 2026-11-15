@@ -19,7 +19,9 @@ export default defineConfig({
   outputDir: 'test-results-emulator',
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
-    trace: 'on-first-retry',
+    // 手元は retries: 0 なので on-first-retry では trace が残らない。まれな失敗（2026-11-15、失効の後に /login へ移らず30秒）を
+    // 次に起きたときに追えるよう、失敗したテストの trace を残す
+    trace: 'retain-on-failure',
   },
   projects: [
     {

@@ -5,3 +5,6 @@ export const DATE_RANGE_FUTURE_DAYS = 365
 // Session Cookie も終了時刻に切れる（ただし Firebase の最低値が 5 分なので、22:55 以降のログインでは最長 23:05）
 export const BUSINESS_HOURS_START_JST = 6
 export const BUSINESS_HOURS_END_JST = 23
+// ログイン以外の API は、終了時刻の後もこの分だけ使える（6:00〜23:05。requireSession）。
+// 22:55 以降のログインの Session Cookie が最長 23:05 まで生きるのと合わせる。23:00 の直前に押した保存が少し遅れて届いても通す
+export const API_GRACE_MINUTES_AFTER_CLOSE = 5

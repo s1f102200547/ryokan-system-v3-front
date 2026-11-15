@@ -38,27 +38,44 @@ export type LoginNoticeInput = {
   userAgent: string | null
   nowMs: number
   replacedSession?: boolean // 同じアカウントの、まだ生きていた前のセッションを切った
+  passwordOnly?: boolean // SMS の2要素目なしで入った（MFA_MODE=enrolled_only の、電話を登録していないアカウント）
 }
 
-export function buildLoginNotice({ account, forwardedFor, userAgent, nowMs, replacedSession = false }: LoginNoticeInput): string {
+export function buildLoginNotice({ account, forwardedFor, userAgent, nowMs, replacedSession = false, passwordOnly = false }: LoginNoticeInput): string {
   const ips = forwardedIps(forwardedFor)
   const ipLabel = ips.length > 0 ? ips.join(', ') : '不明'
   // 前のセッションを切った: 別の PC・ブラウザで同じアカウントに入った。攻撃者に追い出されたスタッフが入り直すと、これが2回続く
   const replaced = replacedSession ? ' / 前のセッションを切った' : ''
-  return `[ログイン] ${escapeSlack(account)} / IP ${ipLabel}（右端が Google の追記） / ${describeUserAgent(userAgent)} / ${formatJST(nowMs)}${replaced}`
+  // SMS を試す間（MFA_MODE=enrolled_only）だけ出る。全員に SMS を求める（all）に戻し忘れていないかにも気付ける
+  const smsLabel = passwordOnly ? ' / SMS なし（MFA_MODE=enrolled_only）' : ''
+  return `[ログイン] ${escapeSlack(account)} / IP ${ipLabel}（右端が Google の追記） / ${describeUserAgent(userAgent)} / ${formatJST(nowMs)}${replaced}${smsLabel}`
 }
 
-const REJECTION_LABELS: Record<ClientRejection, string> = {
+// パスワードが合った後に断った理由。端末・ブラウザ（A）と、SMS の2要素目（C）
+export type LoginRejection =
+  | ClientRejection | 'mfa_not_enrolled' | 'no_second_factor' | 'ip_mismatch' | 'recaptcha_rejected' | 'token_rejected' | 'password_only_token_rejected'
+
+const REJECTION_LABELS: Record<LoginRejection, string> = {
   os_not_allowed: 'Windows 以外の端末',
   browser_not_allowed: 'Chrome・Edge 以外のブラウザ',
+  mfa_not_enrolled: 'SMS の2要素目が未登録のアカウント',
+  no_second_factor: '2要素目を通っていないトークン',
+  ip_mismatch: 'パスワードと SMS のコードで接続元が違う',
+  recaptcha_rejected: 'reCAPTCHA の確認で断られた（SMS は送っていない）',
+  // 無効化・失効の直後のログインか、時計のずれ。detail に Firebase のコード（auth/user-disabled など）
+  token_rejected: 'SMS のコードは合ったが、ID トークンが無効',
+  // MFA_MODE=enrolled_only の、電話を登録していないアカウント（SMS なし）。detail は token_rejected と同じ
+  password_only_token_rejected: 'パスワードは合ったが、ID トークンが無効（SMS なし）',
 }
 
-// 端末・ブラウザの確認で断ったときの通知。パスワードは合っているので、別の端末での利用か、盗まれたパスワードの利用
-export function buildLoginRejectedNotice(input: LoginNoticeInput & { reason: ClientRejection }): string {
-  const { account, forwardedFor, userAgent, nowMs, reason } = input
+// パスワードが合った後に断ったときの通知。別の端末での利用か、盗まれたパスワードの利用か、設定の誤り。
+// detail: 理由の補足（Firebase のエラーコードなど）。書式は無効にする
+export function buildLoginRejectedNotice(input: LoginNoticeInput & { reason: LoginRejection; detail?: string }): string {
+  const { account, forwardedFor, userAgent, nowMs, reason, detail } = input
   const ips = forwardedIps(forwardedFor)
   const ipLabel = ips.length > 0 ? ips.join(', ') : '不明'
-  return `[ログイン拒否] ${escapeSlack(account)} / ${REJECTION_LABELS[reason]} / IP ${ipLabel}（右端が Google の追記） / ${describeUserAgent(userAgent)} / ${formatJST(nowMs)}`
+  const reasonLabel = detail ? `${REJECTION_LABELS[reason]}（${escapeSlack(detail)}）` : REJECTION_LABELS[reason]
+  return `[ログイン拒否] ${escapeSlack(account)} / ${reasonLabel} / IP ${ipLabel}（右端が Google の追記） / ${describeUserAgent(userAgent)} / ${formatJST(nowMs)}`
 }
 
 // ログインの失敗が続いて止め始めたときの通知。メールアドレスは利用者が書いた値なので書式を無効にする。IP は IP の形でなければ「?」
@@ -67,3 +84,11 @@ export function buildLoginLockNotice({ key, failures, lockMs }: { key: { kind: '
   return `[ログイン制限] ${target} / ${failures}回続けて失敗 / ${Math.round(lockMs / 60000)}分止める`
 }
 
+
+// 1アカウントの1日の SMS の数が上限に達して、はじめて断ったときの通知（1日1回）。
+// 不正な大量送信（SMS pumping）か、パスワードを知る誰かが SMS を送らせ続けている
+export function buildSmsLimitNotice({ account, limit, forwardedFor, nowMs }: { account: string; limit: number; forwardedFor: string | null; nowMs: number }): string {
+  const ips = forwardedIps(forwardedFor)
+  const ipLabel = ips.length > 0 ? ips.join(', ') : '不明'
+  return `[SMS 上限] ${escapeSlack(account)} / 今日 ${limit} 通を超えたので送らない / IP ${ipLabel}（右端が Google の追記） / ${formatJST(nowMs)}`
+}

@@ -4,7 +4,8 @@ import { setNowJST } from '@tests/utils/timeHelper'
 import { POST } from '@/app/api/auth/login/route'
 import { InfraError } from '@/types/errors'
 
-// パスワードの確認（Firebase の REST）はモック。失敗回数の記録はメモリで数える（判定は本物の domain）
+// ログインの1段目（パスワード → SMS の送信）。2段目（コード → Session Cookie）は ./verify/route.test.ts。
+// パスワードの確認と SMS の送信（Firebase の REST）はモック。失敗回数・SMS の通数・途中の状態はメモリ（判定は本物の domain）
 vi.mock('@/infra/auth/passwordSignIn', () => ({ signInWithPassword: vi.fn(), isPasswordSignInConfigured: vi.fn() }))
 import { isPasswordSignInConfigured, signInWithPassword } from '@/infra/auth/passwordSignIn'
 vi.mock('@/infra/auth/firestoreLoginThrottleRepository', async () => {
@@ -12,11 +13,28 @@ vi.mock('@/infra/auth/firestoreLoginThrottleRepository', async () => {
   return { firestoreLoginThrottleRepository: createMemoryLoginThrottleRepository() }
 })
 import { firestoreLoginThrottleRepository } from '@/infra/auth/firestoreLoginThrottleRepository'
+vi.mock('@/infra/auth/mfaSignIn', () => ({ startPhoneMfa: vi.fn(), finalizePhoneMfa: vi.fn() }))
+import { startPhoneMfa } from '@/infra/auth/mfaSignIn'
+vi.mock('@/infra/auth/firestoreMfaPendingRepository', async () => {
+  const { createMemoryMfaPendingRepository } = await import('@tests/utils/memoryMfaRepositories')
+  return { firestoreMfaPendingRepository: createMemoryMfaPendingRepository() }
+})
+vi.mock('@/infra/auth/firestoreSmsQuotaRepository', async () => {
+  const { createMemorySmsQuotaRepository } = await import('@tests/utils/memoryMfaRepositories')
+  return { firestoreSmsQuotaRepository: createMemorySmsQuotaRepository() }
+})
+import { firestoreMfaPendingRepository } from '@/infra/auth/firestoreMfaPendingRepository'
+import { firestoreSmsQuotaRepository } from '@/infra/auth/firestoreSmsQuotaRepository'
+import type { createMemoryMfaPendingRepository, createMemorySmsQuotaRepository } from '@tests/utils/memoryMfaRepositories'
+import { MFA_PENDING_TTL_MS, MFA_SMS_DAILY_LIMIT } from '@/constants/auth'
 import type { createMemoryLoginThrottleRepository } from '@tests/utils/memoryLoginThrottleRepository'
 const throttle = firestoreLoginThrottleRepository as ReturnType<typeof createMemoryLoginThrottleRepository>
+const pendings = firestoreMfaPendingRepository as ReturnType<typeof createMemoryMfaPendingRepository>
+const quota = firestoreSmsQuotaRepository as ReturnType<typeof createMemorySmsQuotaRepository>
 const mockSignIn = vi.mocked(signInWithPassword)
+const MFA_REQUIRED = { success: true as const, value: { kind: 'mfa_required' as const, mfaPendingCredential: 'pending-cred-must-not-leak', mfaEnrollmentId: 'phone-1', phoneHint: '+81*******1234' } }
 
-// adminAuth の verifyIdToken / createSessionCookie をモック
+// adminAuth はモック（1段目では Session Cookie を作らない。呼ばれないことを確かめる）
 vi.mock('@/lib/firebase/admin', () => ({
   adminAuth: {
     verifyIdToken: vi.fn(),
@@ -35,7 +53,6 @@ import { notifySlackFireAndForget } from '@/lib/slack'
 
 const mockVerifyIdToken = vi.mocked(adminAuth.verifyIdToken)
 const mockCreateSessionCookie = vi.mocked(adminAuth.createSessionCookie)
-const mockGetUser = vi.mocked(adminAuth.getUser)
 const mockSetCustomUserClaims = vi.mocked(adminAuth.setCustomUserClaims)
 
 const CHROME_WIN = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
@@ -55,49 +72,230 @@ function makeRequest(body: object = VALID, userAgent: string | null = CHROME_WIN
 describe('POST /api/auth/login', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    throttle.clear()
-    mockSignIn.mockResolvedValue({ success: true, value: { idToken: 'id-token-from-rest' } })
+    throttle.clear(); pendings.clear(); quota.clear()
+    mockSignIn.mockResolvedValue(MFA_REQUIRED)
     vi.mocked(isPasswordSignInConfigured).mockReturnValue(true)
-    mockGetUser.mockResolvedValue({ customClaims: undefined } as never)
-    mockSetCustomUserClaims.mockResolvedValue(undefined)
+    vi.mocked(startPhoneMfa).mockResolvedValue({ success: true, value: { sessionInfo: 'session-info-must-not-leak' } })
   })
 
-  it('正しいメールアドレスとパスワードなら 200 と session Cookie を返す（REST で得たトークンから Cookie を作る）', async () => {
-    mockVerifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'pc1@example.com' } as never)
-    mockCreateSessionCookie.mockResolvedValue('session-cookie-value')
-
+  it('パスワードが合えば SMS を送り、200 と伏せ字の電話番号、途中の状態の Cookie を返す（Session Cookie はまだ）', async () => {
     const response = await POST(makeRequest())
-    const body = await response.json()
-
     expect(response.status).toBe(200)
-    expect(body).toEqual({ success: true })
-    expect(response.headers.get('set-cookie')).toContain('session=')
+    expect(await response.json()).toEqual({ mfaRequired: true, phoneHint: '+81*******1234' })
+    expect(startPhoneMfa).toHaveBeenCalledWith('pending-cred-must-not-leak', 'phone-1', null) // 開発・Emulator は token なし
+    expect(response.cookies.get('session')).toBeUndefined()
+    expect(mockVerifyIdToken).not.toHaveBeenCalled()
+    expect(mockCreateSessionCookie).not.toHaveBeenCalled()
+    expect(mockSetCustomUserClaims).not.toHaveBeenCalled() // 前のセッションを切らない（切るのはコードが合ってから）
+
+    const setCookie = response.headers.get('set-cookie') ?? ''
+    const pendingId = response.cookies.get('mfa_pending')?.value ?? ''
+    expect(pendingId).toMatch(/^[A-Za-z0-9_-]{43}$/)
+    expect(setCookie).toMatch(/HttpOnly/i)
+    expect(setCookie).toMatch(/SameSite=Strict/i)
+    expect(setCookie).toContain('Path=/api/auth/login')
+    expect(setCookie).toContain(`Max-Age=${MFA_PENDING_TTL_MS / 1000}`)
+    // 秘密の値はブラウザに渡さない
+    expect(setCookie + JSON.stringify(await POST(makeRequest()).then((r) => r.json()))).not.toMatch(/must-not-leak/)
+    expect(pendings.items.get(pendingId)).toMatchObject({ email: 'pc1@example.com', sessionInfo: 'session-info-must-not-leak' })
   })
 
   // Secure（HTTPS のときだけ送る）は本番だけで付ける。ローカルの HTTP では動きを確かめられないので、付く条件だけを見る
-  describe('Cookie の Secure', () => {
+  describe('途中の状態の Cookie の Secure', () => {
     afterEach(() => {
       vi.unstubAllEnvs()
       vi.useRealTimers()
     })
-
-    async function loginCookie(): Promise<string> {
-      mockVerifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'pc1@example.com' } as never)
-      mockCreateSessionCookie.mockResolvedValue('session-cookie-value')
-      const response = await POST(makeRequest())
-      expect(response.status).toBe(200)
-      return response.headers.get('set-cookie') ?? ''
-    }
-
     it('production では Secure を付ける', async () => {
       vi.useFakeTimers()
       setNowJST('2026-05-20T12:00') // 本番は時間外のログインを断るので、営業時間内にする
       vi.stubEnv('NODE_ENV', 'production')
-      expect(await loginCookie()).toMatch(/;\s*Secure(;|$)/i)
+      expect((await POST(makeRequest())).headers.get('set-cookie')).toMatch(/;\s*Secure(;|$)/i)
+    })
+    it('development / test では付けない', async () => {
+      expect((await POST(makeRequest())).headers.get('set-cookie')).not.toMatch(/;\s*Secure(;|$)/i)
+    })
+  })
+
+  it('2要素目なしで通った（電話を登録していない）アカウントは 403 mfa_not_enrolled。SMS も Cookie もなし、Slack に拒否', async () => {
+    mockSignIn.mockResolvedValue({ success: true, value: { kind: 'signed_in', idToken: 'id-token-from-rest' } })
+    const response = await POST(makeRequest())
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({ error: 'mfa_not_enrolled' })
+    expect(response.headers.get('set-cookie')).toBeNull()
+    expect(startPhoneMfa).not.toHaveBeenCalled()
+    expect(mockCreateSessionCookie).not.toHaveBeenCalled()
+    expect(vi.mocked(notifySlackFireAndForget).mock.calls[0][0]).toMatch(/^\[ログイン拒否\] pc1@example\.com \/ SMS の2要素目が未登録のアカウント \/ /)
+  })
+
+  // MFA_MODE=enrolled_only（本番で SMS を試す間）: 電話を登録していないアカウントは、パスワードだけで入れる
+  describe('MFA_MODE', () => {
+    const DECODED = { uid: 'uid-1', email: 'pc1@example.com', auth_time: 1_779_000_000, firebase: { sign_in_provider: 'password' } }
+    const PASSWORD_ONLY = { success: true as const, value: { kind: 'signed_in' as const, idToken: 'id-token-from-rest' } }
+    beforeEach(() => {
+      mockVerifyIdToken.mockResolvedValue(DECODED as never)
+      vi.mocked(adminAuth.getUser).mockResolvedValue({ customClaims: undefined } as never)
+      mockCreateSessionCookie.mockResolvedValue('session-cookie-value')
+    })
+    afterEach(() => vi.unstubAllEnvs())
+
+    it('enrolled_only なら、電話を登録していないアカウントは SMS なしで Session Cookie。Slack の [ログイン] に「SMS なし」', async () => {
+      vi.stubEnv('MFA_MODE', 'enrolled_only')
+      mockSignIn.mockResolvedValue(PASSWORD_ONLY)
+      const response = await POST(makeRequest())
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({ success: true })
+      expect(response.cookies.get('session')?.value).toBe('session-cookie-value')
+      expect(mockVerifyIdToken).toHaveBeenCalledWith('id-token-from-rest')
+      expect(startPhoneMfa).not.toHaveBeenCalled()
+      expect(quota.states.size).toBe(0) // SMS の通数も数えない
+      const messages = vi.mocked(notifySlackFireAndForget).mock.calls.map((c) => c[0])
+      expect(messages).toHaveLength(1)
+      expect(messages[0]).toMatch(/^\[ログイン\] pc1@example\.com \/ .* \/ SMS なし（MFA_MODE=enrolled_only）$/)
     })
 
-    it('development / test では付けない（HTTP の開発サーバーで Cookie が送られなくなるため）', async () => {
-      expect(await loginCookie()).not.toMatch(/;\s*Secure(;|$)/i)
+    it('enrolled_only でも、電話を登録したアカウントは今までどおり SMS を送る（Session Cookie はまだ）', async () => {
+      vi.stubEnv('MFA_MODE', 'enrolled_only')
+      const response = await POST(makeRequest())
+      expect(await response.json()).toEqual({ mfaRequired: true, phoneHint: '+81*******1234' })
+      expect(response.cookies.get('session')).toBeUndefined()
+      expect(mockCreateSessionCookie).not.toHaveBeenCalled()
+    })
+
+    it('enrolled_only で SMS なしのログインが成功したら、それまでの失敗の回数を 0 に戻す', async () => {
+      vi.stubEnv('MFA_MODE', 'enrolled_only')
+      mockSignIn.mockResolvedValue({ success: false, error: { kind: 'invalid_credentials', code: 'INVALID_LOGIN_CREDENTIALS' } })
+      await POST(makeRequest())
+      await POST(makeRequest())
+      expect([...throttle.states.values()].some((st) => st.failures === 2)).toBe(true)
+      mockSignIn.mockResolvedValue(PASSWORD_ONLY)
+      expect((await POST(makeRequest())).status).toBe(200)
+      expect([...throttle.states.values()].every((st) => st.failures === 0)).toBe(true)
+    })
+
+    it('enrolled_only でも、トークンが無効なら 401 login_failed。Cookie なし、Slack に拒否（コードつき）', async () => {
+      vi.stubEnv('MFA_MODE', 'enrolled_only')
+      mockSignIn.mockResolvedValue(PASSWORD_ONLY)
+      mockVerifyIdToken.mockRejectedValue({ code: 'auth/user-disabled', message: 'disabled' })
+      const response = await POST(makeRequest())
+      expect(response.status).toBe(401)
+      expect(await response.json()).toEqual({ error: 'login_failed' })
+      expect(response.cookies.get('session')).toBeUndefined()
+      expect(vi.mocked(notifySlackFireAndForget).mock.calls[0][0])
+        .toMatch(/^\[ログイン拒否\] pc1@example\.com \/ パスワードは合ったが、ID トークンが無効（SMS なし）（auth\/user-disabled）/)
+    })
+
+    it('enrolled_only でも、Windows の Chrome・Edge 以外は 403 client_not_allowed（Cookie なし）', async () => {
+      vi.stubEnv('MFA_MODE', 'enrolled_only')
+      mockSignIn.mockResolvedValue(PASSWORD_ONLY)
+      const response = await POST(makeRequest(VALID, 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'))
+      expect(response.status).toBe(403)
+      expect(await response.json()).toEqual({ error: 'client_not_allowed' })
+      expect(mockCreateSessionCookie).not.toHaveBeenCalled()
+    })
+
+    // 未設定・打ち間違いは、全員に SMS を求める側に倒す（スタッフを SMS なしで入れてしまわない）
+    it.each([['未設定', undefined], ['all', 'all'], ['打ち間違い', 'enrolled-only'], ['大文字', 'ENROLLED_ONLY'], ['空', '']])(
+      '%s なら、電話を登録していないアカウントは 403 mfa_not_enrolled',
+      async (_label, value) => {
+        if (value !== undefined) vi.stubEnv('MFA_MODE', value)
+        mockSignIn.mockResolvedValue(PASSWORD_ONLY)
+        const response = await POST(makeRequest())
+        expect(response.status).toBe(403)
+        expect(await response.json()).toEqual({ error: 'mfa_not_enrolled' })
+        expect(mockCreateSessionCookie).not.toHaveBeenCalled()
+      },
+    )
+  })
+
+  // 本番の Identity Platform は、SMS の前にブラウザで作った reCAPTCHA Enterprise の token を求める
+  describe('reCAPTCHA の token', () => {
+    it('body の recaptchaToken を、そのまま SMS の送信に渡す', async () => {
+      expect((await POST(makeRequest({ ...VALID, recaptchaToken: 'token-from-browser' }))).status).toBe(200)
+      expect(startPhoneMfa).toHaveBeenCalledWith('pending-cred-must-not-leak', 'phone-1', 'token-from-browser')
+    })
+
+    it.each([
+      ['空', ''],
+      ['長すぎる（4097 文字）', 't'.repeat(4097)],
+      ['文字列でない', 123],
+    ])('token が%sなら 400（パスワードを確かめず、数えない）', async (_label, recaptchaToken) => {
+      expect((await POST(makeRequest({ ...VALID, recaptchaToken }))).status).toBe(400)
+      expect(mockSignIn).not.toHaveBeenCalled()
+      expect(throttle.states.size).toBe(0)
+    })
+
+    it('Google が token を断ったら 403 recaptcha_failed。途中の状態の Cookie なし、Slack に拒否（数えない）', async () => {
+      vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'recaptcha_rejected', code: 'INVALID_RECAPTCHA_TOKEN' } })
+      const response = await POST(makeRequest({ ...VALID, recaptchaToken: 'stale-token' }))
+      expect(response.status).toBe(403)
+      expect(await response.json()).toEqual({ error: 'recaptcha_failed' })
+      expect(response.headers.get('set-cookie')).toBeNull()
+      expect(vi.mocked(notifySlackFireAndForget).mock.calls[0][0]).toMatch(/^\[ログイン拒否\] pc1@example\.com \/ reCAPTCHA の確認で断られた/)
+      expect([...throttle.states.values()].every((st) => st.failures === 0)).toBe(true)
+    })
+
+    // 本番で実際に来たコードを Slack で見られるように（点数が低いときのコードは本番でまだ見ていない）
+    it('Slack の拒否に Firebase のコードを載せる。ブラウザには返さない', async () => {
+      vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'recaptcha_rejected', code: 'CAPTCHA_CHECK_FAILED' } })
+      const response = await POST(makeRequest({ ...VALID, recaptchaToken: 'low-score-token' }))
+      expect(response.status).toBe(403)
+      expect(JSON.stringify(await response.json())).not.toContain('CAPTCHA_CHECK_FAILED')
+      expect(vi.mocked(notifySlackFireAndForget).mock.calls[0][0]).toContain('reCAPTCHA の確認で断られた（SMS は送っていない）（CAPTCHA_CHECK_FAILED）')
+      expect(vi.mocked(notifySlackFireAndForget).mock.calls[0][0]).not.toContain('[ALERT]')
+    })
+
+    it('token はログにも Slack にも出ない', async () => {
+      vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'recaptcha_rejected', code: 'INVALID_RECAPTCHA_TOKEN' } })
+      await POST(makeRequest({ ...VALID, recaptchaToken: 'token-must-not-leak-77' }))
+      const everything = JSON.stringify([vi.mocked(logger.info).mock.calls, vi.mocked(logger.warn).mock.calls, vi.mocked(notifySlackFireAndForget).mock.calls])
+      expect(everything).not.toContain('token-must-not-leak-77')
+    })
+  })
+
+  describe('SMS の送信', () => {
+    it(`1アカウント1日 ${MFA_SMS_DAILY_LIMIT} 通まで。超えたら送らずに 429 sms_limit、Slack は1回だけ`, async () => {
+      for (let i = 0; i < MFA_SMS_DAILY_LIMIT; i++) expect((await POST(makeRequest())).status).toBe(200)
+      const over = await POST(makeRequest())
+      expect(over.status).toBe(429)
+      expect(await over.json()).toEqual({ error: 'sms_limit' })
+      expect(over.headers.get('set-cookie')).toBeNull()
+      await POST(makeRequest())
+      expect(startPhoneMfa).toHaveBeenCalledTimes(MFA_SMS_DAILY_LIMIT)
+      const notices = vi.mocked(notifySlackFireAndForget).mock.calls.map(([m]) => m).filter((m) => m.startsWith('[SMS 上限]'))
+      expect(notices).toHaveLength(1)
+    })
+
+    it('端末・ブラウザで断ったときは SMS を送らず、通数も数えない', async () => {
+      for (let i = 0; i < MFA_SMS_DAILY_LIMIT + 1; i++) expect((await POST(makeRequest(VALID, null))).status).toBe(403)
+      expect(startPhoneMfa).not.toHaveBeenCalled()
+      expect((await POST(makeRequest())).status).toBe(200)
+    })
+
+    it('パスワードが違えば SMS を送らない', async () => {
+      mockSignIn.mockResolvedValue({ success: false, error: { kind: 'invalid_credentials', code: 'INVALID_LOGIN_CREDENTIALS' } })
+      expect((await POST(makeRequest())).status).toBe(401)
+      expect(startPhoneMfa).not.toHaveBeenCalled()
+    })
+
+    it('Firebase 自身が送信を止めたら 429 too_many_attempts（画面は待ち時間を出す）', async () => {
+      vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'throttled', code: 'QUOTA_EXCEEDED' } })
+      const response = await POST(makeRequest())
+      expect(response.status).toBe(429)
+      expect(await response.json()).toEqual({ error: 'too_many_attempts', retryAfterSeconds: 60 })
+      expect(response.headers.get('set-cookie')).toBeNull()
+    })
+
+    it.each([
+      ['SMS の送信（reCAPTCHA を求められた、など）', () => vi.mocked(startPhoneMfa).mockRejectedValue(new InfraError('AUTH_UNAVAILABLE', 'MFA sign-in start failed: MISSING_RECAPTCHA_TOKEN (status 400)'))],
+      ['途中の状態の保存', () => vi.spyOn(pendings, 'save').mockRejectedValueOnce(new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unreachable'))],
+      ['通数の記録', () => vi.spyOn(quota, 'consume').mockRejectedValueOnce(new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unreachable'))],
+    ])('%s の障害は 503 と Slack の ALERT。Cookie なし', async (_label, fail) => {
+      fail()
+      const response = await POST(makeRequest())
+      expect(response.status).toBe(503)
+      expect(response.headers.get('set-cookie')).toBeNull()
+      expect(vi.mocked(notifySlackFireAndForget).mock.calls[0][0]).toMatch(/^\[ALERT\] ログインエラー/)
     })
   })
 
@@ -142,35 +340,6 @@ describe('POST /api/auth/login', () => {
     expect(response.status).toBe(200)
   })
 
-  it('verifyIdToken が認証失敗コードを返した場合 401 を返す', async () => {
-    // CREDENTIAL_ERROR_CODES に含まれる code を持つエラー（Firebase Admin が実際に throw する形式）
-    mockVerifyIdToken.mockRejectedValue({ code: 'auth/invalid-id-token', message: 'invalid token' })
-
-    const response = await POST(makeRequest())
-    const body = await response.json()
-
-    expect(response.status).toBe(401)
-    expect(body.error).toBe('invalid_credentials')
-  })
-
-  it('verifyIdToken がインフラ障害（認証失敗コード以外）の場合 503 を返す', async () => {
-    // CREDENTIAL_ERROR_CODES に含まれない code → インフラ障害扱い
-    mockVerifyIdToken.mockRejectedValue({ code: 'auth/internal-error', message: 'Firebase down' })
-
-    const response = await POST(makeRequest())
-
-    expect(response.status).toBe(503)
-  })
-
-  it('createSessionCookie が失敗した場合 503 を返す', async () => {
-    mockVerifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'pc1@example.com' } as never)
-    mockCreateSessionCookie.mockRejectedValue(new Error('Firebase Auth down'))
-
-    const response = await POST(makeRequest())
-
-    expect(response.status).toBe(503)
-  })
-
   // request.json() を catch しておらず 500 になっていた
   it.each([
     ['不正な JSON', '{"email":'],
@@ -185,66 +354,8 @@ describe('POST /api/auth/login', () => {
     expect(notifySlackFireAndForget).not.toHaveBeenCalled()
   })
 
-  // 形式が不正な idToken で 503 + ALERT になっていた。
-  // firebase-admin は不正なトークンにも公開鍵の取得失敗にも auth/argument-error を返すため、メッセージで分ける
-  // （メッセージは firebase-admin 14.5 が実際に返すもの）
-  it.each([
-    ['形式が不正', 'Decoding Firebase ID token failed. Make sure you passed the entire string JWT which represents an ID token.'],
-    ['クレームが不正', 'Firebase ID token has incorrect "aud" (audience) claim. Expected "demo-x" but got "other".'],
-    ['署名が不正', 'Firebase ID token has invalid signature. See https://firebase.google.com/docs/auth/admin/verify-id-tokens'],
-  ])('auth/argument-error（%s）は 401（Slack に通知しない）', async (_label, message) => {
-    mockVerifyIdToken.mockRejectedValue({ code: 'auth/argument-error', message })
-    const response = await POST(makeRequest())
-    expect(response.status).toBe(401)
-    expect(notifySlackFireAndForget).not.toHaveBeenCalled()
-  })
-
-  it.each([
-    ['HTTP エラー', 'Error fetching public keys for Google certs: 500'],
-    ['接続できない', 'connect ETIMEDOUT 142.250.0.1:443'],
-  ])('auth/argument-error でも公開鍵の取得失敗（%s）は 503 + Slack 通知', async (_label, message) => {
-    mockVerifyIdToken.mockRejectedValue({ code: 'auth/argument-error', message })
-    const response = await POST(makeRequest())
-    expect(response.status).toBe(503)
-    expect(notifySlackFireAndForget).toHaveBeenCalled()
-  })
-
-  // ログイン成功は毎回 Slack に通知する（旅館の外からのログインに気付くため）
-  it('ログイン成功で、アカウント・IP・ブラウザを Slack に通知する', async () => {
-    mockVerifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'pc1@example.com' } as never)
-    mockCreateSessionCookie.mockResolvedValue('session-cookie-value')
-
-    const response = await POST(new Request('http://localhost/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-forwarded-for': '<!channel>, 203.0.113.5',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0',
-      },
-      body: JSON.stringify(VALID),
-    }))
-
-    expect(response.status).toBe(200)
-    expect(notifySlackFireAndForget).toHaveBeenCalledTimes(1)
-    const message = vi.mocked(notifySlackFireAndForget).mock.calls[0][0]
-    expect(message).toContain('pc1@example.com')
-    expect(message).toContain('IP ?, 203.0.113.5')
-    expect(message).toContain('Edge on Windows')
-    expect(message).not.toContain('<!channel>')
-  })
-
-  it('ログインに失敗したときは成功の通知をしない', async () => {
-    mockVerifyIdToken.mockRejectedValue({ code: 'auth/invalid-id-token', message: 'invalid token' })
-    await POST(makeRequest())
-    expect(notifySlackFireAndForget).not.toHaveBeenCalled()
-  })
-
-  // 旅館の PC（Windows）の Chrome・Edge だけ。パスワードが合っていても、それ以外には Cookie を発行しない
+  // 旅館の PC（Windows）の Chrome・Edge だけ。パスワードが合っていても、それ以外には SMS を送らない
   describe('端末・ブラウザの確認', () => {
-    beforeEach(() => {
-      mockVerifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'pc1@example.com' } as never)
-      mockCreateSessionCookie.mockResolvedValue('session-cookie-value')
-    })
 
     it.each([
       ['Windows の Chrome', CHROME_WIN],
@@ -260,12 +371,12 @@ describe('POST /api/auth/login', () => {
       ['Windows の Opera', `${CHROME_WIN} OPR/120.0.0.0`, 'Chrome・Edge 以外のブラウザ'],
       ['Windows の HeadlessChrome', CHROME_WIN.replace('Chrome/', 'HeadlessChrome/'), 'Chrome・Edge 以外のブラウザ'],
       ['User-Agent なし', null, 'Windows 以外の端末'],
-    ])('%s は 403 client_not_allowed、Cookie なし、Slack に拒否を通知', async (_label, ua, reasonLabel) => {
+    ])('%s は 403 client_not_allowed、SMS も Cookie もなし、Slack に拒否を通知', async (_label, ua, reasonLabel) => {
       const response = await POST(makeRequest(VALID, ua))
       expect(response.status).toBe(403)
       expect(await response.json()).toEqual({ error: 'client_not_allowed' })
       expect(response.headers.get('set-cookie')).toBeNull()
-      expect(mockCreateSessionCookie).not.toHaveBeenCalled()
+      expect(startPhoneMfa).not.toHaveBeenCalled()
       expect(notifySlackFireAndForget).toHaveBeenCalledTimes(1)
       const message = vi.mocked(notifySlackFireAndForget).mock.calls[0][0]
       expect(message).toMatch(/^\[ログイン拒否\] pc1@example\.com \/ /)
@@ -285,87 +396,11 @@ describe('POST /api/auth/login', () => {
       expect(message).toContain('その他のブラウザ on Linux')
     })
 
-    it('トークンが不正なら、User-Agent に関係なく 401（拒否の通知はしない）', async () => {
-      mockVerifyIdToken.mockRejectedValue({ code: 'auth/invalid-id-token', message: 'invalid token' })
-      expect((await POST(makeRequest(VALID, null))).status).toBe(401)
-      expect(notifySlackFireAndForget).not.toHaveBeenCalled()
-    })
-
     it('どんな User-Agent でも 200 か 403（5xx にならない）', async () => {
       await fc.assert(fc.asyncProperty(fc.string({ maxLength: 300 }), async (ua) => {
         const status = (await POST(makeRequest(VALID, ua))).status
         expect([200, 403]).toContain(status)
       }), { numRuns: 100 })
-    })
-  })
-
-  // 1アカウント1セッション。最後のログインの時刻をユーザーのクレームに書き、verifySession が Cookie の時刻と比べる
-  describe('1アカウント1セッション', () => {
-    const AUTH_TIME = 1_700_000_000
-    afterEach(() => vi.useRealTimers())
-
-    beforeEach(() => {
-      mockVerifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'pc1@example.com', auth_time: AUTH_TIME } as never)
-      mockCreateSessionCookie.mockResolvedValue('session-cookie-value')
-    })
-
-    it('今回のログインの時刻を、ほかのクレームを残したまま書いてから Cookie を作る', async () => {
-      mockGetUser.mockResolvedValue({ customClaims: { other: 'keep', sessionAuthTime: 1 } } as never)
-      expect((await POST(makeRequest())).status).toBe(200)
-      expect(mockGetUser).toHaveBeenCalledWith('uid-1')
-      expect(mockSetCustomUserClaims).toHaveBeenCalledWith('uid-1', { other: 'keep', sessionAuthTime: AUTH_TIME })
-      expect(mockSetCustomUserClaims.mock.invocationCallOrder[0]).toBeLessThan(mockCreateSessionCookie.mock.invocationCallOrder[0])
-    })
-
-    it.each([
-      ['ユーザーが読めない', () => mockGetUser.mockRejectedValue(new Error('Auth down'))],
-      ['クレームが書けない', () => mockSetCustomUserClaims.mockRejectedValue(new Error('Auth down'))],
-    ])('%s なら 503 で Cookie を返さない（Slack に通知）', async (_label, fail) => {
-      fail()
-      const response = await POST(makeRequest())
-      expect(response.status).toBe(503)
-      expect(response.headers.get('set-cookie')).toBeNull()
-      expect(mockCreateSessionCookie).not.toHaveBeenCalled()
-      expect(vi.mocked(notifySlackFireAndForget).mock.calls[0][0]).toMatch(/^\[ALERT\]/)
-    })
-
-    // 断ったログインでクレームを書くと、正しいスタッフのセッションが切れてしまう
-    it.each([
-      ['端末・ブラウザで断った', () => makeRequest(VALID, null)],
-      ['トークンが不正', () => { mockVerifyIdToken.mockRejectedValue({ code: 'auth/invalid-id-token', message: 'x' }); return makeRequest() }],
-    ])('%s ときはクレームを書かない', async (_label, request) => {
-      await POST(request())
-      expect(mockSetCustomUserClaims).not.toHaveBeenCalled()
-    })
-
-    describe('前のセッションを切ったことの通知', () => {
-      const jstSeconds = (iso: string) => Date.parse(`${iso}+09:00`) / 1000
-      const NOW_AUTH_TIME = jstSeconds('2026-05-20T11:59:00')
-
-      beforeEach(() => {
-        vi.useFakeTimers()
-        setNowJST('2026-05-20T12:00')
-        mockVerifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'pc1@example.com', auth_time: NOW_AUTH_TIME } as never)
-      })
-      async function notice(previous: unknown): Promise<string> {
-        mockGetUser.mockResolvedValue({ customClaims: previous === undefined ? undefined : { sessionAuthTime: previous } } as never)
-        expect((await POST(makeRequest())).status).toBe(200)
-        return vi.mocked(notifySlackFireAndForget).mock.calls[0][0]
-      }
-
-      it('前のログインが今日（JST）なら「前のセッションを切った」', async () => {
-        expect(await notice(jstSeconds('2026-05-20T00:30:00'))).toMatch(/ \/ 前のセッションを切った$/)
-      })
-
-      it.each([
-        ['前のログインがない', undefined],
-        ['前のログインが昨日（23:00 に切れている）', jstSeconds('2026-05-19T22:59:00')],
-        ['同じログインのトークンで2回目（同じ時刻）', NOW_AUTH_TIME],
-        ['壊れた値', 'x'],
-        ['Date にできない値', 1e300],
-      ])('%s なら書かない', async (_label, previous) => {
-        expect(await notice(previous)).not.toContain('前のセッションを切った')
-      })
     })
   })
 
@@ -383,16 +418,12 @@ describe('POST /api/auth/login', () => {
     beforeEach(() => {
       vi.useFakeTimers()
       setNowJST('2026-05-20T10:00')
-      mockVerifyIdToken.mockResolvedValue({ uid: 'uid-1', email: 'pc1@example.com', auth_time: 1 } as never)
-      mockCreateSessionCookie.mockResolvedValue('session-cookie-value')
     })
     afterEach(() => vi.useRealTimers())
 
-    it('メールアドレスとパスワードを REST に渡し、得たトークンで Cookie を作る', async () => {
+    it('メールアドレスとパスワードを REST に渡す', async () => {
       expect((await POST(makeRequest())).status).toBe(200)
       expect(mockSignIn).toHaveBeenCalledWith('pc1@example.com', PASSWORD)
-      expect(mockVerifyIdToken).toHaveBeenCalledWith('id-token-from-rest')
-      expect(mockCreateSessionCookie).toHaveBeenCalledWith('id-token-from-rest', expect.anything())
     })
 
     it('違えば 401。Cookie を作らず、失敗を1回数える（2回までは止めない・知らせない）', async () => {
@@ -402,8 +433,7 @@ describe('POST /api/auth/login', () => {
         expect(response.status).toBe(401)
         expect(await response.json()).toEqual({ error: 'invalid_credentials' })
       }
-      expect(mockVerifyIdToken).not.toHaveBeenCalled()
-      expect(mockCreateSessionCookie).not.toHaveBeenCalled()
+      expect(startPhoneMfa).not.toHaveBeenCalled()
       expect(slackMessages()).toEqual([])
     })
 
@@ -416,7 +446,7 @@ describe('POST /api/auth/login', () => {
       ])
 
       mockSignIn.mockClear()
-      mockSignIn.mockResolvedValue({ success: true, value: { idToken: 'id-token-from-rest' } }) // 正しいパスワードでも
+      mockSignIn.mockResolvedValue(MFA_REQUIRED) // 正しいパスワードでも
       const response = await POST(from('203.0.113.5'))
       expect(response.status).toBe(429)
       expect(await response.json()).toEqual({ error: 'too_many_attempts', retryAfterSeconds: 1 * MIN })
@@ -439,12 +469,14 @@ describe('POST /api/auth/login', () => {
       expect(slackMessages().at(-2)).toBe('[ログイン制限] アカウント pc1@example.com / 4回続けて失敗 / 5分止める')
     })
 
-    it('成功すると、メールアドレスと IP の回数を 0 に戻す', async () => {
+    // 0 に戻すのは SMS のコードが合ったとき（verify）。パスワードが合っただけで戻すと、コードを無限に試せる
+    it('パスワードが合っても、メールアドレスと IP の回数は 0 に戻さない（札は外す）', async () => {
       wrong()
       for (let i = 0; i < 2; i++) await POST(from('203.0.113.5'))
-      mockSignIn.mockResolvedValue({ success: true, value: { idToken: 'id-token-from-rest' } })
+      mockSignIn.mockResolvedValue(MFA_REQUIRED)
       expect((await POST(from('203.0.113.5'))).status).toBe(200)
-      expect(throttle.states.size).toBe(0)
+      expect(throttle.states.size).toBe(2)
+      expect([...throttle.states.values()].every((st) => st.failures === 2 && st.pending.length === 0)).toBe(true)
     })
 
     it('IP ごとにも数える: 同じ IP から別のアドレスを順に試しても、3回で止まる', async () => {
@@ -518,7 +550,7 @@ describe('POST /api/auth/login', () => {
       wrong()
       await POST(from('203.0.113.5', { email: 'typo1@example.com', password: 'xxx' }))
       await POST(from('203.0.113.5', { email: 'typo2@example.com', password: 'xxx' }))
-      mockSignIn.mockImplementation(() => new Promise((r) => setTimeout(() => r({ success: true, value: { idToken: 'id-token-from-rest' } }), 20)))
+      mockSignIn.mockImplementation(() => new Promise((r) => setTimeout(() => r(MFA_REQUIRED), 20)))
       const [a, b] = await Promise.all([
         POST(from('203.0.113.5', { email: 'pc1@example.com', password: PASSWORD })),
         POST(from('203.0.113.5', { email: 'pc2@example.com', password: PASSWORD })),
@@ -526,15 +558,15 @@ describe('POST /api/auth/login', () => {
       expect([a.status, b.status].sort()).toEqual([200, 429])
       const busy = a.status === 429 ? a : b
       expect(await busy.json()).toEqual({ error: 'attempt_in_progress', retryAfterSeconds: 1 })
-      // 1台目が成功して IP の回数が 0 に戻ったので、送り直せば入れる（止める段に届いていない）
+      // 1台目の札が外れたので、送り直せば入れる（パスワードが合っただけなので回数は 2 のまま。止める段に届いていない）
       expect((await POST(from('203.0.113.5', { email: 'pc2@example.com', password: PASSWORD }))).status).toBe(200)
     })
 
-    it('正しいパスワードなら、札を外す処理が失敗してもログインは成功のまま（札は自然に消える）', async () => {
+    it('正しいパスワードなら、札を外す処理が失敗しても SMS まで進む（札は自然に消える）', async () => {
       vi.spyOn(throttle, 'complete').mockRejectedValueOnce(new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unreachable'))
       const response = await POST(makeRequest())
       expect(response.status).toBe(200)
-      expect(slackMessages()).toContain('[ALERT] ログインの回数の記録に失敗(FIRESTORE_UNAVAILABLE)。結果: success')
+      expect(slackMessages()).toContain('[ALERT] ログインの回数の記録に失敗(FIRESTORE_UNAVAILABLE)。結果: void')
     })
 
     it('Firebase の障害のあとに札を外す処理まで失敗しても、元の障害（AUTH_UNAVAILABLE）を知らせる', async () => {

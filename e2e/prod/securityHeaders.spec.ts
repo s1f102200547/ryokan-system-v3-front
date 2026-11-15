@@ -278,16 +278,32 @@ test.describe('Cross-Origin-Opener-Policy: 他のサイトから開かれても�
 
 test.describe('COOP + COEP: ページが他のオリジンから隔離されている（Spectre 系の読み取りを防ぐ）', () => {
   const isolated = (page: Page) => page.evaluate(() => self.crossOriginIsolated)
+  // ログイン画面は reCAPTCHA の iframe のために COEP を付けない（下）。ログイン後のページで確かめる。
+  // ログイン後の画面は API が 401 になるとログイン画面に移るので、移らない「存在しないパス」の 404 のページを使う
+  const isolatedPage = async (page: Page, context: BrowserContext) => {
+    await context.addCookies([{ name: 'session', value: 'mock-session', url: APP }])
+    const response = await page.goto('/no-such-page')
+    expect([200, 404]).toContain(response?.status())
+  }
 
-  test('crossOriginIsolated が true', async ({ page }) => {
-    await openApp(page)
+  test('ログイン後のページは crossOriginIsolated が true', async ({ page, context }) => {
+    await isolatedPage(page, context)
     expect(await isolated(page)).toBe(true)
   })
 
   test('対照: COEP を外すと false', async ({ page, context }) => {
     await stripFromApp(context, { headers: ['Cross-Origin-Embedder-Policy'] })
-    await openApp(page)
+    await isolatedPage(page, context)
     expect(await isolated(page)).toBe(false)
+  })
+
+  test('ログイン画面は COEP を付けない（reCAPTCHA の iframe は Google のページで、COEP を返さない）', async ({ page, request }) => {
+    // 転送を追わずに /login 自身の応答を見る（本番の時間外は /time-restricted への転送になるが、その応答にも付けない）
+    const own = await request.get(APP_PAGE, { maxRedirects: 0 })
+    expect(own.headers()['cross-origin-embedder-policy']).toBeUndefined()
+    await page.goto(APP_PAGE)
+    // 時間外に移った /time-restricted はログイン画面ではないので隔離される
+    expect(await isolated(page)).toBe(new URL(page.url()).pathname !== '/login')
   })
 })
 
@@ -376,7 +392,12 @@ test.describe('ヘッダーが付く範囲', () => {
     test(`${label}（${path}）: すべてのヘッダーと CSP`, async ({ request }) => {
       const response = await request.get(path, { maxRedirects: 0 })
       const headers = response.headers()
-      expect(headers).toMatchObject(DOCUMENT_HEADERS)
+      // ログイン画面（時間外はそこからの転送も）だけ COEP を付けず、CSP に reCAPTCHA を足す
+      const { 'cross-origin-embedder-policy': coep, ...rest } = DOCUMENT_HEADERS
+      expect(headers).toMatchObject(path === APP_PAGE ? rest : DOCUMENT_HEADERS)
+      if (path === APP_PAGE) expect(headers['cross-origin-embedder-policy']).toBeUndefined()
+      else expect(headers['cross-origin-embedder-policy']).toBe(coep)
+      expect(headers['content-security-policy'].includes('https://www.google.com/recaptcha/')).toBe(path === APP_PAGE)
       expect(headers['content-security-policy']).toMatch(/frame-ancestors 'none'/)
       expect(headers['x-powered-by']).toBeUndefined()
     })
@@ -408,7 +429,17 @@ test.describe('ヘッダーが付く範囲', () => {
 
   // 未ログインの 401、不正な body の 400、存在しない API のパスの 404（ZAP が CSP なしと指摘した）のどれにも付くこと
   test('API: nosniff・CORP・CSP', async ({ request }) => {
-    for (const [path, status] of [['/api/guest-info?date=2026-05-20', 401], ['/api/auth/login', 400], ['/api/auth', 404]] as const) {
+    // 本番は時間外の API を 403 にする（ログイン API は 23:00 から、ほかは 23:05 から 6:00 まで）。どの時刻でも成り立つように期待する status を決める
+    const outside = (endMinute: number) => {
+      const jst = new Date(Date.now() + 9 * 60 * 60 * 1000)
+      const minute = jst.getUTCHours() * 60 + jst.getUTCMinutes()
+      return minute < 6 * 60 || minute >= endMinute
+    }
+    for (const [path, status] of [
+      ['/api/guest-info?date=2026-05-20', outside(23 * 60 + 5) ? 403 : 401],
+      ['/api/auth/login', outside(23 * 60) ? 403 : 400],
+      ['/api/auth', 404],
+    ] as const) {
       const response = path === '/api/auth/login' ? await request.post(path, { data: {} }) : await request.get(path)
       expect(response.status(), path).toBe(status)
       const headers = response.headers()

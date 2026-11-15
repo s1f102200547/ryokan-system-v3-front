@@ -1,90 +1,34 @@
 # NormalOperationPlan（★の実装計画）
 
-[NormalOperation.md](NormalOperation.md) の「まだ」のうち、★を付けた5項目を実装する計画。終わった項目は NormalOperation.md の「実装済み」へ移し、この計画からは消す。
+[NormalOperation.md](NormalOperation.md) の「まだ」のうち、★を付けた項目を実装する計画。終わった項目は NormalOperation.md の「実装済み」へ移し、この計画からは消す。
 
-## 1. 対象と順番
+A（端末とブラウザ）・B（1アカウント1セッション）・D（ログインのサーバー経由化と失敗回数の制限）は実装済み。C（SMS の MFA）はコード（reCAPTCHA Enterprise を含む）を実装済みで、本番での有効化が残っている。
 
-| 順 | 項目 | NormalOperation の節 | 大きさ | 主に変える場所 |
-|---|---|---|---|---|
-| 4 | C: SMS の MFA（サーバー経由の上に作る） | 使う人・場所 | 大 | ログイン画面・API、Firebase の設定 |
+## 1. スパイクで分かったこと（2026-11-12、テスト用の GCP プロジェクト）
 
-## 2. 共通の方針
+- `mfaSignIn:start` は、API キーだけでは `MISSING_CLIENT_IDENTIFIER`、管理者の OAuth トークンでは 401 で断られる。**ブラウザで作った reCAPTCHA Enterprise の token が要る**（`captchaResponse`・`clientType: CLIENT_TYPE_WEB`・`recaptchaVersion: RECAPTCHA_ENTERPRISE`）
+- token を添えれば SMS が届く。**`localhost` で作った token は断られる**（`INVALID_RECAPTCHA_TOKEN: localhost is not supported`）。`localtest.me` なら通った
+- reCAPTCHA v2 の token は、SMS defense が ENFORCE のときは `Internal error` で使えない
+- SMS の地域の許可が空だと `OPERATION_NOT_ALLOWED: SMS unable to be sent until this region enabled`
+- API で `recaptchaConfig` を設定しても Web のサイトキーは作られなかった。Firebase コンソールの Fraud Defense で作る
+- スパイクの道具: `npm run spike:mfa`（API キー・Bearer）、`npm run spike:recaptcha`（ブラウザで token を作る）。本番が動いたら `scripts/spike/` ごと消す
 
-- 断ったときは、ログに理由のコードを残し、Slack に `[ログイン拒否] アカウント / 理由 / IP / ブラウザと OS / 時刻` を送る（開発者が日々見るのは Slack）。ヘッダーの値は `loginNotice.ts` と同じくエスケープし、生の User-Agent は載せない
-- **User-Agent は送る側が自由に書ける。** A は「うっかり別の端末・ブラウザで使った」と「何も考えずに盗んだパスワードを使った」を止めるもので、User-Agent をまねる攻撃者は止められない。その本命は C（MFA）
-- 判定のロジックは純粋関数にして `src/lib/auth/` に置き、unit テストで固める。Route はそれを呼ぶだけにする
+## 2. C の本番での有効化（ユーザー）
 
-## 3. A: 端末とブラウザの確認（実装済み）
-
-NormalOperation.md の「端末」「ブラウザ」へ移した。判定は `src/lib/auth/clientCheck.ts` の `checkClient`。今は `verifyIdToken` の後に置いている。D でパスワードの確認をサーバーへ移すときに、パスワードを確かめる前へ移す。
-
-## 4. B: 1アカウント1セッション（実装済み）
-
-NormalOperation.md の「アカウント」へ移した。ログイン API がカスタムクレーム `sessionAuthTime`（`src/constants/auth.ts`）に最後のログインの時刻を書き、`verifySession` が Cookie の `auth_time` と比べる。D でログインをサーバー経由にしても、REST API で得た ID トークンの `auth_time` を同じく書けばよい。
-
-## 5. D: ログインのサーバー経由化と、失敗回数の制限（実装済み）
-
-NormalOperation.md の「入力」へ移した。C に引き継ぐこと:
-
-- ブラウザは Firebase を呼ばない（SDK なし、CSP の `connect-src` は `'self'`）。C の SMS の送信とコードの確認も、サーバーが REST（`accounts/mfaSignIn:start`・`finalize`）で行う。reCAPTCHA の token が要るなら、ブラウザで reCAPTCHA だけを動かすことになり、CSP と COEP を変える
-- パスワードの確認は `src/infra/auth/passwordSignIn.ts`。今は idToken のない成功（`mfaPendingCredential`）を 503 にしている。C ではここで2段目へ進める
-- ログインの順番は「時間帯 → 長さ → 失敗回数 → パスワード → A → B → Cookie」。A をパスワードの前に移さなかったのは、誰でも送れるリクエストで Slack の `[ログイン拒否]` を出させないため。SMS はパスワードと A の後に送る（条件に合わない端末には送らない）
-- コードの入力の失敗も、`loginThrottle` で同じように数えられる（`domain/auth/loginThrottle.ts`）
-
-## 6. C: SMS の MFA
-
-D のサーバー経由のログインの上に作る。
-
-### 流れ（D の後）
-
-1. ブラウザ: メールアドレスとパスワードを送る
-2. サーバー: D の確認を通った後、`signInWithPassword` が「2要素目が要る」と返す → `mfaSignIn:start` でフロントの電話に SMS を送る → ブラウザに「コードを入力」と返す
-3. ブラウザ: コードを `POST /api/auth/login/verify` に送る
-4. サーバー: `mfaSignIn:finalize` → 得た ID トークンで `createSessionCookie`
-5. **サーバーで、ID トークンが2要素目を通ったものか確かめる**（decoded token の `firebase.sign_in_second_factor`）。MFA を登録していないアカウントがあっても、ここで止まる
-
-- 2 と 3 の間の途中の状態（Firebase から受け取る `mfaPendingCredential` など）の置き場所を決める。案: Firestore に数分で切れるドキュメントを置き、ブラウザには推測できない ID を HttpOnly の Cookie で渡す
-- SMS の送信もサーバーで数える。案: 1アカウント1日10通まで。超えたら 429 と Slack
-- コードの入力の失敗も、D の失敗回数と同じように数える
-
-### コードの外の準備（先に始める）
-
-- [ ] Firebase Authentication の Identity Platform への切り替え（SMS の MFA に必要。課金が変わる）
-- [ ] SMS の送り先の地域を日本だけにする（SMS pumping、つまり不正な大量送信で料金を取られるのを防ぐ）
-- [ ] 料金の見積もり。セッションは毎日 23:00 で切れるので、少なくとも「PC の台数 × 1日1回」の SMS が出る
+- [ ] Firebase Authentication の Identity Platform への切り替え（課金が変わる）と、MFA（SMS）の有効化
+- [ ] SMS の送り先の地域を日本だけにする
+- [ ] reCAPTCHA Enterprise の API の有効化。Firebase コンソールの Authentication → Settings → Fraud Defense で SMS defense を ENFORCE にし、Web のサイトキーを作る。許可ドメインに本番のドメイン
+- [ ] Identity Platform の承認済みドメインに本番のドメイン
+- [ ] Fraud Defense の「SMS fraud risk threshold score」を 0.8 にする（公式の推奨の出発点。既定の 0 は危険度が少しでもあれば送らない）。旅館の PC・回線での点数（Cloud Monitoring の `sms_tf_risk_scores`）を見て、下げるかを決める
+- [ ] GitHub の Variables（Secrets ではない）に `RECAPTCHA_SITE_KEY` を登録する（`.github/workflows/deploy.yml` が `env_vars` で Cloud Run に渡す）。**このブランチを `main` に入れる前に登録する**（未設定だとデプロイのワークフローが最初のステップで落ち、MFA と関係のない修正もデプロイできなくなる）
+- [ ] 料金の見積もり（SMS と reCAPTCHA Enterprise の評価の回数。少なくとも「PC の台数 × 1日1回」）
 - [ ] フロントに置く電話の用意。電話番号1つを3つのアカウントすべてに登録できるか確かめる
-- [ ] 電話をなくした・電池が切れたときの手順（開発者が登録を変える。その間はログインできない）
+- [ ] Firestore の TTL ポリシー: `mfaPending.expireAt`、`mfaSmsQuota.expireAt`
+- [ ] GitHub の Variables に `MFA_MODE`（最初は `enrolled_only`）を登録する。**`main` に入れる前に登録する**（未設定だとデプロイのワークフローが落ちる）
+- [ ] 開発者のアカウントだけで試し、全員に広げて `MFA_MODE=all` に戻す（[Development.md](Development.md)「SMS の2要素目」の手順）
 
-### 登録の方法
+## 3. 終わったら更新するもの
 
-- 登録の画面は作らない。firebase-admin の `updateUser` で電話番号を2要素目として登録するスクリプトを `scripts/` に置き、**ユーザーが本番に対して実行する**（AI エージェントは実行しない）
-- 登録の条件（メールアドレスの確認済みなど）を、Context7 か公式ドキュメントで確かめる
-
-### 先に試すこと（スパイク）
-
-- [ ] D のスパイクで、`mfaSignIn:start` に reCAPTCHA の token が要ると分かった場合: ブラウザで reCAPTCHA を動かして token をサーバーへ送ることになる。今の CSP と `Cross-Origin-Embedder-Policy: require-corp`（`proxy.ts`）で Google の iframe・スクリプトが動くか。動かないときの候補は、`/login` だけ COEP を外す、または `credentialless` にする
-- [ ] Auth Emulator が SMS の MFA に対応しているか。コードをどう取り出すか（E2E と `make` で使う）
-- [ ] SMS が届くまでの時間（朝のログインが遅くならないか）
-
-### 変える場所
-
-- `src/hooks/auth/useLogin.ts`: 2段目（コードの入力）の状態を足す
-- `src/app/login/page.tsx`: コードの入力欄と再送
-- `src/app/api/auth/login/route.ts` と新しい `src/app/api/auth/login/verify/route.ts`
-- reCAPTCHA が要るときだけ: `src/lib/csp.ts`、`src/proxy.ts`、`tests/unit/lib/csp.test.ts`
-
-### テスト
-
-- unit: `useLogin` の2段目（コードの誤り、期限切れ、再送、SMS の送信の失敗）
-- integration: 2要素目のない ID トークンを 403 にすること、途中の状態の期限切れ、SMS の通数の上限
-- e2e: ブラウザ側のモックで2段目の画面
-- e2e:emulator: Emulator が対応していれば、本物の流れ
-
-## 7. 終わったら更新するもの
-
-- [NormalOperation.md](NormalOperation.md): 項目を「実装済み」へ
-- [Security.md](Security.md): §7（対策）、§8（未着手から「SMS による MFA」「ログインのサーバー経由化と、API キーのサーバー専用化」「ログインの失敗回数の制限」「ログイン API での、パスワードの長さの確認」を消す）、§10
-- [Domain.md](Domain.md): Firestore のデータ構造に `loginAttempts` と MFA の途中の状態
-- [Development.md](Development.md): サーバー用の API キーと Secret Manager、Identity Platform の設定、MFA の登録スクリプトの使い方、消した `NEXT_PUBLIC_FIREBASE_*`
-- `AGENTS.md`: 「ブラウザの Firebase SDK は Auth だけ」（壊してはいけないもの 6）を「ブラウザは Firebase を呼ばない」に。アーキテクチャの「ブラウザ: Auth のみ」。InfraError のコードを足したときは表を
-- `scripts/localdev/`: 新しいコレクションをデータ投入・匿名化で扱う必要があるか
+- [NormalOperation.md](NormalOperation.md): 「使う人」「場所」の「本番での有効化」を消す
+- [Security.md](Security.md): §8「条件待ち」の「SMS による MFA の本番での有効化」を消す
+- この計画: C を消す。`scripts/spike/` と `package.json` の `spike:*` を消す

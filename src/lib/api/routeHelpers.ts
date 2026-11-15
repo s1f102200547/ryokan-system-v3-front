@@ -5,6 +5,7 @@ import { InfraError } from '@/types/errors'
 import { infraErrorToStatus } from '@/lib/infraErrorToHttpStatus'
 import { logger } from '@/lib/logger'
 import { notifySlackFireAndForget } from '@/lib/slack'
+import { isOutsideApiHours } from '@/lib/businessHours'
 
 // Cookie ヘッダーから指定キーの値を取り出す
 // .split('=') ではなく startsWith で先頭一致させることで、値に '=' が含まれる場合（JWT 等）も正しく取得できる
@@ -20,8 +21,14 @@ export function parseCookieValue(cookieHeader: string | null, key: string): stri
 
 // 未ログインなら 401、Firebase Auth の障害なら handleRouteError（503 + 通知）の Response を返す。ログイン済みなら null。
 // セッションの確認も handleRouteError を通す。try の外で呼ぶと、Auth の障害で全 API が 500 になり、
-// ログにも Slack にも残らなかった
+// ログにも Slack にも残らなかった。
+// 本番の時間外（6:00〜23:05 JST の外）は、セッションを確かめる前に 403 outside_business_hours（盗まれた Cookie を夜に使わせない。
+// 利用者が原因なので Slack には送らない）。画面は fetchWithSession が /time-restricted へ移る
 export async function requireSession(request: Request, label: string): Promise<NextResponse | null> {
+  if (process.env.NODE_ENV === 'production' && isOutsideApiHours()) {
+    logger.warn(`${label} 拒否: 時間外`)
+    return NextResponse.json({ error: 'outside_business_hours' }, { status: 403 })
+  }
   try {
     const session = await getSession(request)
     return session ? null : NextResponse.json({ error: 'unauthorized' }, { status: 401 })
