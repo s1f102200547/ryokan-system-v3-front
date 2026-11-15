@@ -53,18 +53,14 @@ describe.each(PLANS)('.zap/%s', (file) => {
   })
 })
 
-// ログイン画面だけ COEP を付けない（reCAPTCHA Enterprise の iframe のため）。除外はその URL だけに絞り、ほかの画面の抜けは指摘させる
+// ログイン画面だけ COEP を付けない（reCAPTCHA Enterprise の iframe のため）。
+// Baseline（rules.tsv）は /login だけを見るのでルール丸ごと IGNORE にする（ZAP 2.17 の OUTOFSCOPE は、URL を全部外しても
+// ルールを WARN に数える。2026-11-15 の CI）。ほかの画面の COEP は e2e/prod/securityHeaders.spec.ts と、段A の計画（URL を絞った除外）が見る
 describe('COEP（90004）の除外', () => {
-  const rules = readFileSync(path.join(ROOT, '.zap/rules.tsv'), 'utf8').split('\n')
-
-  it('rules.tsv は ルール丸ごとの IGNORE にせず、/ と /login だけを OUTOFSCOPE にする', () => {
-    expect(rules.filter((l) => l.startsWith('90004\t'))).toEqual(['90004\tOUTOFSCOPE\t^http://localhost:3000/(login)?$'])
-    const regex = new RegExp('^http://localhost:3000/(login)?$')
-    expect(['http://localhost:3000/', 'http://localhost:3000/login'].every((u) => regex.test(u))).toBe(true)
-    expect(['http://localhost:3000/daily-dashboard', 'http://localhost:3000/login/x', 'http://localhost:3000/a_tax_table'].some((u) => regex.test(u))).toBe(false)
-  })
-
-  it('段A の計画も同じ URL だけを除外する', () => {
+  it('段A の計画は / と /login だけを除外する（ほかの画面の抜けは指摘させる）', () => {
+    const regex = new RegExp('^http://127.0.0.1:3000/(login)?$')
+    expect(['http://127.0.0.1:3000/', 'http://127.0.0.1:3000/login'].every((u) => regex.test(u))).toBe(true)
+    expect(['http://127.0.0.1:3000/daily-dashboard', 'http://127.0.0.1:3000/login/x', 'http://127.0.0.1:3000/a_tax_table'].some((u) => regex.test(u))).toBe(false)
     const plan = readFileSync(path.join(ROOT, '.zap', 'full-prod.yaml'), 'utf8')
     expect(plan).toMatch(/- ruleId: 90004\n\s+url: "http:\/\/127\.0\.0\.1:3000\/\(login\)\?"\n\s+urlRegex: true/)
   })

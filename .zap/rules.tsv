@@ -1,10 +1,7 @@
 # ZAP Baseline Scan rules. See docs/Development.md "CI" section.
 # Format: <rule id><TAB><IGNORE|INFO|WARN|FAIL><TAB><reason>. Rules not listed are WARN, and WARN fails CI (fail_action: true).
 # Keep this file ASCII only, tab separated, and without blank lines.
-# <rule id><TAB>OUTOFSCOPE<TAB><url regex> skips one rule for matching URLs only (other rules and URLs are still checked).
-# 90004 (COEP): /login omits COEP on purpose so the reCAPTCHA Enterprise iframe can load (src/proxy.ts, src/lib/csp.ts).
-# / is a 307 redirect to /login with COEP set; ZAP reports the /login response under /. Other pages are still checked.
 10055	IGNORE	CSP style-src unsafe-inline is required by MUI/Emotion. Production CSP is pinned by tests/unit/lib/csp.test.ts
 10109	IGNORE	Modern Web Application (informational only)
 10049	IGNORE	Non-Storable Content (no extra handling needed for business pages)
-90004	OUTOFSCOPE	^http://localhost:3000/(login)?$
+90004	IGNORE	COEP is omitted on /login on purpose for the reCAPTCHA Enterprise iframe (src/proxy.ts). This scan only covers /login. COEP on other pages is pinned by e2e/prod/securityHeaders.spec.ts and .zap/full-prod.yaml (URL-limited filter). OUTOFSCOPE still counts the rule as WARN in ZAP 2.17

@@ -27,9 +27,10 @@ jobs:
         newRisk: "False Positive"
       - ruleId: 10049
         newRisk: "False Positive"
-      # .zap/rules.tsv の 90004 OUTOFSCOPE と同じ。ログイン画面は reCAPTCHA Enterprise の iframe（Google のページ。COEP を返さない）を
-      # 埋め込むため、意図して COEP を付けない（src/proxy.ts）。/ は /login への転送（COEP あり）で、ZAP は転送先の応答を / で報告する。
-      # URL を絞り、ほかの画面で COEP が抜けたら見逃さないようにする
+      # ログイン画面は reCAPTCHA Enterprise の iframe（Google のページ。COEP を返さない）を埋め込むため、意図して COEP を付けない
+      # （src/proxy.ts）。/ は /login への転送（COEP あり）で、ZAP は転送先の応答を / で報告する。
+      # .zap/rules.tsv（Baseline。/login だけを見る）はルール丸ごと IGNORE だが、こちらは全画面を見るので URL を絞り、
+      # ほかの画面で COEP が抜けたら見逃さないようにする
       - ruleId: 90004
         url: "http://127.0.0.1:3000/(login)?"
         urlRegex: true
