@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { logger } from '@/lib/logger'
 import { notifySlackFireAndForget } from '@/lib/slack'
-import { buildLoginRejectedNotice, forwardedIps } from '@/lib/auth/loginNotice'
+import { buildLoginRejectedNotice, forwardedIps, type LoginRejection } from '@/lib/auth/loginNotice'
 import { describeUserAgent } from '@/lib/auth/userAgent'
 import { checkClient } from '@/lib/auth/clientCheck'
-import { setMfaPendingCookie } from '@/lib/auth/loginSession'
+import { issueSession, setMfaPendingCookie, verifyLoginIdToken } from '@/lib/auth/loginSession'
+import { currentMfaMode } from '@/lib/auth/mfaMode'
 import { isOutsideBusinessHours } from '@/lib/businessHours'
 import { LoginBodySchema } from '@/lib/api/loginSchema'
 import { handleRouteError } from '@/lib/api/routeHelpers'
@@ -12,7 +13,8 @@ import { loginWithPasswordCommand } from '@/application/auth/loginWithPasswordCo
 import { startMfaCommand } from '@/application/auth/startMfaCommand'
 
 // ログインの1段目: パスワードを確かめ、登録済みの電話に SMS のコードを送る。Session Cookie は2段目（./verify）で発行する。
-// 順番: 時間帯 → 長さ → 失敗回数 → パスワード → 端末・ブラウザ（A）→ 2要素目の登録 → SMS の通数 → SMS の送信
+// 順番: 時間帯 → 長さ → 失敗回数 → パスワード → 端末・ブラウザ（A）→ 2要素目の登録 → SMS の通数 → SMS の送信。
+// MFA_MODE=enrolled_only のときだけ、電話を登録していないアカウントは「2要素目の登録」のところで Session Cookie を出して終わる
 export async function POST(request: Request) {
   // 本番は時間外のログインを断る。画面は proxy.ts で時間外に開けないが、API を直接呼ぶと
   // 深夜でもその日の 23:00 まで有効な Session Cookie が発行されていた
@@ -32,15 +34,16 @@ export async function POST(request: Request) {
   const ip = forwardedIps(forwardedFor).at(-1) ?? null // 右端が Google の書いた接続元
   const account = parsed.data.email
   // detail: 理由の補足（Firebase のエラーコード）。ブラウザには返さない
-  const reject = (reason: Parameters<typeof buildLoginRejectedNotice>[0]['reason'], error: string, detail?: string) => {
+  const reject = (reason: LoginRejection, error: string, detail?: string, status = 403) => {
     logger.warn('ログイン拒否', { account, reason, detail, forwardedIps: forwardedIps(forwardedFor), client: describeUserAgent(userAgent) })
     notifySlackFireAndForget(buildLoginRejectedNotice({ account, forwardedFor, userAgent, nowMs: Date.now(), reason, detail }))
-    return NextResponse.json({ error }, { status: 403 })
+    return NextResponse.json({ error }, { status })
   }
 
   try {
     // パスワードの確認。失敗が続いたメールアドレス・IP は、しばらく Firebase に送らずに 429
-    const result = await loginWithPasswordCommand({ email: account, password: parsed.data.password, ip, nowMs: Date.now() })
+    const passwordOnlyAllowed = currentMfaMode() === 'enrolled_only'
+    const result = await loginWithPasswordCommand({ email: account, password: parsed.data.password, ip, nowMs: Date.now(), passwordOnlyAllowed })
     if (!result.success) {
       if (result.error.kind === 'invalid_credentials') return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 })
       // rate_limited: 失敗が続いて止めている / busy: 同時の試行の結果を待つ（ブラウザが自動で送り直す）
@@ -52,8 +55,12 @@ export async function POST(request: Request) {
     const client = checkClient(userAgent)
     if (!client.success) return reject(client.error, 'client_not_allowed')
 
-    // 2要素目なしで通った = 電話を登録していないアカウント。Cookie は発行しない（登録は scripts/mfa/enrollPhone.ts）
-    if (result.value.kind === 'signed_in') return reject('mfa_not_enrolled', 'mfa_not_enrolled')
+    // 2要素目なしで通った = 電話を登録していないアカウント（登録は scripts/mfa/enrollPhone.ts）。
+    // MFA_MODE=all なら Cookie は発行しない。enrolled_only（本番で SMS を試す間）なら、パスワードだけでログインを終える
+    if (result.value.kind === 'signed_in') {
+      if (!passwordOnlyAllowed) return reject('mfa_not_enrolled', 'mfa_not_enrolled')
+      return await issuePasswordOnlySession(result.value.idToken, forwardedFor, userAgent, reject)
+    }
 
     const started = await startMfaCommand({
       email: account,
@@ -78,6 +85,23 @@ export async function POST(request: Request) {
   } catch (e) {
     return handleRouteError(e, 'ログイン')
   }
+}
+
+// パスワードだけのログイン（MFA_MODE=enrolled_only の、電話を登録していないアカウント）。ID トークンを確かめてから Cookie を出す。
+// 2要素目を通っていないトークンなので、verify の API の「2要素目を通ったトークンか」の確認はしない
+async function issuePasswordOnlySession(
+  idToken: string,
+  forwardedFor: string | null,
+  userAgent: string | null,
+  reject: (reason: LoginRejection, error: string, detail?: string, status?: number) => NextResponse,
+): Promise<NextResponse> {
+  const decoded = await verifyLoginIdToken(idToken)
+  if (!decoded.success) {
+    if (decoded.error.kind === 'unavailable') return NextResponse.json({ error: 'server error' }, { status: 503 })
+    // パスワードは合ったのに、トークンが無効（無効化の直後など）。ブラウザには理由を返さない。理由は Firebase のコードで Slack に残す
+    return reject('password_only_token_rejected', 'login_failed', decoded.error.code, 401)
+  }
+  return issueSession({ idToken, decoded: decoded.value, forwardedFor, userAgent, passwordOnly: true })
 }
 
 function tooManyAttempts(error: 'too_many_attempts' | 'attempt_in_progress', retryAfterMs: number): NextResponse {

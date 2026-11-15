@@ -54,6 +54,22 @@ describe('useLogin', () => {
     expect(result.current.error).toBeNull()
   })
 
+  // MFA_MODE=enrolled_only の、電話を登録していないアカウント。サーバーが1段目で Session Cookie を出して終わる
+  it('1段目でログインが終われば（success）、コードの段を飛ばしてダッシュボードへ。移り終わるまで isPending のまま', async () => {
+    const result = await loginWith(new Response(JSON.stringify({ success: true }), { status: 200 }))
+    expect(push).toHaveBeenCalledWith('/daily-dashboard')
+    expect(result.current.step).toBe('credentials')
+    expect(result.current.isPending).toBe(true)
+    expect(result.current.error).toBeNull()
+  })
+
+  it('1段目の login_failed（パスワードは合ったがサーバーが通さなかった）は、パスワードの誤りとは言わない', async () => {
+    const result = await loginWith(new Response(JSON.stringify({ error: 'login_failed' }), { status: 401 }))
+    expect(push).not.toHaveBeenCalled()
+    expect(result.current.error).toBe('ログインできませんでした。もう一度ログインしてください')
+    expect(result.current.isPending).toBe(false)
+  })
+
   it('200 でもコードの段を求めていなければ（想定外の応答）、移らずに障害として出す', async () => {
     const result = await loginWith(new Response('{}', { status: 200 }))
     expect(result.current.step).toBe('credentials')

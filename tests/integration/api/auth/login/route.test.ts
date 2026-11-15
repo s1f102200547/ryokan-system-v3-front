@@ -128,6 +128,86 @@ describe('POST /api/auth/login', () => {
     expect(vi.mocked(notifySlackFireAndForget).mock.calls[0][0]).toMatch(/^\[ログイン拒否\] pc1@example\.com \/ SMS の2要素目が未登録のアカウント \/ /)
   })
 
+  // MFA_MODE=enrolled_only（本番で SMS を試す間）: 電話を登録していないアカウントは、パスワードだけで入れる
+  describe('MFA_MODE', () => {
+    const DECODED = { uid: 'uid-1', email: 'pc1@example.com', auth_time: 1_779_000_000, firebase: { sign_in_provider: 'password' } }
+    const PASSWORD_ONLY = { success: true as const, value: { kind: 'signed_in' as const, idToken: 'id-token-from-rest' } }
+    beforeEach(() => {
+      mockVerifyIdToken.mockResolvedValue(DECODED as never)
+      vi.mocked(adminAuth.getUser).mockResolvedValue({ customClaims: undefined } as never)
+      mockCreateSessionCookie.mockResolvedValue('session-cookie-value')
+    })
+    afterEach(() => vi.unstubAllEnvs())
+
+    it('enrolled_only なら、電話を登録していないアカウントは SMS なしで Session Cookie。Slack の [ログイン] に「SMS なし」', async () => {
+      vi.stubEnv('MFA_MODE', 'enrolled_only')
+      mockSignIn.mockResolvedValue(PASSWORD_ONLY)
+      const response = await POST(makeRequest())
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({ success: true })
+      expect(response.cookies.get('session')?.value).toBe('session-cookie-value')
+      expect(mockVerifyIdToken).toHaveBeenCalledWith('id-token-from-rest')
+      expect(startPhoneMfa).not.toHaveBeenCalled()
+      expect(quota.states.size).toBe(0) // SMS の通数も数えない
+      const messages = vi.mocked(notifySlackFireAndForget).mock.calls.map((c) => c[0])
+      expect(messages).toHaveLength(1)
+      expect(messages[0]).toMatch(/^\[ログイン\] pc1@example\.com \/ .* \/ SMS なし（MFA_MODE=enrolled_only）$/)
+    })
+
+    it('enrolled_only でも、電話を登録したアカウントは今までどおり SMS を送る（Session Cookie はまだ）', async () => {
+      vi.stubEnv('MFA_MODE', 'enrolled_only')
+      const response = await POST(makeRequest())
+      expect(await response.json()).toEqual({ mfaRequired: true, phoneHint: '+81*******1234' })
+      expect(response.cookies.get('session')).toBeUndefined()
+      expect(mockCreateSessionCookie).not.toHaveBeenCalled()
+    })
+
+    it('enrolled_only で SMS なしのログインが成功したら、それまでの失敗の回数を 0 に戻す', async () => {
+      vi.stubEnv('MFA_MODE', 'enrolled_only')
+      mockSignIn.mockResolvedValue({ success: false, error: { kind: 'invalid_credentials', code: 'INVALID_LOGIN_CREDENTIALS' } })
+      await POST(makeRequest())
+      await POST(makeRequest())
+      expect([...throttle.states.values()].some((st) => st.failures === 2)).toBe(true)
+      mockSignIn.mockResolvedValue(PASSWORD_ONLY)
+      expect((await POST(makeRequest())).status).toBe(200)
+      expect([...throttle.states.values()].every((st) => st.failures === 0)).toBe(true)
+    })
+
+    it('enrolled_only でも、トークンが無効なら 401 login_failed。Cookie なし、Slack に拒否（コードつき）', async () => {
+      vi.stubEnv('MFA_MODE', 'enrolled_only')
+      mockSignIn.mockResolvedValue(PASSWORD_ONLY)
+      mockVerifyIdToken.mockRejectedValue({ code: 'auth/user-disabled', message: 'disabled' })
+      const response = await POST(makeRequest())
+      expect(response.status).toBe(401)
+      expect(await response.json()).toEqual({ error: 'login_failed' })
+      expect(response.cookies.get('session')).toBeUndefined()
+      expect(vi.mocked(notifySlackFireAndForget).mock.calls[0][0])
+        .toMatch(/^\[ログイン拒否\] pc1@example\.com \/ パスワードは合ったが、ID トークンが無効（SMS なし）（auth\/user-disabled）/)
+    })
+
+    it('enrolled_only でも、Windows の Chrome・Edge 以外は 403 client_not_allowed（Cookie なし）', async () => {
+      vi.stubEnv('MFA_MODE', 'enrolled_only')
+      mockSignIn.mockResolvedValue(PASSWORD_ONLY)
+      const response = await POST(makeRequest(VALID, 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'))
+      expect(response.status).toBe(403)
+      expect(await response.json()).toEqual({ error: 'client_not_allowed' })
+      expect(mockCreateSessionCookie).not.toHaveBeenCalled()
+    })
+
+    // 未設定・打ち間違いは、全員に SMS を求める側に倒す（スタッフを SMS なしで入れてしまわない）
+    it.each([['未設定', undefined], ['all', 'all'], ['打ち間違い', 'enrolled-only'], ['大文字', 'ENROLLED_ONLY'], ['空', '']])(
+      '%s なら、電話を登録していないアカウントは 403 mfa_not_enrolled',
+      async (_label, value) => {
+        if (value !== undefined) vi.stubEnv('MFA_MODE', value)
+        mockSignIn.mockResolvedValue(PASSWORD_ONLY)
+        const response = await POST(makeRequest())
+        expect(response.status).toBe(403)
+        expect(await response.json()).toEqual({ error: 'mfa_not_enrolled' })
+        expect(mockCreateSessionCookie).not.toHaveBeenCalled()
+      },
+    )
+  })
+
   // 本番の Identity Platform は、SMS の前にブラウザで作った reCAPTCHA Enterprise の token を求める
   describe('reCAPTCHA の token', () => {
     it('body の recaptchaToken を、そのまま SMS の送信に渡す', async () => {

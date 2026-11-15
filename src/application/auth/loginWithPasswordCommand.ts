@@ -11,6 +11,8 @@ type LoginInput = {
   password: string
   ip: string | null // X-Forwarded-For の右端。取れなければ null（1つの key にまとめて数える）
   nowMs: number
+  // 電話を登録していないアカウントが、パスワードだけでログインを終えてよいか（MFA_MODE=enrolled_only。src/lib/auth/mfaMode.ts）
+  passwordOnlyAllowed: boolean
 }
 
 // Firebase 自身が止めたときに、こちらがまだ止めていなければ返す待ち時間
@@ -19,9 +21,11 @@ export const FIREBASE_THROTTLED_RETRY_MS = 60_000
 // パスワードを確かめる。失敗が続いたメールアドレス・IP は、しばらく Firebase に送らずに断る（iPhone 方式）。
 // 存在しないメールアドレスも、間違ったパスワードと同じに数える（どのアドレスが本物かを探らせない）。
 // 確かめる前に「試行中の札」を出し、確かめ終わったら外して結果を確定させる（application/auth/loginAttempt.ts）。
-// パスワードが合っても失敗の回数は 0 に戻さない。戻すのは SMS のコードが合ったとき（verifyMfaCodeCommand）
+// パスワードが合っても失敗の回数は 0 に戻さない。戻すのは SMS のコードが合ったとき（verifyMfaCodeCommand）。
+// ただし、パスワードだけでログインを終えてよいアカウント（passwordOnlyAllowed で、電話を登録していない）は、ここで 0 に戻す
+// （2要素目がないので、ここがログインの成功。戻さないと、スタッフの打ち間違いが1日たまって止められる）
 export async function loginWithPasswordCommand(input: LoginInput): Promise<Result<PasswordSignInSuccess, LoginFailure>> {
-  const { email, password, ip, nowMs } = input
+  const { email, password, ip, nowMs, passwordOnlyAllowed } = input
   // パスワードを確かめられない（API キーの設定忘れ）なら、回数を読む前に障害として断る（503・Slack）
   if (!isPasswordSignInConfigured()) throw new InfraError('AUTH_UNAVAILABLE', 'FIREBASE_AUTH_API_KEY is not set')
 
@@ -40,8 +44,9 @@ export async function loginWithPasswordCommand(input: LoginInput): Promise<Resul
   }
 
   if (signIn.success) {
-    // 札を外すだけ（数えない）。ログインはまだ終わっていない（2要素目が残っている。2要素目のないアカウントは Route が断る）
-    await finishAttempt(keys, attemptId, 'void', nowMs)
+    // 2要素目が残っていれば、札を外すだけ（数えない）。2要素目のないアカウントは、許されていればここで成功、いなければ Route が断る
+    const completed = signIn.value.kind === 'signed_in' && passwordOnlyAllowed
+    await finishAttempt(keys, attemptId, completed ? 'success' : 'void', nowMs)
     return signIn
   }
 

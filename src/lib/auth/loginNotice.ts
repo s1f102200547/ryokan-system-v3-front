@@ -38,18 +38,22 @@ export type LoginNoticeInput = {
   userAgent: string | null
   nowMs: number
   replacedSession?: boolean // 同じアカウントの、まだ生きていた前のセッションを切った
+  passwordOnly?: boolean // SMS の2要素目なしで入った（MFA_MODE=enrolled_only の、電話を登録していないアカウント）
 }
 
-export function buildLoginNotice({ account, forwardedFor, userAgent, nowMs, replacedSession = false }: LoginNoticeInput): string {
+export function buildLoginNotice({ account, forwardedFor, userAgent, nowMs, replacedSession = false, passwordOnly = false }: LoginNoticeInput): string {
   const ips = forwardedIps(forwardedFor)
   const ipLabel = ips.length > 0 ? ips.join(', ') : '不明'
   // 前のセッションを切った: 別の PC・ブラウザで同じアカウントに入った。攻撃者に追い出されたスタッフが入り直すと、これが2回続く
   const replaced = replacedSession ? ' / 前のセッションを切った' : ''
-  return `[ログイン] ${escapeSlack(account)} / IP ${ipLabel}（右端が Google の追記） / ${describeUserAgent(userAgent)} / ${formatJST(nowMs)}${replaced}`
+  // SMS を試す間（MFA_MODE=enrolled_only）だけ出る。全員に SMS を求める（all）に戻し忘れていないかにも気付ける
+  const smsLabel = passwordOnly ? ' / SMS なし（MFA_MODE=enrolled_only）' : ''
+  return `[ログイン] ${escapeSlack(account)} / IP ${ipLabel}（右端が Google の追記） / ${describeUserAgent(userAgent)} / ${formatJST(nowMs)}${replaced}${smsLabel}`
 }
 
 // パスワードが合った後に断った理由。端末・ブラウザ（A）と、SMS の2要素目（C）
-export type LoginRejection = ClientRejection | 'mfa_not_enrolled' | 'no_second_factor' | 'ip_mismatch' | 'recaptcha_rejected' | 'token_rejected'
+export type LoginRejection =
+  | ClientRejection | 'mfa_not_enrolled' | 'no_second_factor' | 'ip_mismatch' | 'recaptcha_rejected' | 'token_rejected' | 'password_only_token_rejected'
 
 const REJECTION_LABELS: Record<LoginRejection, string> = {
   os_not_allowed: 'Windows 以外の端末',
@@ -60,6 +64,8 @@ const REJECTION_LABELS: Record<LoginRejection, string> = {
   recaptcha_rejected: 'reCAPTCHA の確認で断られた（SMS は送っていない）',
   // 無効化・失効の直後のログインか、時計のずれ。detail に Firebase のコード（auth/user-disabled など）
   token_rejected: 'SMS のコードは合ったが、ID トークンが無効',
+  // MFA_MODE=enrolled_only の、電話を登録していないアカウント（SMS なし）。detail は token_rejected と同じ
+  password_only_token_rejected: 'パスワードは合ったが、ID トークンが無効（SMS なし）',
 }
 
 // パスワードが合った後に断ったときの通知。別の端末での利用か、盗まれたパスワードの利用か、設定の誤り。

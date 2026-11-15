@@ -41,6 +41,13 @@ export const MFA_PENDING_COOKIE_PATH = '/api/auth/login'
 // 1アカウントが1日（JST）に送れる SMS の数。セッションは毎日 23:00 に切れるので、普段は1日1通。
 // 不正な大量送信（SMS pumping）で料金を取られないための上限。超えたら 429 と Slack
 export const MFA_SMS_DAILY_LIMIT = 10
+// SMS の2要素目を誰に求めるか（Cloud Run の環境変数 MFA_MODE。GitHub の Variables から deploy.yml で渡す）。
+// all: 全アカウント（電話を登録していないアカウントは 403 mfa_not_enrolled）/
+// enrolled_only: 電話を登録したアカウントだけ。登録していないアカウントはパスワードだけで入れる（本番で SMS を試す間だけ使う。
+// 開発者のアカウントだけに電話を登録して確かめ、スタッフのアカウントは今までどおりにする。確かめ終わったら all に戻す）。
+// 未設定・想定外の値は all（閉じる側）。本番は deploy.yml がデプロイの前に値を確かめる（tests/unit/config/deployWorkflow.test.ts が突き合わせる）
+export const MFA_MODES = ['all', 'enrolled_only'] as const
+export type MfaMode = (typeof MFA_MODES)[number]
 
 // reCAPTCHA Enterprise。Identity Platform は、SMS を送る前にブラウザで作った token を求める（API キーだけ・管理者のトークンでは
 // 断られる。2026-11-12 のスパイク）。ログイン画面だけが読み込み、CSP も /login だけ広げる（src/lib/csp.ts）。

@@ -70,8 +70,10 @@ async function verifyCode(nowMs: number) {
 }
 
 describe('loginWithPasswordCommand と verifyMfaCodeCommand（1つのメールアドレス・1つの IP）', () => {
+  // passwordOnlyAllowed: MFA_MODE=enrolled_only（電話を登録していないアカウントはパスワードだけで入れる）。
+  // 'right' は電話を登録していないアカウントのパスワードの正解（signed_in）なので、許されていればそこでログインが終わり、0 に戻る
   it('どんな順で起きても、模範と同じ結果になる', async () => {
-    await fc.assert(fc.asyncProperty(fc.array(step, { maxLength: 40 }), async (steps) => {
+    await fc.assert(fc.asyncProperty(fc.array(step, { maxLength: 40 }), fc.boolean(), async (steps, passwordOnlyAllowed) => {
       throttle.clear()
       let now = Date.parse('2026-05-20T01:00:00Z')
       // 模範の状態
@@ -91,7 +93,7 @@ describe('loginWithPasswordCommand と verifyMfaCodeCommand（1つのメール�
         if (s.op === 'outage') vi.mocked(signInWithPassword).mockRejectedValue(new InfraError('AUTH_UNAVAILABLE', 'down'))
 
         const isCode = s.op === 'codeRight' || s.op === 'codeWrong'
-        const run = isCode ? verifyCode(now) : loginWithPasswordCommand({ email: EMAIL, password: 'pw1', ip: IP, nowMs: now })
+        const run = isCode ? verifyCode(now) : loginWithPasswordCommand({ email: EMAIL, password: 'pw1', ip: IP, nowMs: now, passwordOnlyAllowed })
         const actual = await run
           .then((r) => (r.success ? 'ok' : r.error.kind === 'rate_limited' ? `429:${r.error.retryAfterMs}` : '401'), () => '503')
 
@@ -103,7 +105,9 @@ describe('loginWithPasswordCommand と verifyMfaCodeCommand（1つのメール�
         } else if (s.op === 'outage') {
           expected = '503' // 確かめられなかったので数えない
         } else if (s.op === 'right') {
-          expected = 'ok' // パスワードが合っただけでは 0 に戻さない
+          // 2要素目が残っていれば、パスワードが合っただけでは 0 に戻さない。パスワードだけで終わるなら、ここが成功
+          if (passwordOnlyAllowed) { failures = 0; lockedUntil = 0 }
+          expected = 'ok'
         } else if (s.op === 'codeRight') {
           failures = 0; lockedUntil = 0
           expected = 'ok'
@@ -115,7 +119,7 @@ describe('loginWithPasswordCommand と verifyMfaCodeCommand（1つのメール�
           lockedUntil = modelLockMs(failures) > 0 ? now + modelLockMs(failures) : 0
           expected = s.op !== 'throttled' ? '401' : `429:${modelLockMs(failures) > 0 ? modelLockMs(failures) : 60_000}`
         }
-        expect(actual, JSON.stringify({ s, now, failures })).toBe(expected)
+        expect(actual, JSON.stringify({ s, now, failures, passwordOnlyAllowed })).toBe(expected)
         // 止めている間は Firebase に送らない
         if (wasLocked) {
           expect(signInWithPassword).not.toHaveBeenCalled()
@@ -129,10 +133,10 @@ describe('loginWithPasswordCommand と verifyMfaCodeCommand（1つのメール�
     vi.mocked(signInWithPassword).mockRejectedValue(new InfraError('AUTH_UNAVAILABLE', 'down'))
     const now = Date.parse('2026-05-20T01:00:00Z')
     for (let i = 0; i < 10; i++) {
-      await expect(loginWithPasswordCommand({ email: EMAIL, password: 'pw1', ip: IP, nowMs: now + i })).rejects.toThrow(InfraError)
+      await expect(loginWithPasswordCommand({ email: EMAIL, password: 'pw1', ip: IP, nowMs: now + i, passwordOnlyAllowed: false })).rejects.toThrow(InfraError)
     }
     vi.mocked(signInWithPassword).mockResolvedValue({ success: true, value: { kind: 'signed_in', idToken: 't' } })
-    expect((await loginWithPasswordCommand({ email: EMAIL, password: 'pw1', ip: IP, nowMs: now + 10 })).success).toBe(true)
+    expect((await loginWithPasswordCommand({ email: EMAIL, password: 'pw1', ip: IP, nowMs: now + 10, passwordOnlyAllowed: false })).success).toBe(true)
   })
 })
 
@@ -143,13 +147,26 @@ describe('パスワードを知る攻撃者が、パスワードとコードを�
     const now = Date.parse('2026-05-20T01:00:00Z')
     const results: string[] = []
     for (let i = 0; i < 3; i++) {
-      results.push((await loginWithPasswordCommand({ email: EMAIL, password: 'pw1', ip: IP, nowMs: now + i * 2 })).success ? 'pw-ok' : 'pw-ng')
+      results.push((await loginWithPasswordCommand({ email: EMAIL, password: 'pw1', ip: IP, nowMs: now + i * 2, passwordOnlyAllowed: false })).success ? 'pw-ok' : 'pw-ng')
       const r = await verifyCode(now + i * 2 + 1)
       results.push(r.success ? 'code-ok' : r.error.kind)
     }
     // 3回目のコードの間違いで1分止まり、次はパスワードも確かめない
     expect(results).toEqual(['pw-ok', 'invalid_code', 'pw-ok', 'invalid_code', 'pw-ok', 'invalid_code'])
-    const next = await loginWithPasswordCommand({ email: EMAIL, password: 'pw1', ip: IP, nowMs: now + 10 })
+    const next = await loginWithPasswordCommand({ email: EMAIL, password: 'pw1', ip: IP, nowMs: now + 10, passwordOnlyAllowed: false })
+    expect(next).toEqual({ success: false, error: { kind: 'rate_limited', retryAfterMs: 60_000 - 10 + 5 } })
+  })
+
+  // MFA_MODE=enrolled_only でも、電話を登録したアカウント（mfa_required）はパスワードが合っただけでは 0 に戻さない
+  it('パスワードだけのログインを許していても、電話を登録したアカウントは同じに止まる', async () => {
+    vi.mocked(signInWithPassword).mockResolvedValue({ success: true, value: { kind: 'mfa_required', mfaPendingCredential: 'pc', mfaEnrollmentId: 'e', phoneHint: '+81***' } })
+    vi.mocked(finalizePhoneMfa).mockResolvedValue({ success: false, error: { kind: 'invalid_code', code: 'INVALID_CODE' } })
+    const now = Date.parse('2026-05-20T01:00:00Z')
+    for (let i = 0; i < 3; i++) {
+      expect((await loginWithPasswordCommand({ email: EMAIL, password: 'pw1', ip: IP, nowMs: now + i * 2, passwordOnlyAllowed: true })).success).toBe(true)
+      await verifyCode(now + i * 2 + 1)
+    }
+    const next = await loginWithPasswordCommand({ email: EMAIL, password: 'pw1', ip: IP, nowMs: now + 10, passwordOnlyAllowed: true })
     expect(next).toEqual({ success: false, error: { kind: 'rate_limited', retryAfterMs: 60_000 - 10 + 5 } })
   })
 })

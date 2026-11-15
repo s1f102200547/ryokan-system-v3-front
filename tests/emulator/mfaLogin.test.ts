@@ -6,6 +6,7 @@ import { firestoreLoginThrottleRepository } from '@/infra/auth/firestoreLoginThr
 import { firestoreMfaPendingRepository } from '@/infra/auth/firestoreMfaPendingRepository'
 import { createMfaUser, loginWithMfa, startLogin, verifyCode } from '@tests/utils/emulatorMfa'
 import { POST as LOGIN } from '@/app/api/auth/login/route'
+import { verifySession } from '@/lib/auth/verifySession'
 
 vi.mock('@/lib/slack', () => ({ notifySlack: vi.fn(), notifySlackFireAndForget: vi.fn() }))
 vi.mock('@/lib/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
@@ -90,6 +91,31 @@ describe('SMS の2要素目（本物の REST）', () => {
     expect(res.status).toBe(403)
     expect(await res.json()).toEqual({ error: 'mfa_not_enrolled' })
     expect(res.headers.get('set-cookie')).toBeNull()
+  })
+
+  // MFA_MODE=enrolled_only（本番で SMS を試す間）。2要素目を通っていない本物のトークンでも、Session Cookie を作れて、画面の API が通ること
+  it('MFA_MODE=enrolled_only なら、電話を登録していないアカウントはパスワードだけで Session Cookie を受け取る', async () => {
+    vi.stubEnv('MFA_MODE', 'enrolled_only')
+    try {
+      const email = await createUser(false)
+      // Emulator はユーザーを作った秒より前の auth_time のトークンを失効扱いにする（tests/utils/emulatorMfa.ts の createMfaUser と同じ）
+      await new Promise((r) => setTimeout(r, 1100))
+      const res = await LOGIN(new Request('http://localhost/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-forwarded-for': nextIp(), 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36' },
+        body: JSON.stringify({ email, password: PASSWORD }),
+      }))
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({ success: true })
+      const decoded = await adminAuth.verifySessionCookie(res.cookies.get('session')?.value ?? '', true)
+      expect(decoded.email).toBe(email)
+      expect(decoded.firebase.sign_in_second_factor).toBeUndefined()
+      // 画面の API が使う確認（1アカウント1セッションのクレームも書けている）
+      expect(await verifySession(res.cookies.get('session')?.value)).toEqual({ uid: decoded.uid })
+      expect(vi.mocked(notifySlackFireAndForget).mock.calls.at(-1)?.[0]).toContain('SMS なし（MFA_MODE=enrolled_only）')
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 
   it('コードを別の回線から送ると 401 mfa_expired（途中の状態を消す）', async () => {

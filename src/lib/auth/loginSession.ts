@@ -68,10 +68,12 @@ type IssueSessionInput = {
   decoded: DecodedIdToken
   forwardedFor: string | null
   userAgent: string | null
+  // パスワードだけのログイン（MFA_MODE=enrolled_only の、電話を登録していないアカウント）。Slack とログに出す
+  passwordOnly?: boolean
 }
 
 // Session Cookie を発行する（ログインの成功）。途中の状態の Cookie は消す
-export async function issueSession({ idToken, decoded, forwardedFor, userAgent }: IssueSessionInput): Promise<NextResponse> {
+export async function issueSession({ idToken, decoded, forwardedFor, userAgent, passwordOnly = false }: IssueSessionInput): Promise<NextResponse> {
   const account = decoded.email ?? decoded.uid
   try {
     // 1アカウント1セッション。最後のログインの時刻をクレームに書き、verifySession が Cookie の時刻と比べる（前の Cookie は合わなくなる）。
@@ -85,8 +87,8 @@ export async function issueSession({ idToken, decoded, forwardedFor, userAgent }
     const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn }) // ログイン状態を維持するためのセッションCookieを作る
 
     // 旅館の外からのログインに気付けるよう、毎回 Slack に通知する（ログにも残す。Slack の失敗は気付けないため）
-    logger.info('ログイン成功', { account, forwardedIps: forwardedIps(forwardedFor), client: describeUserAgent(userAgent), replacedSession })
-    notifySlackFireAndForget(buildLoginNotice({ account, forwardedFor, userAgent, nowMs: Date.now(), replacedSession }))
+    logger.info('ログイン成功', { account, forwardedIps: forwardedIps(forwardedFor), client: describeUserAgent(userAgent), replacedSession, passwordOnly })
+    notifySlackFireAndForget(buildLoginNotice({ account, forwardedFor, userAgent, nowMs: Date.now(), replacedSession, passwordOnly }))
 
     const response = NextResponse.json({ success: true })
     response.cookies.set('session', sessionCookie, {

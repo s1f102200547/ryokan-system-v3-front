@@ -24,7 +24,8 @@ A（端末とブラウザ）・B（1アカウント1セッション）・D（ロ
 - [ ] 料金の見積もり（SMS と reCAPTCHA Enterprise の評価の回数。少なくとも「PC の台数 × 1日1回」）
 - [ ] フロントに置く電話の用意。電話番号1つを3つのアカウントすべてに登録できるか確かめる
 - [ ] Firestore の TTL ポリシー: `mfaPending.expireAt`、`mfaSmsQuota.expireAt`
-- [ ] 夜間の切り替え（[Development.md](Development.md)「SMS の2要素目」の手順）
+- [ ] GitHub の Variables に `MFA_MODE`（最初は `enrolled_only`）を登録する。**`main` に入れる前に登録する**（未設定だとデプロイのワークフローが落ちる）
+- [ ] 開発者のアカウントだけで試し、全員に広げて `MFA_MODE=all` に戻す（[Development.md](Development.md)「SMS の2要素目」の手順）
 
 ## 3. 終わったら更新するもの
 

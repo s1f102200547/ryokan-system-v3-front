@@ -26,4 +26,5 @@
 - reCAPTCHA Enterprise（Fraud Defense）の設定と、Web のサイトキーの作成。許可ドメインと、Identity Platform の承認済みドメインに本番のドメイン
 - GitHub の Variables への `RECAPTCHA_SITE_KEY` の登録。**`main` に入れる前に必要**。ないと `deploy.yml` が最初のステップで落ち、MFA と関係のない修正もデプロイできなくなる
 - Firestore の TTL ポリシー: `mfaPending.expireAt`、`mfaSmsQuota.expireAt`
-- 夜間の切り替えと、だめだったときに前のリビジョンへ戻して `--remove` で登録を外す手順。どちらも試していない
+- GitHub の Variables への `MFA_MODE` の登録（最初は `enrolled_only`）。`RECAPTCHA_SITE_KEY` と同じく、**`main` に入れる前に必要**
+- 開発者のアカウントだけで試す手順（`MFA_MODE=enrolled_only`）と、全員に広げて `MFA_MODE=all` に戻す手順。どちらも試していない（[Development.md](Development.md)「SMS の2要素目」）

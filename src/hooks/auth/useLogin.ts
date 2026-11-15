@@ -8,6 +8,7 @@ type Credentials = { email: string; password: string }
 // ログイン処理＋UI状態（loading / error / 遷移）をまとめる。2段に分かれる:
 //   1. credentials: メールアドレスとパスワードを /api/auth/login に送る。合っていれば、サーバーがフロントの電話に SMS を送る
 //   2. code: SMS のコードを /api/auth/login/verify に送る。合っていれば、サーバーが Session Cookie を発行する
+// 電話を登録していないアカウントは、サーバーが MFA_MODE=enrolled_only（本番で SMS を試す間）なら 1 で Session Cookie を受け取って終わる
 // パスワード・コードの確認と Cookie の発行はサーバーが行う（ブラウザから Firebase を呼ばない。失敗回数をサーバーで数えるため）。
 // getRecaptchaToken: 1段目を送る直前に reCAPTCHA Enterprise の token を作る（本番。SMS の送信に Identity Platform が求める）。
 // サイトキーを設定していない開発・Emulator では渡さない（token なしで送る）
@@ -74,6 +75,7 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
     setIsPending(true)
     setError(null)
     setNotice(null)
+    let succeeded = false
     try {
       let recaptchaToken: string | undefined
       if (getRecaptchaToken) {
@@ -89,11 +91,22 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
         email: credentials.email, password: credentials.password, ...(recaptchaToken === undefined ? {} : { recaptchaToken }),
       })
       const body = await readBody(response)
+      // パスワードだけでログインが終わった（SMS なし）。2段目の成功と同じく、移り終わるまで isPending のままにする
+      if (response.ok && body.success === true) {
+        succeeded = true
+        router.push('/daily-dashboard')
+        return
+      }
       if (response.ok && body.mfaRequired === true) {
         credentialsRef.current = credentials
         setPhoneHint(typeof body.phoneHint === 'string' && body.phoneHint !== '' ? body.phoneHint : null)
         setStep('code')
         if (isResend) setNotice('コードを再送しました')
+        return
+      }
+      if (response.status === 401 && body.error === 'login_failed') {
+        // パスワードは合ったが、サーバーが通さなかった（SMS なしのログインで、トークンが無効。理由は返ってこない）
+        setError('ログインできませんでした。もう一度ログインしてください')
         return
       }
       if (response.status === 401) {
@@ -104,7 +117,7 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
     } catch {
       setError('通信エラーが発生しました。ネットワーク接続を確認してください')
     } finally {
-      setIsPending(false)
+      if (!succeeded) setIsPending(false)
     }
   }
 
@@ -214,7 +227,7 @@ function busyWaitMs(retryAfterSeconds: unknown): number {
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
-type ErrorBody = { error?: unknown; retryAfterSeconds?: unknown; mfaRequired?: unknown; phoneHint?: unknown }
+type ErrorBody = { error?: unknown; retryAfterSeconds?: unknown; mfaRequired?: unknown; phoneHint?: unknown; success?: unknown }
 
 // 本文の決まったキーだけを読む。JSON でなければ空
 async function readBody(response: Response): Promise<ErrorBody> {

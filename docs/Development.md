@@ -31,7 +31,12 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 
 ### SMS の2要素目（MFA）
 
-ログインは「パスワード（`/api/auth/login`）→ SMS のコード（`/api/auth/login/verify`）」の2段（[Domain.md](Domain.md) の API）。2要素目を通っていないトークンには Session Cookie を出さないので、**電話を登録していないアカウントはログインできない**。
+ログインは「パスワード（`/api/auth/login`）→ SMS のコード（`/api/auth/login/verify`）」の2段（[Domain.md](Domain.md) の API）。2要素目を通っていないトークンには Session Cookie を出さないので、**電話を登録していないアカウントはログインできない**（`MFA_MODE=all`。下の例外を除く）。
+
+- `MFA_MODE`（Cloud Run の環境変数。GitHub の Variables から `deploy.yml` で渡す）: 誰に SMS を求めるか
+  - `all`: 全アカウント。電話を登録していないアカウントは 403 `mfa_not_enrolled`
+  - `enrolled_only`: 電話を登録したアカウントだけ。登録していないアカウントはパスワードだけで入れる（Slack の `[ログイン]` の末尾に `SMS なし（MFA_MODE=enrolled_only）`）。**本番で SMS を試す間だけ使う**（開発者のアカウントにだけ電話を登録して確かめ、スタッフは今までどおり入る）。確かめ終わったら `all` に戻す
+  - 未設定・想定外の値は `all`（閉じる側）。本番は `deploy.yml` の最初の方で値を確かめ、`all`・`enrolled_only` 以外ならデプロイしない（`src/constants/auth.ts` の `MFA_MODES` と、`tests/unit/config/deployWorkflow.test.ts` が突き合わせる）。開発・Emulator は未設定（`all`）
 
 - 開発: `npm run seed` が開発用ユーザーに架空の番号 `+15555550100` を登録する。コードは `make mfa-code`
 - テスト: Emulator のテストは `tests/utils/emulatorMfa.ts`（Vitest）と `e2e/emulator/mfa.ts`（Playwright）で、電話を登録したユーザーを作り、コードを Emulator の REST から読む。Emulator はユーザーを作った秒を `tokensValidAfterTime` にするので、どちらもユーザーを作った後に1秒待つ（WSL の時計が約1秒戻ることがあり、直後のログインが `auth/id-token-revoked` で落ちた）
@@ -45,12 +50,13 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 - reCAPTCHA Enterprise: 本番の Identity Platform は、SMS を送る前にブラウザで作った reCAPTCHA Enterprise の token を求める（API キーだけ・管理者のトークンでは `MISSING_CLIENT_IDENTIFIER`・401 で断られる。2026-11-12 のスパイク）。ログイン画面が「ログイン」「コードを再送」のたびに token を作り（`src/hooks/auth/recaptchaEnterprise.ts`、action は `mfaSmsSignIn`）、`/api/auth/login` が `mfaSignIn:start` に `captchaResponse` として添える。点数で判断する方式なので画像の問題は出ない。**`localhost` で作った token は受け付けない**（`INVALID_RECAPTCHA_TOKEN: localhost is not supported`）。サイトキーは Cloud Run の環境変数 `RECAPTCHA_SITE_KEY`（公開の値。GitHub の Variables から `deploy.yml` で渡す）。設定がなければ reCAPTCHA を使わない（開発・Emulator。Emulator は token を見ない）。本番で設定がないと、ログインが 503 になり Slack に `MFA sign-in start failed: MISSING_RECAPTCHA_TOKEN` などと出る。ログイン画面だけ CSP に Google の reCAPTCHA を足し、COEP を付けない（`src/lib/csp.ts`、`src/proxy.ts`。`e2e/prod/recaptcha.spec.ts` が偽物の Google で確かめる）
 - 本番の準備（コードの外）: Identity Platform への切り替え（SMS の MFA に必要。課金が変わる）、MFA（SMS）の有効化（`mfa.state: ENABLED`、`enabledProviders: [PHONE_SMS]`）、SMS の地域を日本だけにする（`smsRegionConfig.allowlistOnly.allowedRegions: [JP]`。空のままだと `OPERATION_NOT_ALLOWED: SMS unable to be sent until this region enabled`）、reCAPTCHA Enterprise の API の有効化と、Firebase コンソールの Authentication → Settings → Fraud Defense で SMS defense を ENFORCE にして Web のサイトキーを作る（API からの設定ではキーが作られなかった）、そのサイトキーの許可ドメインと Identity Platform の承認済みドメインに本番のドメインを入れる、GitHub の Variables に `RECAPTCHA_SITE_KEY`、Firestore の TTL ポリシー（`mfaPending.expireAt`・`mfaSmsQuota.expireAt`）。Fraud Defense の「SMS fraud risk threshold score」（`tollFraudManagedRules.startScore`）は **0.8** から始める（公式の推奨。点数がこれを超えると SMS を送らない。低いほど厳しく、既定の 0 は危険度が少しでもあれば送らない）。旅館の PC・回線での点数を Cloud Monitoring の `identitytoolkit.googleapis.com/recaptcha/sms_tf_risk_scores` で見て、下げるかを決める
 
-本番への切り替え（23:00〜6:00 の時間外に、一度に行う）:
+本番への切り替え（開発者のアカウントだけで試してから、全員に広げる）:
 
-1. Identity Platform と SMS の MFA を有効にする（済みなら省く）
-2. このコードをデプロイする（この時点で全アカウントがログインできなくなるが、時間外なので使われない）
-3. `--phone` で全アカウントに登録し、`--list` で確かめる
-4. 6:00 以降に1台でログインして確かめる。だめなら前のリビジョンに戻し、`--remove` で登録を外す（前のコードは2要素目が要るアカウントを 503 にする）
+1. Identity Platform と SMS の MFA を有効にする（済みなら省く）。電話を登録していないアカウントは、パスワードだけで今までどおり入れる
+2. GitHub の Variables に `MFA_MODE=enrolled_only` を入れ、このコードをデプロイする。スタッフのアカウントは何も変わらない（Slack の `[ログイン]` に `SMS なし` が付く）
+3. 開発者のアカウントにだけ `--phone` で電話を登録し、本番でログインして確かめる（本番のドメインで作った reCAPTCHA の token、`finalize` のコード、点数。[MfaUnverified.md](MfaUnverified.md) の 2）。だめなら `--remove` で開発者のアカウントの登録を外す（スタッフには影響しない）
+4. 確かめ終わったら、`--phone` でスタッフの全アカウントに登録し、`--list` で確かめる
+5. `MFA_MODE=all` にしてデプロイし直す（23:00〜6:00 の時間外に）。以後、電話を登録していないアカウントは入れない
 
 ### 本番データの匿名化（人だけが実行する）
 

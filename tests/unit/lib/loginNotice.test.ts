@@ -56,6 +56,15 @@ describe('buildLoginNotice', () => {
     expect(message).toContain('&lt;a&amp;b&gt;')
     expect(message).toContain('IP 不明')
   })
+
+  // MFA_MODE=enrolled_only で、電話を登録していないアカウントが入った。all に戻し忘れていないかにも気付けるよう、毎回出す
+  it('SMS なしのログインは、末尾に「SMS なし」と付ける', () => {
+    const base = { account: 'pc1@example.com', forwardedFor: '203.0.113.5', userAgent: EDGE_WIN, nowMs: Date.parse('2026-11-03T22:12:00Z') }
+    expect(buildLoginNotice({ ...base, passwordOnly: true })).toBe(
+      '[ログイン] pc1@example.com / IP 203.0.113.5（右端が Google の追記） / Edge on Windows / 11/04 07:12 / SMS なし（MFA_MODE=enrolled_only）',
+    )
+    expect(buildLoginNotice(base)).not.toContain('SMS なし')
+  })
 })
 
 describe('buildLoginRejectedNotice', () => {
