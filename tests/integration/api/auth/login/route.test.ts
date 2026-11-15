@@ -155,6 +155,16 @@ describe('POST /api/auth/login', () => {
       expect([...throttle.states.values()].every((st) => st.failures === 0)).toBe(true)
     })
 
+    // 本番で実際に来たコードを Slack で見られるように（点数が低いときのコードは本番でまだ見ていない）
+    it('Slack の拒否に Firebase のコードを載せる。ブラウザには返さない', async () => {
+      vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'recaptcha_rejected', code: 'CAPTCHA_CHECK_FAILED' } })
+      const response = await POST(makeRequest({ ...VALID, recaptchaToken: 'low-score-token' }))
+      expect(response.status).toBe(403)
+      expect(JSON.stringify(await response.json())).not.toContain('CAPTCHA_CHECK_FAILED')
+      expect(vi.mocked(notifySlackFireAndForget).mock.calls[0][0]).toContain('reCAPTCHA の確認で断られた（SMS は送っていない）（CAPTCHA_CHECK_FAILED）')
+      expect(vi.mocked(notifySlackFireAndForget).mock.calls[0][0]).not.toContain('[ALERT]')
+    })
+
     it('token はログにも Slack にも出ない', async () => {
       vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'recaptcha_rejected', code: 'INVALID_RECAPTCHA_TOKEN' } })
       await POST(makeRequest({ ...VALID, recaptchaToken: 'token-must-not-leak-77' }))

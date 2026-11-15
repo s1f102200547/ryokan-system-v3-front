@@ -97,7 +97,7 @@ describe('startMfaCommand', () => {
 
   it('reCAPTCHA の token を断られたら recaptcha_rejected。途中の状態は保存しない', async () => {
     vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'recaptcha_rejected', code: 'INVALID_RECAPTCHA_TOKEN' } })
-    expect(await start()).toEqual({ success: false, error: { kind: 'recaptcha_rejected' } })
+    expect(await start()).toEqual({ success: false, error: { kind: 'recaptcha_rejected', code: 'INVALID_RECAPTCHA_TOKEN' } })
     expect(pendings.items.size).toBe(0)
   })
 

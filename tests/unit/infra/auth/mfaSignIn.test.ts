@@ -51,8 +51,14 @@ describe('startPhoneMfa', () => {
     expect(await startWithToken()).toEqual({ success: false, error: { kind: 'recaptcha_rejected', code: 'INVALID_RECAPTCHA_TOKEN' } })
   })
 
+  // 公式のトラブルシューティング（Identity Platform の reCAPTCHA）が、点数が低くて断ったときに挙げるコード
+  it('点数が低くて断られたら（CAPTCHA_CHECK_FAILED）recaptcha_rejected（503・[ALERT] にしない）', async () => {
+    fetchMock.mockResolvedValue(errorResponse(400, 'CAPTCHA_CHECK_FAILED'))
+    expect(await startWithToken()).toEqual({ success: false, error: { kind: 'recaptcha_rejected', code: 'CAPTCHA_CHECK_FAILED' } })
+  })
+
   it('token を渡していないのに断られたら、設定の問題として AUTH_UNAVAILABLE（サイトキーの設定忘れ）', async () => {
-    for (const message of ['INVALID_RECAPTCHA_TOKEN', 'MISSING_CLIENT_IDENTIFIER']) {
+    for (const message of ['INVALID_RECAPTCHA_TOKEN', 'CAPTCHA_CHECK_FAILED', 'MISSING_CLIENT_IDENTIFIER']) {
       fetchMock.mockResolvedValueOnce(errorResponse(400, message))
       await expectUnavailable(start)
     }

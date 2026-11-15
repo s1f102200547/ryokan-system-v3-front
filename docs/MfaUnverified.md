@@ -11,7 +11,7 @@
 ## 2. 本番の Identity Platform に対して通していないこと(具体的にこれからどうするかは未定)
 
 - **`finalize` のエラーコード**: `src/infra/auth/mfaSignIn.ts` の振り分け（`INVALID_CODE`・`SESSION_EXPIRED`・`CODE_EXPIRED` など）は、Emulator と想定で書いた。本番が返す実際のコード名は見ていない。違っていると、コードの誤りが 503 と Slack の `[ALERT]` になる
-- **reCAPTCHA の点数が低くて SMS を送らなかったときのコード**: 分かっていない。今は 503 と `[ALERT]` になる
+- **reCAPTCHA の点数が低くて SMS を送らなかったときのコード**: 公式のトラブルシューティングが挙げる `CAPTCHA_CHECK_FAILED` は、`INVALID_RECAPTCHA_TOKEN` と同じく 403 と `[ログイン拒否]` にした（Slack に Firebase のコードが付く）。本番で実際にこのコードが来るかは見ていない。SMS defense（料金詐欺の判定）で止めたときのコードは公式にも書かれておらず、来たら 503 と `[ALERT]`（コード名つき）になるので、見て `src/infra/auth/mfaSignIn.ts` に足す
 - **ログイン画面で作った token**: 本番のドメインのログイン画面が作った token を、本物の Google が受け付けるかは試していない。スパイクは別の道具（`scripts/spike/`）と `localtest.me` で行った
 - **Fraud Defense の「SMS fraud risk threshold score」**: 最初は **0.8**（公式の推奨の出発点。点数がこれを超えると送らない。低いほど厳しく、0.0 は全部止まる）。旅館の PC・回線での実際の点数（Cloud Monitoring の `identitytoolkit.googleapis.com/recaptcha/sms_tf_risk_scores`）を見て、下げるかを決める
 

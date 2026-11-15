@@ -31,9 +31,10 @@ export async function POST(request: Request) {
   const userAgent = request.headers.get('user-agent')
   const ip = forwardedIps(forwardedFor).at(-1) ?? null // 右端が Google の書いた接続元
   const account = parsed.data.email
-  const reject = (reason: Parameters<typeof buildLoginRejectedNotice>[0]['reason'], error: string) => {
-    logger.warn('ログイン拒否', { account, reason, forwardedIps: forwardedIps(forwardedFor), client: describeUserAgent(userAgent) })
-    notifySlackFireAndForget(buildLoginRejectedNotice({ account, forwardedFor, userAgent, nowMs: Date.now(), reason }))
+  // detail: 理由の補足（Firebase のエラーコード）。ブラウザには返さない
+  const reject = (reason: Parameters<typeof buildLoginRejectedNotice>[0]['reason'], error: string, detail?: string) => {
+    logger.warn('ログイン拒否', { account, reason, detail, forwardedIps: forwardedIps(forwardedFor), client: describeUserAgent(userAgent) })
+    notifySlackFireAndForget(buildLoginRejectedNotice({ account, forwardedFor, userAgent, nowMs: Date.now(), reason, detail }))
     return NextResponse.json({ error }, { status: 403 })
   }
 
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
     if (!started.success) {
       // sms_limit: 今日の上限（明日まで送れない）/ sms_throttled: Firebase 自身が止めた（しばらく待てば送れる）/
       // recaptcha_rejected: パスワードは合っているのに、ブラウザの確認で断られた（読み込み直せば通ることが多い。続けば Slack で気付く）
-      if (started.error.kind === 'recaptcha_rejected') return reject('recaptcha_rejected', 'recaptcha_failed')
+      if (started.error.kind === 'recaptcha_rejected') return reject('recaptcha_rejected', 'recaptcha_failed', started.error.code)
       if (started.error.kind === 'sms_limit') return NextResponse.json({ error: 'sms_limit' }, { status: 429 })
       return tooManyAttempts('too_many_attempts', started.error.retryAfterMs)
     }

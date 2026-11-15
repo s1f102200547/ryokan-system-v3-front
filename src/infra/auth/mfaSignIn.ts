@@ -11,7 +11,7 @@ const StartSchema = z.object({ phoneResponseInfo: z.object({ sessionInfo: z.stri
 const FinalizeSchema = z.object({ idToken: z.string().min(1) })
 
 // throttled: Firebase 自身が SMS の送信やコードの確認を止めた（同じ電話への送りすぎなど）/
-// recaptcha_rejected: ブラウザが作った reCAPTCHA の token を断った（期限切れ・使い回し・別のサイトで作った token）
+// recaptcha_rejected: ブラウザが作った reCAPTCHA の token を断った（期限切れ・使い回し・別のサイトで作った token・点数が低い）
 export type StartPhoneMfaFailure = { kind: 'throttled' | 'recaptcha_rejected'; code: string }
 
 // SMS を送る。返す sessionInfo を finalize に渡す。
@@ -42,8 +42,10 @@ export async function startPhoneMfa(
   throw new InfraError('AUTH_UNAVAILABLE', `MFA sign-in start failed: ${res.code} (status ${res.status})`)
 }
 
-// reCAPTCHA の token が使えない。点数が低くて送らなかったときのコードはまだ確かめていない（その場合は 503・Slack に出る）
-const RECAPTCHA_REJECTED_ERRORS = new Set(['INVALID_RECAPTCHA_TOKEN'])
+// reCAPTCHA の確認で断られた。INVALID_RECAPTCHA_TOKEN: token が使えない（期限切れ・使い回し・localhost）/
+// CAPTCHA_CHECK_FAILED: 点数が低い（公式のトラブルシューティングが挙げるコード。本番ではまだ見ていない）。
+// SMS defense（料金詐欺の判定）で止めたときのコードは公式にも書かれていない。ここにないコードは 503・Slack にコード名が出るので、見て足す
+const RECAPTCHA_REJECTED_ERRORS = new Set(['INVALID_RECAPTCHA_TOKEN', 'CAPTCHA_CHECK_FAILED'])
 
 // invalid_code: コードが違う（打ち直せる。失敗として数える）/ expired: コードか途中の状態の期限が切れた（最初からやり直す）
 export type FinalizePhoneMfaFailure = { kind: 'invalid_code' | 'expired' | 'throttled'; code: string }
