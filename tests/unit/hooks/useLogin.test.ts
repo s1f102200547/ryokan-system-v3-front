@@ -1,6 +1,7 @@
 import { renderHook, act } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { useLogin } from '@/hooks/auth/useLogin'
+import { formatWait, useLogin } from '@/hooks/auth/useLogin'
+import { MFA_RESEND_COOLDOWN_MS } from '@/constants/auth'
 
 // ログイン（AGENTS.md・Domain.md）。2段に分かれる:
 //   1. メールアドレスとパスワードを /api/auth/login に送る（パスワードの確認と SMS の送信はサーバー）→ コードの入力へ
@@ -296,31 +297,76 @@ describe('useLogin', () => {
       expect(fetchMock).not.toHaveBeenCalled()
     })
 
-    it('再送は、同じメールアドレスとパスワードで1段目を送り直し、知らせを出す', async () => {
-      const result = await atCodeStep()
-      fetchMock.mockResolvedValueOnce(mfaRequired())
-      await act(async () => { await result.current.resend() })
-      expect(fetchMock).toHaveBeenCalledWith('/api/auth/login', expect.objectContaining({
-        body: JSON.stringify({ email: 'pc1@example.com', password: 'pw' }),
-      }))
-      expect(result.current.step).toBe('code')
-      expect(result.current.notice).toBe('コードを再送しました')
-      expect(result.current.error).toBeNull()
-    })
+    // SMS を送ってから30秒は再送しない（続けて押されて1日の上限を使い切らないため）。待ち時間は画面だけで数える
+    describe('再送', () => {
+      beforeEach(() => { vi.useFakeTimers() })
+      afterEach(() => { vi.useRealTimers() })
+      const waitForResend = () => act(async () => { await vi.advanceTimersByTimeAsync(MFA_RESEND_COOLDOWN_MS) })
 
-    it('再送が SMS の上限で断られたら理由を出す（知らせは出さない）', async () => {
-      const result = await atCodeStep()
-      fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ error: 'sms_limit' }), { status: 429 }))
-      await act(async () => { await result.current.resend() })
-      expect(result.current.error).toBe('今日の SMS の送信回数の上限に達しました。管理者に連絡してください')
-      expect(result.current.notice).toBeNull()
-    })
+      it('SMS を送ったら30秒は再送できない。残りの秒を出し、過ぎたら押せる', async () => {
+        const result = await atCodeStep()
+        expect(result.current.resendWaitSeconds).toBe(30)
+        await act(async () => { await result.current.resend() })
+        expect(fetchMock).not.toHaveBeenCalled()
 
-    it('SMS の送信の障害（503）は、障害として出す', async () => {
-      const result = await atCodeStep()
-      fetchMock.mockResolvedValueOnce(new Response('{}', { status: 503 }))
-      await act(async () => { await result.current.resend() })
-      expect(result.current.error).toBe('サービスが一時的に利用できません。しばらくお待ちください')
+        await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
+        expect(result.current.resendWaitSeconds).toBe(29)
+        await act(async () => { await vi.advanceTimersByTimeAsync(MFA_RESEND_COOLDOWN_MS - 1000) })
+        expect(result.current.resendWaitSeconds).toBe(0)
+      })
+
+      it('再送で SMS を送れたら、また30秒待たせる', async () => {
+        const result = await atCodeStep()
+        await waitForResend()
+        fetchMock.mockResolvedValueOnce(mfaRequired())
+        await act(async () => { await result.current.resend() })
+        expect(result.current.resendWaitSeconds).toBe(30)
+      })
+
+      it('再送が断られた（SMS を送れなかった）ときは、待たせない', async () => {
+        const result = await atCodeStep()
+        await waitForResend()
+        fetchMock.mockResolvedValueOnce(new Response('{}', { status: 503 }))
+        await act(async () => { await result.current.resend() })
+        expect(result.current.resendWaitSeconds).toBe(0)
+      })
+
+      it('同じメールアドレスとパスワードで1段目を送り直し、知らせを出す', async () => {
+        const result = await atCodeStep()
+        await waitForResend()
+        fetchMock.mockResolvedValueOnce(mfaRequired())
+        await act(async () => { await result.current.resend() })
+        expect(fetchMock).toHaveBeenCalledWith('/api/auth/login', expect.objectContaining({
+          body: JSON.stringify({ email: 'pc1@example.com', password: 'pw' }),
+        }))
+        expect(result.current.step).toBe('code')
+        expect(result.current.notice).toBe('コードを再送しました')
+        expect(result.current.error).toBeNull()
+      })
+
+      it('SMS の上限で断られたら理由を出す（知らせは出さない）', async () => {
+        const result = await atCodeStep()
+        await waitForResend()
+        fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ error: 'sms_limit' }), { status: 429 }))
+        await act(async () => { await result.current.resend() })
+        expect(result.current.error).toBe('今日の SMS の送信回数の上限に達しました。管理者に連絡してください')
+        expect(result.current.notice).toBeNull()
+      })
+
+      it('SMS の送信の障害（503）は、障害として出す', async () => {
+        const result = await atCodeStep()
+        await waitForResend()
+        fetchMock.mockResolvedValueOnce(new Response('{}', { status: 503 }))
+        await act(async () => { await result.current.resend() })
+        expect(result.current.error).toBe('サービスが一時的に利用できません。しばらくお待ちください')
+      })
+
+      it('PC の時計（Date）が進んでも、待ち時間は縮まない（受け取ってからの経過で数える）', async () => {
+        const result = await atCodeStep()
+        vi.setSystemTime(Date.now() + 60 * 60 * 1000) // 壁時計だけ1時間進める
+        await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
+        expect(result.current.resendWaitSeconds).toBe(29)
+      })
     })
 
     it('戻るで、パスワードの段へ戻る（エラーも消す）', async () => {
@@ -353,13 +399,19 @@ describe('useLogin', () => {
     })
 
     it('再送のたびに新しい token を作る（token は使い捨て）', async () => {
-      const getRecaptchaToken = vi.fn().mockResolvedValueOnce('token-1').mockResolvedValueOnce('token-2')
-      fetchMock.mockResolvedValue(mfaRequired())
-      const { result } = renderHook(() => useLogin({ getRecaptchaToken }))
-      await act(async () => { await result.current.login(credentials) })
-      await act(async () => { await result.current.resend() })
-      expect(getRecaptchaToken).toHaveBeenCalledTimes(2)
-      expect(JSON.parse(String((fetchMock.mock.calls[1] as [string, RequestInit])[1].body)).recaptchaToken).toBe('token-2')
+      vi.useFakeTimers()
+      try {
+        const getRecaptchaToken = vi.fn().mockResolvedValueOnce('token-1').mockResolvedValueOnce('token-2')
+        fetchMock.mockResolvedValue(mfaRequired())
+        const { result } = renderHook(() => useLogin({ getRecaptchaToken }))
+        await act(async () => { await result.current.login(credentials) })
+        await act(async () => { await vi.advanceTimersByTimeAsync(MFA_RESEND_COOLDOWN_MS) }) // 再送の待ち
+        await act(async () => { await result.current.resend() })
+        expect(getRecaptchaToken).toHaveBeenCalledTimes(2)
+        expect(JSON.parse(String((fetchMock.mock.calls[1] as [string, RequestInit])[1].body)).recaptchaToken).toBe('token-2')
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('コードの確認（2段目）では作らない', async () => {
@@ -389,5 +441,11 @@ describe('useLogin', () => {
       await loginWith(mfaRequired())
       expect(JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body))).toEqual({ email: 'pc1@example.com', password: 'pw' })
     })
+  })
+})
+
+describe('formatWait', () => {
+  it.each([[30_000, '0:30'], [29_001, '0:30'], [1, '0:01'], [0, '0:01'], [60_000, '1:00'], [3_600_000, '60:00']])('%i ms は %s', (ms, text) => {
+    expect(formatWait(ms)).toBe(text)
   })
 })

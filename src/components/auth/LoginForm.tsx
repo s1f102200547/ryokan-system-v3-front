@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { Box, TextField, Button, Alert, Typography, Paper } from '@mui/material'
-import { useLogin } from '@/hooks/auth/useLogin'
+import { formatWait, useLogin } from '@/hooks/auth/useLogin'
 import { createRecaptchaTokenGetter } from '@/hooks/auth/recaptchaEnterprise'
 import {
   LOGIN_EMAIL_MAX_LENGTH, LOGIN_EMAIL_MIN_LENGTH, LOGIN_PASSWORD_MAX_LENGTH, LOGIN_PASSWORD_MIN_LENGTH, MFA_CODE_LENGTH,
@@ -14,7 +14,7 @@ export function LoginForm({ recaptchaSiteKey }: { recaptchaSiteKey: string | nul
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
   const getRecaptchaToken = useMemo(() => (recaptchaSiteKey ? createRecaptchaTokenGetter(recaptchaSiteKey) : undefined), [recaptchaSiteKey])
-  const { step, phoneHint, login, verify, resend, back, isPending, isLocked, error, notice } = useLogin({ getRecaptchaToken })
+  const { step, phoneHint, login, verify, resend, back, isPending, isLocked, error, notice, resendWaitSeconds } = useLogin({ getRecaptchaToken })
 
   const handleCredentials = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -106,8 +106,9 @@ export function LoginForm({ recaptchaSiteKey }: { recaptchaSiteKey: string | nul
               <Button type="button" onClick={back} disabled={isPending}>
                 戻る
               </Button>
-              <Button type="button" onClick={handleResend} disabled={isPending || isLocked}>
-                コードを再送
+              {/* SMS を送ってから30秒は押せない（続けて押されて1日の上限を使い切らないため。src/constants/auth.ts） */}
+              <Button type="button" onClick={handleResend} disabled={isPending || isLocked || resendWaitSeconds > 0}>
+                {resendWaitSeconds > 0 ? `コードを再送（あと ${formatWait(resendWaitSeconds * 1000)}）` : 'コードを再送'}
               </Button>
             </Box>
           </Box>

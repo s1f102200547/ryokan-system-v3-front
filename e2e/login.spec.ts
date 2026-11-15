@@ -118,13 +118,23 @@ test.describe('ログイン', () => {
       await expect(page.getByLabel('パスワード')).toHaveValue('password')
     })
 
-    test('再送は1段目を送り直し、知らせを出す。戻るでパスワードの画面へ', async ({ page }) => {
+    // SMS を送ってから30秒は再送を押せない（src/constants/auth.ts の MFA_RESEND_COOLDOWN_MS。画面だけで数える）
+    test('再送は30秒たつまで押せず、残りの秒を出す。過ぎたら1段目を送り直し、知らせを出す。戻るでパスワードの画面へ', async ({ page }) => {
+      await page.clock.install()
       let logins = 0
       await page.route('**/api/auth/login', (route) => { logins++; return route.fulfill({ status: 200, json: { mfaRequired: true, phoneHint: '+81*******1234' } }) })
       await submit(page, 'test@example.com', 'password')
-      await page.getByRole('button', { name: 'コードを再送' }).click()
+      const resend = page.getByRole('button', { name: /^コードを再送/ })
+      await expect(resend).toHaveText('コードを再送（あと 0:30）')
+      await expect(resend).toBeDisabled()
+      await page.clock.runFor(10_000)
+      await expect(resend).toHaveText('コードを再送（あと 0:20）')
+      await page.clock.runFor(20_000)
+      await expect(resend).toHaveText('コードを再送')
+      await resend.click()
       await expect(page.getByText('コードを再送しました')).toBeVisible()
       expect(logins).toBe(2)
+      await expect(resend).toBeDisabled() // 再送で SMS を送ったので、また30秒待つ
       await page.getByRole('button', { name: '戻る' }).click()
       await expect(page.getByLabel('メールアドレス')).toHaveValue('test@example.com')
     })

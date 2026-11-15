@@ -41,6 +41,9 @@ export const MFA_PENDING_COOKIE_PATH = '/api/auth/login'
 // 1アカウントが1日（JST）に送れる SMS の数。セッションは毎日 23:00 に切れるので、普段は1日1通。
 // 不正な大量送信（SMS pumping）で料金を取られないための上限。超えたら 429 と Slack
 export const MFA_SMS_DAILY_LIMIT = 10
+// SMS を送ってから「コードを再送」を押せるようになるまでの時間。続けて押されて 1日の上限（MFA_SMS_DAILY_LIMIT）を使い切らないため。
+// ログイン画面だけで数える（読み込み直せば 0 に戻る）。上限そのものはサーバーが守る
+export const MFA_RESEND_COOLDOWN_MS = 30_000
 // SMS の2要素目を誰に求めるか（Cloud Run の環境変数 MFA_MODE。GitHub の Variables から deploy.yml で渡す）。
 // all: 全アカウント（電話を登録していないアカウントは 403 mfa_not_enrolled）/
 // enrolled_only: 電話を登録したアカウントだけ。登録していないアカウントはパスワードだけで入れる（本番で SMS を試す間だけ使う。
