@@ -1,9 +1,10 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Box, TextField, Button, Alert, Typography, Paper } from '@mui/material'
-import { useLogin } from '@/hooks/auth/useLogin'
+import { Box, TextField, Button, Alert, Typography, Paper, CircularProgress } from '@mui/material'
+import { formatWait, useLogin } from '@/hooks/auth/useLogin'
 import { createRecaptchaTokenGetter } from '@/hooks/auth/recaptchaEnterprise'
+import { MfaCodeInput } from '@/components/auth/MfaCodeInput'
 import {
   LOGIN_EMAIL_MAX_LENGTH, LOGIN_EMAIL_MIN_LENGTH, LOGIN_PASSWORD_MAX_LENGTH, LOGIN_PASSWORD_MIN_LENGTH, MFA_CODE_LENGTH,
 } from '@/constants/auth'
@@ -14,7 +15,7 @@ export function LoginForm({ recaptchaSiteKey }: { recaptchaSiteKey: string | nul
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
   const getRecaptchaToken = useMemo(() => (recaptchaSiteKey ? createRecaptchaTokenGetter(recaptchaSiteKey) : undefined), [recaptchaSiteKey])
-  const { step, phoneHint, login, verify, resend, back, isPending, isLocked, error, notice } = useLogin({ getRecaptchaToken })
+  const { step, phoneHint, login, verify, resend, back, isPending, isLocked, error, notice, resendWaitSeconds } = useLogin({ getRecaptchaToken })
 
   const handleCredentials = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -22,9 +23,15 @@ export function LoginForm({ recaptchaSiteKey }: { recaptchaSiteKey: string | nul
     await login({ email, password })
   }
 
+  // 6桁そろったら送る（ボタンなし）。合わなければマスを空にして、すぐ打ち直せるようにする（メッセージは useLogin が出す）
+  const submitCode = async (digits: string) => {
+    if (!(await verify(digits))) setCode('')
+  }
+
+  // Enter でも送れる（6桁そろっていれば。そろった時点で自動で送っているので、主に送り直し用）
   const handleCode = async (e: React.FormEvent) => {
     e.preventDefault()
-    await verify(code)
+    if (code.length === MFA_CODE_LENGTH) await submitCode(code)
   }
 
   const handleResend = async () => {
@@ -85,29 +92,23 @@ export function LoginForm({ recaptchaSiteKey }: { recaptchaSiteKey: string | nul
             <Typography variant="body2">
               {phoneHint ? `${phoneHint} に` : 'フロントの電話に'}SMS で送った {MFA_CODE_LENGTH} 桁のコードを入力してください
             </Typography>
-            <TextField
-              id="code"
-              label="確認コード"
-              value={code}
-              // 半角数字だけを残す（API の Zod と同じ規則。src/lib/api/loginSchema.ts）
-              onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, '').slice(0, MFA_CODE_LENGTH))}
-              required
-              fullWidth
-              autoFocus
-              autoComplete="one-time-code"
-              slotProps={{
-                htmlInput: { inputMode: 'numeric', pattern: `[0-9]{${MFA_CODE_LENGTH}}`, minLength: MFA_CODE_LENGTH, maxLength: MFA_CODE_LENGTH },
-              }}
-            />
-            <Button type="submit" variant="contained" disabled={isPending || isLocked} fullWidth>
-              {isPending ? '確認中…' : '確認'}
-            </Button>
+            <MfaCodeInput value={code} onChange={setCode} onComplete={submitCode} readOnly={isPending} disabled={isLocked} />
+            {/* 確認中の表示。出たり消えたりしても下のボタンが動かないよう、場所は常に取っておく */}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, minHeight: 24 }}>
+              {isPending && (
+                <>
+                  <CircularProgress size={18} aria-hidden />
+                  <Typography variant="body2">確認中…</Typography>
+                </>
+              )}
+            </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Button type="button" onClick={back} disabled={isPending}>
                 戻る
               </Button>
-              <Button type="button" onClick={handleResend} disabled={isPending || isLocked}>
-                コードを再送
+              {/* SMS を送ってから30秒は押せない（続けて押されて1日の上限を使い切らないため。src/constants/auth.ts） */}
+              <Button type="button" onClick={handleResend} disabled={isPending || isLocked || resendWaitSeconds > 0}>
+                {resendWaitSeconds > 0 ? `コードを再送（あと ${formatWait(resendWaitSeconds * 1000)}）` : 'コードを再送'}
               </Button>
             </Box>
           </Box>
