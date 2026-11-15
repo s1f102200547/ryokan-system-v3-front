@@ -38,12 +38,16 @@ test('同じアカウントに別のブラウザで入ると、先のブラウ�
   const secondPage = await second.newPage()
 
   await loginFromUi(firstPage, email)
+  // 先のブラウザのダッシュボードが、後のログインの後に API の応答（401）を受けて /login へ移ると、下の goto が打ち切られる。
+  // 先に離れておく（sessionCookie.spec.ts の失効のテストと同じ）
+  await firstPage.goto('about:blank')
   await nextSecond()
   await loginFromUi(secondPage, email)
 
   const responses: number[] = []
   firstPage.on('response', (r) => { if (r.url().includes('/api/guest-info')) responses.push(r.status()) })
-  await firstPage.goto(`${APP}/daily-dashboard`)
+  // 401 を受けた画面がすぐ /login へ移るので、load は待たない（sessionCookie.spec.ts の失効のテストと同じ）
+  await firstPage.goto(`${APP}/daily-dashboard`, { waitUntil: 'commit' })
   await firstPage.waitForURL('**/login')
   expect(responses).toContain(401)
 

@@ -151,12 +151,17 @@ test.describe('失効: Cookie がブラウザに残っていても、失効さ�
     test(`${label} のあと、ダッシュボードを開き直すとログイン画面に移る`, async ({ page, context }) => {
       const { email, uid } = await createUser()
       await loginFromUi(page, email)
+      // ログイン直後のダッシュボードは、まだ API を呼んでいることがある。失効の後にその応答が 401 になると、前のページが
+      // /login へ移り、下の goto が ERR_ABORTED で打ち切られる（2026-11-14 の make check、2026-11-15 に再現）。先に離れておく
+      await page.goto('about:blank')
       await nextSecond()
       await revoke(uid)
 
       const responses: number[] = []
       page.on('response', (r) => { if (r.url().includes('/api/guest-info')) responses.push(r.status()) })
-      await page.goto('/daily-dashboard')
+      // 開いた画面も 401 を受けるとすぐ /login へ移る（fetchWithSession）。load を待つとその移動と競るので、応答が届いた時点で
+      // goto を終え、移動は waitForURL で待つ
+      await page.goto('/daily-dashboard', { waitUntil: 'commit' })
       await page.waitForURL('**/login')
       expect(responses).toContain(401)
       // Cookie はブラウザに残ったまま（消えたから使えないのではなく、サーバーが拒否している）

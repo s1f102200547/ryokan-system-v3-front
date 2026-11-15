@@ -4,8 +4,9 @@
 
 ## 1. 不安定なテスト（`make check` が安定して通らない）
 - 2026-11-15 に単独で実行して、すべて通った（`e2e` 5回・`e2e:emulator` 5回・`e2e:prod` 3回）
-- 2026-11-14 の `make check` で落ちたのは `e2e/emulator/sessionCookie.spec.ts` の失効のテスト（`page.goto: net::ERR_ABORTED`）。`goto` が `load` を待っている間に、画面が 401 を受けて `fetchWithSession` が `/login` へ移り、`goto` が打ち切られた（重いときだけ起きる。テスト側の問題）。`goto` を `waitUntil: 'commit'` にした（`singleSession.spec.ts` の同じ形も）
-- 残り: `make check` を何回か通して、出なくなったことを確かめる
+- 2026-11-14 の `make check` で落ちたのは `e2e/emulator/sessionCookie.spec.ts` の失効のテスト（`page.goto: net::ERR_ABORTED`）。2026-11-15 に再現し、`commit` より前に打ち切られていた。ログイン直後のダッシュボードがまだ API を呼んでいて、失効の後にその応答が 401 になり、前のページの `location.assign('/login')` が次の `goto` を上書きしていた（テスト側の問題）。失効の前に `about:blank` へ離れ、`goto` は `waitUntil: 'commit'` にした（`singleSession.spec.ts` の同じ形も）。直した後、全体を5回 × 2（150 件）と失効のテストだけを 30 回流して、`ERR_ABORTED` は出なかった
+- **まだ原因が分からない失敗が1件**: 直した後の150件のうち1件で、失効のテストが「ダッシュボードは開いたが `/login` に移らず、30秒で時間切れ」になった（普段は6秒）。trace がなく、401 が返らなかったのか、画面が止まったのかは分からない。同じ条件でもう一度流すと出なかった。次に起きたら追えるよう、`playwright.emulator.config.ts` の trace を `retain-on-failure` にした（`test-results-emulator/` に残る）
+- 残り: `make check` を何回か通す。上の時間切れが出たら trace を見る
 
 ## 2. 本番の Identity Platform に対して通していないこと(具体的にこれからどうするかは未定)
 
