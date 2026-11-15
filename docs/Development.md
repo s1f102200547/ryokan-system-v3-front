@@ -11,7 +11,7 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 
 - 必要なもの: Node（CI・Docker は 24）、Java（Firestore Emulator）、`firebase-tools`（グローバル。依存には入れていない）
 - 開発サーバー http://127.0.0.1:3000、Emulator UI http://127.0.0.1:4000、Firestore 8080、Auth 9099。すべて `127.0.0.1` に bind する（`firebase.json`, `package.json` の `dev`）
-- ログイン: `dev@example.com` / `dev-password`（Emulator 専用。`scripts/localdev/constants.ts`）
+- ログイン: `dev@example.com` / `dev-password`（Emulator 専用。`scripts/localdev/constants.ts`）。続けて SMS のコードを求められるので、別の端末で `make mfa-code` を実行して出た6桁を入れる（Emulator は SMS を送らず、ターミナルと Emulator の REST にコードを出す。使ったコードは消える）
 - 投入データ: `.localdev/data/` に匿名化データがあればそれ、なければ `tests/fixtures/localdev/` の人工データ。人工データには本番によくある崩れ（型違い、`""` と `null`、壊れた日付、長さ違いの配列）をわざと入れてある
 - Emulator は止めるとデータが消える。`make seed` で入れ直す（全消去してから入れる）
 - 別々に起動するとき: `make emulators` と `make dev`（別の端末で `make seed`）
@@ -27,7 +27,36 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 
 本番の Admin SDK は ADC（Cloud Run の実行用サービスアカウント）で認証する。鍵ファイルは使わない。
 
-ブラウザは Firebase を呼ばないので、`NEXT_PUBLIC_FIREBASE_*` の変数はない。パスワードの確認（`src/infra/auth/passwordSignIn.ts`）は、本番では `FIREBASE_AUTH_API_KEY`（Identity Toolkit API だけに絞った API キー。Secret Manager から Cloud Run に渡す）を使う。Emulator に接続しているときは、Auth Emulator がキーを見ないのでダミーの値を使い、設定は要らない。本番で設定がなければ、ログインが 503 になり Slack に通知される（起動は止めない。CI の ZAP は本番ビルドを環境変数なしで起動するため）。
+ブラウザは Firebase を呼ばないので、`NEXT_PUBLIC_FIREBASE_*` の変数はない。ブラウザが外を呼ぶのは、ログイン画面の reCAPTCHA Enterprise（`RECAPTCHA_SITE_KEY`、下の「SMS の2要素目」）だけ。パスワードと SMS のコードの確認（`src/infra/auth/identityToolkit.ts`）は、本番では `FIREBASE_AUTH_API_KEY`（Identity Toolkit API だけに絞った API キー。Secret Manager から Cloud Run に渡す）を使う。Emulator に接続しているときは、Auth Emulator がキーを見ないのでダミーの値を使い、設定は要らない。本番で設定がなければ、ログインが 503 になり Slack に通知される（起動は止めない。CI の ZAP は本番ビルドを環境変数なしで起動するため）。
+
+### SMS の2要素目（MFA）
+
+ログインは「パスワード（`/api/auth/login`）→ SMS のコード（`/api/auth/login/verify`）」の2段（[Domain.md](Domain.md) の API）。2要素目を通っていないトークンには Session Cookie を出さないので、**電話を登録していないアカウントはログインできない**（`MFA_MODE=all`。下の例外を除く）。
+
+- `MFA_MODE`（Cloud Run の環境変数。GitHub の Variables から `deploy.yml` で渡す）: 誰に SMS を求めるか
+  - `all`: 全アカウント。電話を登録していないアカウントは 403 `mfa_not_enrolled`
+  - `enrolled_only`: 電話を登録したアカウントだけ。登録していないアカウントはパスワードだけで入れる（Slack の `[ログイン]` の末尾に `SMS なし（MFA_MODE=enrolled_only）`）。**本番で SMS を試す間だけ使う**（開発者のアカウントにだけ電話を登録して確かめ、スタッフは今までどおり入る）。確かめ終わったら `all` に戻す
+  - 未設定・想定外の値は `all`（閉じる側）。本番は `deploy.yml` の最初の方で値を確かめ、`all`・`enrolled_only` 以外ならデプロイしない（`src/constants/auth.ts` の `MFA_MODES` と、`tests/unit/config/deployWorkflow.test.ts` が突き合わせる）。開発・Emulator は未設定（`all`）
+
+- 開発: `npm run seed` が開発用ユーザーに架空の番号 `+15555550100` を登録する。コードは `make mfa-code`
+- テスト: Emulator のテストは `tests/utils/emulatorMfa.ts`（Vitest）と `e2e/emulator/mfa.ts`（Playwright）で、電話を登録したユーザーを作り、コードを Emulator の REST から読む。Emulator はユーザーを作った秒を `tokensValidAfterTime` にするので、どちらもユーザーを作った後に1秒待つ（WSL の時計が約1秒戻ることがあり、直後のログインが `auth/id-token-revoked` で落ちた）
+- 登録（本番。**人だけが実行する**）: `scripts/mfa/enrollPhone.ts`。ADC（`gcloud auth application-default login`）で、`--project` は必ず指定する。書き込みの前に確認を求める。電話番号は +81 だけ、画面には末尾4桁だけ出す
+  ```bash
+  npm run mfa:enroll -- --project <project ID> --list                                  # 全アカウントの登録状況
+  npm run mfa:enroll -- --project <project ID> --email <PC のアカウント> --phone +81...  # 登録（置き換え）
+  npm run mfa:enroll -- --project <project ID> --email <PC のアカウント> --remove        # 解除（ログインできなくなる）
+  ```
+- 電話をなくした・電池が切れた: その間はログインできない。新しい電話の番号で全アカウントを登録し直す（`--phone`。置き換わる）
+- reCAPTCHA Enterprise: 本番の Identity Platform は、SMS を送る前にブラウザで作った reCAPTCHA Enterprise の token を求める（API キーだけ・管理者のトークンでは `MISSING_CLIENT_IDENTIFIER`・401 で断られる。2026-11-12 のスパイク）。ログイン画面が「ログイン」「コードを再送」のたびに token を作り（`src/hooks/auth/recaptchaEnterprise.ts`、action は `mfaSmsSignIn`）、`/api/auth/login` が `mfaSignIn:start` に `captchaResponse` として添える。点数で判断する方式なので画像の問題は出ない。**`localhost` で作った token は受け付けない**（`INVALID_RECAPTCHA_TOKEN: localhost is not supported`）。サイトキーは Cloud Run の環境変数 `RECAPTCHA_SITE_KEY`（公開の値。GitHub の Variables から `deploy.yml` で渡す）。設定がなければ reCAPTCHA を使わない（開発・Emulator。Emulator は token を見ない）。本番で設定がないと、ログインが 503 になり Slack に `MFA sign-in start failed: MISSING_RECAPTCHA_TOKEN` などと出る。ログイン画面だけ CSP に Google の reCAPTCHA を足し、COEP を付けない（`src/lib/csp.ts`、`src/proxy.ts`。`e2e/prod/recaptcha.spec.ts` が偽物の Google で確かめる）
+- 本番の準備（コードの外）: Identity Platform への切り替え（SMS の MFA に必要。課金が変わる）、MFA（SMS）の有効化（`mfa.state: ENABLED`、`enabledProviders: [PHONE_SMS]`）、SMS の地域を日本だけにする（`smsRegionConfig.allowlistOnly.allowedRegions: [JP]`。空のままだと `OPERATION_NOT_ALLOWED: SMS unable to be sent until this region enabled`）、reCAPTCHA Enterprise の API の有効化と、Firebase コンソールの Authentication → Settings → Fraud Defense で SMS defense を ENFORCE にして Web のサイトキーを作る（API からの設定ではキーが作られなかった）、そのサイトキーの許可ドメインと Identity Platform の承認済みドメインに本番のドメインを入れる、GitHub の Variables に `RECAPTCHA_SITE_KEY`、Firestore の TTL ポリシー（`mfaPending.expireAt`・`mfaSmsQuota.expireAt`）。Fraud Defense の「SMS fraud risk threshold score」（`tollFraudManagedRules.startScore`）は **0.8** から始める（公式の推奨。点数がこれを超えると SMS を送らない。低いほど厳しく、既定の 0 は危険度が少しでもあれば送らない）。旅館の PC・回線での点数を Cloud Monitoring の `identitytoolkit.googleapis.com/recaptcha/sms_tf_risk_scores` で見て、下げるかを決める
+
+本番への切り替え（開発者のアカウントだけで試してから、全員に広げる）:
+
+1. Identity Platform と SMS の MFA を有効にする（済みなら省く）。電話を登録していないアカウントは、パスワードだけで今までどおり入れる
+2. GitHub の Variables に `MFA_MODE=enrolled_only` を入れ、このコードをデプロイする。スタッフのアカウントは何も変わらない（Slack の `[ログイン]` に `SMS なし` が付く）
+3. 開発者のアカウントにだけ `--phone` で電話を登録し、本番でログインして確かめる（本番のドメインで作った reCAPTCHA の token、`finalize` のコード、点数。[MfaUnverified.md](MfaUnverified.md) の 2）。だめなら `--remove` で開発者のアカウントの登録を外す（スタッフには影響しない）
+4. 確かめ終わったら、`--phone` でスタッフの全アカウントに登録し、`--list` で確かめる
+5. `MFA_MODE=all` にしてデプロイし直す（23:00〜6:00 の時間外に）。以後、電話を登録していないアカウントは入れない
 
 ### 本番データの匿名化（人だけが実行する）
 
@@ -47,11 +76,11 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 | Fuzz | `tests/integration/fuzz/` | 同上 | 全 Route に壊れた入力を送り、5xx を返さない・Slack に通知しないこと |
 | PBT | `tests/pbt/` | 同上 | fast-check。読み取りの正規化、更新の検証、部屋の状態の性質 |
 | 時刻・TZ | `tests/time/` | `npm run test:tz` | JST の境界（0:00〜9:00 は UTC で前日、6:00 / 23:00 は時間帯制限）。TZ=UTC / Asia/Tokyo / America/Los_Angeles で3回 |
-| Emulator | `tests/emulator/` | `npm run test:emulator` | Route → Firestore Emulator に書いて読み戻す往復、状態遷移、Rules の全拒否、Emulator 上の fuzz、Session Cookie の失効（Auth Emulator のユーザーで本物のログイン API を通す） |
+| Emulator | `tests/emulator/` | `npm run test:emulator` | Route → Firestore Emulator に書いて読み戻す往復、状態遷移、Rules の全拒否、Emulator 上の fuzz、Session Cookie の失効（Auth Emulator のユーザーで本物のログイン API を通す）、SMS の2要素目の本物の流れ（パスワード → SMS → コード → Cookie、コードの誤りの回数、接続元の違い） |
 | E2E | `e2e/` | `npm run e2e` | ログイン、ルーティング、ダッシュボード、予約の編集、宿泊税。重要なフローに絞る |
 | E2E（本番ビルド） | `e2e/prod/` | `npm run e2e:prod` | セキュリティヘッダー・CSP が、防ぐはずのこと（外への送信、埋め込み、注入した script、他のサイトからの読み込み・操作、カメラなど）を実際に止めること。各テストに対照実験（そのヘッダーだけを外すと止まらない）を置く |
 | 表示までの時間 | `e2e/perf/` | `npm run perf` | ゲストカードが出るまでの時間を場面ごとに測る（合否なし）。下の「表示までの時間を測る」 |
-| E2E（Emulator） | `e2e/emulator/` | `npm run e2e:emulator` | 本物のログイン（Auth Emulator）で受け取ったセッション Cookie の HttpOnly・SameSite=Strict・Max-Age が目的どおりに働くこと（属性を外す対照実験つき）。失効・無効化のあと、Cookie が残っていても画面がログインに戻ること |
+| E2E（Emulator） | `e2e/emulator/` | `npm run e2e:emulator` | 本物のログイン（Auth Emulator）で受け取ったセッション Cookie の HttpOnly・SameSite=Strict・Max-Age が目的どおりに働くこと（属性を外す対照実験つき）。失効・無効化のあと、Cookie が残っていても画面がログインに戻ること。画面から SMS のコードを入れてログインすること、コードを3回間違えると止まること |
 
 - Vitest の既定の設定（`vitest.config.ts`）は Emulator の接続先を **到達できないアドレス**（`127.0.0.1:1`）にしている。誤って Firestore を呼んだテストはすぐ失敗し、本番にも届かない
 - 「今日」は `tests/utils/routeTestHelper.ts` の `setupFakeToday()` で 2026-05-20（JST）に固定する。JST の時刻を指定するときは `tests/utils/timeHelper.ts` の `setNowJST`
@@ -101,7 +130,7 @@ zizmor ─┘
 | secret-scan | gitleaks で全履歴を検査 | `.gitleaksignore` に Fingerprint と理由。本物の秘密情報は除外せず、キーを無効化する |
 | semgrep | `p/default` `p/typescript` `p/react`。1件でも失敗 | 該当行の前に `// nosemgrep: <ルールID>` と理由 |
 | zizmor | GitHub Actions の定義（`.github/`）を検査。`--offline`（GitHub API を使う検査はしない）。1件でも失敗 | 該当行に `# zizmor: ignore[<監査名>]`、近くに理由 |
-| zap-scan | 本番ビルドを起動し、ZAP Baseline で `/login` を検査。WARN 以上で失敗 | `.zap/rules.tsv`（ASCII、タブ区切り、空行なし） |
+| zap-scan | 本番ビルドを起動し、ZAP Baseline で `/login` を検査。WARN 以上で失敗 | `.zap/rules.tsv`（ASCII、タブ区切り、空行なし）。COEP の 90004 は、reCAPTCHA のために COEP を付けない `/login` だけを見るので IGNORE（ほかの画面の COEP は `e2e/prod/securityHeaders.spec.ts` と段A の計画が見る。ZAP 2.17 の `OUTOFSCOPE` は、URL を全部外してもルールを WARN に数えるので使えない） |
 
 Actions・ツール・Docker イメージは SHA / digest / 版で固定している（`tests/unit/config/pinning.test.ts` が検査する）。上げるときも固定の形を保つ（Actions はタグが指すコミットの SHA を書き、行末に版をコメントで書く。ツールは公開から7日以上たった版）。Dependabot は Semgrep と ZAP のイメージ、gitleaks・zizmor の本体、CI の `firebase-tools` を更新しないので手で上げる（gitleaks・zizmor は版とチェックサムを一緒に変える。zizmor のチェックサムは GitHub のリリースの asset の digest）。ZAP を上げると新しいルールで CI が落ちることがある。
 
@@ -138,6 +167,7 @@ zizmor を手元で試す: ci.yml の zizmor ジョブと同じ版の本体を�
 - 実行用サービスアカウント `ryokan-runtime`。Firestore の読み書きと Session Cookie の発行・確認だけの権限
 - Dockerfile は3段（deps → builder → runner）、`output: 'standalone'`、非 root、`PORT=8080`
 - GitHub Secrets: `WORKLOAD_IDENTITY_PROVIDER`, `SERVICE_ACCOUNT`, `GCP_PROJECT_ID`, `SLACK_WEBHOOK_URL`（Cloud Run の実行時の環境変数）
+- GitHub Variables: `RECAPTCHA_SITE_KEY`（ログイン画面の reCAPTCHA Enterprise のサイトキー。公開の値なので Secrets ではない）。**未設定かサイトキーの形でなければ、最初のステップでワークフローを落とす**（ビルドもデプロイもしない。空のままデプロイすると SMS の所で 503 になり、誰もログインできないため）。確かめるのは形だけで、本番のプロジェクトのキーか・許可ドメインは見ない。規則は `RECAPTCHA_SITE_KEY_PATTERN`（`src/constants/auth.ts`）と同じで、`tests/unit/config/deployWorkflow.test.ts` が突き合わせ、確認のスクリプトを実際に動かす
 - `firestore.rules` は自動では反映されない。変えたら開発者が `firebase deploy --only firestore:rules` を手で実行する
 - デプロイの開始・結果と PR の作成は、Slack の GitHub アプリが通知する（ワークフローの中では通知しない）
 

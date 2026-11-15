@@ -88,6 +88,7 @@ jobs:
       - { name: "PATCH reservations/[id]/cancel", method: PATCH, url: "http://127.0.0.1:3000/api/reservations/fixture-normal-1night/cancel", headers: ["Content-Type:application/json"], data: '{"staff_name":"zap","target_date":"${TODAY}","reason":"zap"}' }
       - { name: "PATCH reservations/[id]/restore", method: PATCH, url: "http://127.0.0.1:3000/api/reservations/fixture-normal-1night/restore", headers: ["Content-Type:application/json"], data: '{"staff_name":"zap","target_date":"${TODAY}","reason":"zap"}' }
       - { name: "POST auth/login", method: POST, url: "http://127.0.0.1:3000/api/auth/login", headers: ["Content-Type:application/json"], data: '{"email":"zap@example.com","password":"zap-password"}' }
+      - { name: "POST auth/login/verify", method: POST, url: "http://127.0.0.1:3000/api/auth/login/verify", headers: ["Content-Type:application/json"], data: '{"code":"123456"}' }
 
   - type: spider
     parameters:

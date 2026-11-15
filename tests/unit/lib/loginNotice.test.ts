@@ -56,6 +56,15 @@ describe('buildLoginNotice', () => {
     expect(message).toContain('&lt;a&amp;b&gt;')
     expect(message).toContain('IP 不明')
   })
+
+  // MFA_MODE=enrolled_only で、電話を登録していないアカウントが入った。all に戻し忘れていないかにも気付けるよう、毎回出す
+  it('SMS なしのログインは、末尾に「SMS なし」と付ける', () => {
+    const base = { account: 'pc1@example.com', forwardedFor: '203.0.113.5', userAgent: EDGE_WIN, nowMs: Date.parse('2026-11-03T22:12:00Z') }
+    expect(buildLoginNotice({ ...base, passwordOnly: true })).toBe(
+      '[ログイン] pc1@example.com / IP 203.0.113.5（右端が Google の追記） / Edge on Windows / 11/04 07:12 / SMS なし（MFA_MODE=enrolled_only）',
+    )
+    expect(buildLoginNotice(base)).not.toContain('SMS なし')
+  })
 })
 
 describe('buildLoginRejectedNotice', () => {
@@ -74,6 +83,13 @@ describe('buildLoginRejectedNotice', () => {
     const message = buildLoginRejectedNotice({ account: '<a&b>', forwardedFor: null, userAgent: null, nowMs: 0, reason: 'browser_not_allowed' })
     expect(message).toContain('Chrome・Edge 以外のブラウザ')
     expect(message).toContain('&lt;a&amp;b&gt;')
+  })
+
+  it('detail（Firebase のコード）を理由の後に括弧で付け、書式は無効にする', () => {
+    const base = { account: 'pc1@example.com', forwardedFor: null, userAgent: null, nowMs: 0, reason: 'token_rejected' } as const
+    expect(buildLoginRejectedNotice({ ...base, detail: 'auth/user-disabled' })).toContain(' / SMS のコードは合ったが、ID トークンが無効（auth/user-disabled） / ')
+    expect(buildLoginRejectedNotice({ ...base, detail: '<!channel>' })).toContain('（&lt;!channel&gt;）')
+    expect(buildLoginRejectedNotice(base)).toContain(' / SMS のコードは合ったが、ID トークンが無効 / ')
   })
 })
 

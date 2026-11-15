@@ -29,3 +29,37 @@ export const LOGIN_PASSWORD_MAX_LENGTH = 256
 export const LOGIN_PENDING_TTL_MS = 15_000
 // 試行中の札が埋まっているとき（同時の試行）、ブラウザに「少し待ってもう一度」と返す時間
 export const LOGIN_BUSY_RETRY_MS = 1_000
+
+// SMS の2要素目（docs/NormalOperationPlan.md の C）。
+// コードの桁数。ログイン画面の入力欄と verify API の Zod で同じ値を使う
+export const MFA_CODE_LENGTH = 6
+// パスワードが合ってから、コードを打ち終えるまでの時間。途中の状態（Firestore の mfaPending）と Cookie の寿命
+export const MFA_PENDING_TTL_MS = 5 * MINUTE_MS
+// 途中の状態の ID を運ぶ Cookie。ログイン API と verify API にだけ送られる
+export const MFA_PENDING_COOKIE = 'mfa_pending'
+export const MFA_PENDING_COOKIE_PATH = '/api/auth/login'
+// 1アカウントが1日（JST）に送れる SMS の数。セッションは毎日 23:00 に切れるので、普段は1日1通。
+// 不正な大量送信（SMS pumping）で料金を取られないための上限。超えたら 429 と Slack
+export const MFA_SMS_DAILY_LIMIT = 10
+// SMS の2要素目を誰に求めるか（Cloud Run の環境変数 MFA_MODE。GitHub の Variables から deploy.yml で渡す）。
+// all: 全アカウント（電話を登録していないアカウントは 403 mfa_not_enrolled）/
+// enrolled_only: 電話を登録したアカウントだけ。登録していないアカウントはパスワードだけで入れる（本番で SMS を試す間だけ使う。
+// 開発者のアカウントだけに電話を登録して確かめ、スタッフのアカウントは今までどおりにする。確かめ終わったら all に戻す）。
+// 未設定・想定外の値は all（閉じる側）。本番は deploy.yml がデプロイの前に値を確かめる（tests/unit/config/deployWorkflow.test.ts が突き合わせる）
+export const MFA_MODES = ['all', 'enrolled_only'] as const
+export type MfaMode = (typeof MFA_MODES)[number]
+
+// reCAPTCHA Enterprise。Identity Platform は、SMS を送る前にブラウザで作った token を求める（API キーだけ・管理者のトークンでは
+// 断られる。2026-11-12 のスパイク）。ログイン画面だけが読み込み、CSP も /login だけ広げる（src/lib/csp.ts）。
+// サイトキーは Cloud Run の環境変数 RECAPTCHA_SITE_KEY（公開の値）。設定がなければ（開発・Emulator）reCAPTCHA を使わない
+export const RECAPTCHA_ENTERPRISE_SCRIPT_URL = 'https://www.google.com/recaptcha/enterprise.js'
+// reCAPTCHA が作る iframe と、それが呼ぶ先（CSP の frame-src・connect-src に足す）
+export const RECAPTCHA_FRAME_SOURCES = ['https://www.google.com/recaptcha/', 'https://recaptcha.google.com/recaptcha/'] as const
+export const RECAPTCHA_CONNECT_SOURCES = ['https://www.google.com/recaptcha/'] as const
+// Identity Platform が SMS の2要素目の token に求める action の名前
+export const MFA_RECAPTCHA_ACTION = 'mfaSmsSignIn'
+// token の長さの上限（実物は 2,000 文字前後）。ログイン API の Zod で使う
+export const RECAPTCHA_TOKEN_MAX_LENGTH = 4096
+// サイトキーの形（正規表現の文字列）。アプリ（src/lib/auth/recaptchaSiteKey.ts）と、デプロイの前の確認（.github/workflows/deploy.yml）で
+// 同じ規則を使う。ずれると「ワークフローは通ったのにログインが 503」になる（tests/unit/config/deployWorkflow.test.ts が突き合わせる）
+export const RECAPTCHA_SITE_KEY_PATTERN = '^[A-Za-z0-9_-]{20,100}$'

@@ -15,7 +15,7 @@ import {
   ANONYMIZED_DATA_DIR,
   DEV_USER_DISPLAY_NAME,
   DEV_USER_EMAIL,
-  DEV_USER_PASSWORD,
+  DEV_USER_PASSWORD, DEV_USER_MFA_PHONE,
   FIRESTORE_BATCH_LIMIT,
   FIXTURE_DATA_DIR,
   SEED_COLLECTIONS,
@@ -59,15 +59,21 @@ async function main(): Promise<void> {
     await writeAll(db, collection, docs)
   }
 
-  // 開発用ログインユーザー
-  await auth.createUser({ email: DEV_USER_EMAIL, password: DEV_USER_PASSWORD, displayName: DEV_USER_DISPLAY_NAME })
+  // 開発用ログインユーザー。ログインには SMS の2要素目が要るので、電話を登録しておく（本番の scripts/mfa/enrollPhone.ts と同じ形）
+  await auth.createUser({
+    email: DEV_USER_EMAIL,
+    password: DEV_USER_PASSWORD,
+    displayName: DEV_USER_DISPLAY_NAME,
+    emailVerified: true,
+    multiFactor: { enrolledFactors: [{ factorId: 'phone', phoneNumber: DEV_USER_MFA_PHONE, displayName: 'Emulator' }] },
+  })
 
   console.log(`投入しました（project: ${projectId}, Firestore: ${firestoreHost}, Auth: ${authHost}, データ: ${dataDir}）`)
   for (const { collection } of datasets) {
     const count = (await db.collection(collection).count().get()).data().count
     console.log(`  ${collection}: ${count} 件`)
   }
-  console.log(`  開発用ユーザー: ${DEV_USER_EMAIL} / ${DEV_USER_PASSWORD}`)
+  console.log(`  開発用ユーザー: ${DEV_USER_EMAIL} / ${DEV_USER_PASSWORD}（SMS のコードは make mfa-code）`)
 }
 
 async function assertEmulatorsRunning({ firestoreHost, authHost }: SeedTarget): Promise<void> {

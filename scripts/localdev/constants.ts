@@ -5,6 +5,9 @@
 export const DEV_USER_EMAIL = 'dev@example.com'
 export const DEV_USER_PASSWORD = 'dev-password'
 export const DEV_USER_DISPLAY_NAME = '開発用ユーザー'
+// 開発用ユーザーの2要素目（SMS）の電話番号。Emulator は SMS を送らず、コードを Emulator の画面・ターミナル・REST に出す（make mfa-code）。
+// 555 は架空の番号の帯
+export const DEV_USER_MFA_PHONE = '+15555550100'
 
 // 投入するコレクション。ファイル名は `<コレクション名>.json`
 export const SEED_COLLECTIONS = ['guestInfoV2', 'dailyInfo'] as const
