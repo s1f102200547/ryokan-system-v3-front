@@ -19,7 +19,7 @@ A（端末とブラウザ）・B（1アカウント1セッション）・D（ロ
 - [ ] SMS の送り先の地域を日本だけにする
 - [ ] reCAPTCHA Enterprise の API の有効化。Firebase コンソールの Authentication → Settings → Fraud Defense で SMS defense を ENFORCE にし、Web のサイトキーを作る。許可ドメインに本番のドメイン
 - [ ] Identity Platform の承認済みドメインに本番のドメイン
-- [ ] Fraud Defense の「SMS fraud risk threshold score」を決める（既定の 0 は危険度が少しでもあれば送らない。テスト用のプロジェクトで、旅館の PC・回線での点数を見てから）
+- [ ] Fraud Defense の「SMS fraud risk threshold score」を 0.8 にする（公式の推奨の出発点。既定の 0 は危険度が少しでもあれば送らない）。旅館の PC・回線での点数（Cloud Monitoring の `sms_tf_risk_scores`）を見て、下げるかを決める
 - [ ] GitHub の Variables（Secrets ではない）に `RECAPTCHA_SITE_KEY` を登録する（`.github/workflows/deploy.yml` が `env_vars` で Cloud Run に渡す）。**このブランチを `main` に入れる前に登録する**（未設定だとデプロイのワークフローが最初のステップで落ち、MFA と関係のない修正もデプロイできなくなる）
 - [ ] 料金の見積もり（SMS と reCAPTCHA Enterprise の評価の回数。少なくとも「PC の台数 × 1日1回」）
 - [ ] フロントに置く電話の用意。電話番号1つを3つのアカウントすべてに登録できるか確かめる
