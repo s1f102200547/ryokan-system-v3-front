@@ -23,7 +23,9 @@ type StartMfaInput = {
 
 // sms_limit: 今日の上限を超えた / sms_throttled: Firebase 自身が SMS の送信を止めた / recaptcha_rejected: reCAPTCHA の確認で断られた。
 // code は Firebase のエラーコード（Slack の [ログイン拒否] に載せ、本番で実際に来たコードを見られるようにする）
-export type StartMfaFailure = { kind: 'sms_limit' } | { kind: 'sms_throttled'; retryAfterMs: number } | { kind: 'recaptcha_rejected'; code: string }
+// description は Google の説明の文（伏せたもの）。ドメインの許可漏れ・キーの取り違えなどを、Slack だけで見分けられるようにする
+export type StartMfaFailure =
+  | { kind: 'sms_limit' } | { kind: 'sms_throttled'; retryAfterMs: number } | { kind: 'recaptcha_rejected'; code: string; description: string }
 
 // パスワードが合った後に、登録済みの電話へ SMS を送り、途中の状態を保存する。返す pendingId は Cookie で運ぶ（推測できない乱数）。
 // 呼ぶのは、パスワードと端末・ブラウザの確認を通った後だけ（条件に合わない端末には送らない）
@@ -40,8 +42,8 @@ export async function startMfaCommand(input: StartMfaInput): Promise<Result<{ pe
 
   const started = await startPhoneMfa(mfaPendingCredential, mfaEnrollmentId, recaptchaToken)
   if (!started.success && started.error.kind === 'recaptcha_rejected') {
-    logger.warn('ログイン: reCAPTCHA の token を断られた', { code: started.error.code })
-    return { success: false, error: { kind: 'recaptcha_rejected', code: started.error.code } }
+    logger.warn('ログイン: reCAPTCHA の token を断られた', { code: started.error.code, description: started.error.description })
+    return { success: false, error: { kind: 'recaptcha_rejected', code: started.error.code, description: started.error.description } }
   }
   if (!started.success) {
     logger.warn('ログイン: Firebase が SMS の送信を止めた', { code: started.error.code })

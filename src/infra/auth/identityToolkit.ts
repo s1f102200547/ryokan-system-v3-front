@@ -4,7 +4,7 @@ import { InfraError } from '@/types/errors'
 // Firebase Auth（Identity Toolkit）の REST API を呼ぶ共通の部分。パスワードの確認（passwordSignIn.ts）と SMS の2要素目（mfaSignIn.ts）が使う。
 // ブラウザから Firebase を呼ばないため、サーバーが呼ぶ。API キーはサーバーだけが持つ（FIREBASE_AUTH_API_KEY）。
 // リクエストの body・応答の body（パスワード、コード、mfaPendingCredential、sessionInfo、idToken）は、ログにも例外のメッセージにも入れない。
-// 載せるのはエラーコードと HTTP status だけ
+// 載せるのはエラーコードと HTTP status と、エラーの説明の文（description。伏せてから。下の describeError）だけ
 
 const TIMEOUT_MS = 10_000
 
@@ -30,15 +30,28 @@ export function isIdentityToolkitConfigured(): boolean {
   return endpoint('v1/accounts:signInWithPassword') !== null
 }
 
-// "TOO_MANY_ATTEMPTS_TRY_LATER : Access to this account..." の先頭の語だけ（説明の文は載せない）
+// "TOO_MANY_ATTEMPTS_TRY_LATER : Access to this account..." の先頭の語
 function errorCode(message: string): string {
   return message.split(/[\s:]/, 1)[0] ?? ''
 }
 
-// ok: 応答の body（検証は呼び出し側）/ error: Firebase のエラーコード（JSON でなければ UNKNOWN）と status
+const DESCRIPTION_MAX_LENGTH = 200
+
+// コードの後ろの、Google の説明の文（例: "INVALID_RECAPTCHA_TOKEN : localhost is not supported" の "localhost is not supported"）。
+// 原因を一度で突き止めるためにログ・Slack に載せる。値が混ざっても漏らさないよう、6桁以上の数字の並び（電話番号・SMS のコード）と
+// 32文字以上の英数字の並び（token・キー）を伏せ、200文字で切る。なければ空
+export function describeError(message: string): string {
+  const rest = message.slice(errorCode(message).length).replace(/^[\s:]+/, '')
+  return rest
+    .replace(/[A-Za-z0-9_\-.]{32,}/g, '[…]')
+    .replace(/\+?\d[\d\s-]{4,}\d/g, (m) => (m.replace(/\D/g, '').length >= 6 ? '[…]' : m))
+    .slice(0, DESCRIPTION_MAX_LENGTH)
+}
+
+// ok: 応答の body（検証は呼び出し側）/ error: Firebase のエラーコード（JSON でなければ UNKNOWN）と status と説明の文（伏せたもの。なければ空）
 export type IdentityToolkitResponse =
   | { ok: true; body: unknown }
-  | { ok: false; code: string; status: number }
+  | { ok: false; code: string; status: number; description: string }
 
 // label は例外のメッセージに使う（"Password sign-in" など）
 export async function callIdentityToolkit(method: IdentityToolkitMethod, payload: object, label: string): Promise<IdentityToolkitResponse> {
@@ -61,5 +74,7 @@ export async function callIdentityToolkit(method: IdentityToolkitMethod, payload
   const body: unknown = await res.json().catch(() => null)
   if (res.ok) return { ok: true, body }
   const parsedError = ErrorSchema.safeParse(body)
-  return { ok: false, code: parsedError.success ? errorCode(parsedError.data.error.message) : 'UNKNOWN', status: res.status }
+  if (!parsedError.success) return { ok: false, code: 'UNKNOWN', status: res.status, description: '' }
+  const message = parsedError.data.error.message
+  return { ok: false, code: errorCode(message), status: res.status, description: describeError(message) }
 }

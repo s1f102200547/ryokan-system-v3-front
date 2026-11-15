@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { finalizePhoneMfa, startPhoneMfa } from '@/infra/auth/mfaSignIn'
+import { describeError } from '@/infra/auth/identityToolkit'
 import { InfraError } from '@/types/errors'
 
 // 例外のメッセージ・cause に載せてはいけない値
@@ -46,15 +47,18 @@ describe('startPhoneMfa', () => {
       .toEqual({ captchaResponse: TOKEN, clientType: 'CLIENT_TYPE_WEB', recaptchaVersion: 'RECAPTCHA_ENTERPRISE' })
   })
 
-  it('token を断られたら recaptcha_rejected（利用者のブラウザが原因。障害にしない）', async () => {
+  // 説明の文で、ドメインの許可漏れ・キーの取り違えなどを見分ける（2026-11-15 の本番で、コードだけでは絞れなかった）
+  it('token を断られたら recaptcha_rejected（利用者のブラウザが原因。障害にしない）。Google の説明の文も返す', async () => {
     fetchMock.mockResolvedValue(errorResponse(400, 'INVALID_RECAPTCHA_TOKEN : localhost is not supported'))
-    expect(await startWithToken()).toEqual({ success: false, error: { kind: 'recaptcha_rejected', code: 'INVALID_RECAPTCHA_TOKEN' } })
+    expect(await startWithToken()).toEqual({
+      success: false, error: { kind: 'recaptcha_rejected', code: 'INVALID_RECAPTCHA_TOKEN', description: 'localhost is not supported' },
+    })
   })
 
   // 公式のトラブルシューティング（Identity Platform の reCAPTCHA）が、点数が低くて断ったときに挙げるコード
   it('点数が低くて断られたら（CAPTCHA_CHECK_FAILED）recaptcha_rejected（503・[ALERT] にしない）', async () => {
     fetchMock.mockResolvedValue(errorResponse(400, 'CAPTCHA_CHECK_FAILED'))
-    expect(await startWithToken()).toEqual({ success: false, error: { kind: 'recaptcha_rejected', code: 'CAPTCHA_CHECK_FAILED' } })
+    expect(await startWithToken()).toEqual({ success: false, error: { kind: 'recaptcha_rejected', code: 'CAPTCHA_CHECK_FAILED', description: '' } })
   })
 
   it('token を渡していないのに断られたら、設定の問題として AUTH_UNAVAILABLE（サイトキーの設定忘れ）', async () => {
@@ -101,6 +105,12 @@ describe('startPhoneMfa', () => {
     expect((await expectUnavailable(start)).message).toBe(`MFA sign-in start failed: ${message} (status ${status})`)
   })
 
+  it('振り分けにないコードは、例外のメッセージ（[ALERT]）に説明の文も付ける', async () => {
+    fetchMock.mockResolvedValue(errorResponse(400, 'OPERATION_NOT_ALLOWED : SMS unable to be sent until this region enabled'))
+    expect((await expectUnavailable(start)).message)
+      .toBe('MFA sign-in start failed: OPERATION_NOT_ALLOWED (status 400) - SMS unable to be sent until this region enabled')
+  })
+
   it('sessionInfo のない成功・通信の失敗は AUTH_UNAVAILABLE', async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200 }))
     await expectUnavailable(start)
@@ -135,6 +145,8 @@ describe('finalizePhoneMfa', () => {
   it('知らないエラー・idToken のない成功は AUTH_UNAVAILABLE', async () => {
     fetchMock.mockResolvedValueOnce(errorResponse(500, 'INTERNAL_ERROR'))
     expect((await expectUnavailable(finalize)).message).toBe('MFA sign-in finalize failed: INTERNAL_ERROR (status 500)')
+    fetchMock.mockResolvedValueOnce(errorResponse(400, 'SOMETHING_NEW : the verification is not valid'))
+    expect((await expectUnavailable(finalize)).message).toBe('MFA sign-in finalize failed: SOMETHING_NEW (status 400) - the verification is not valid')
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ refreshToken: 'r' }), { status: 200 }))
     await expectUnavailable(finalize)
   })
@@ -143,5 +155,23 @@ describe('finalizePhoneMfa', () => {
     vi.stubEnv('FIREBASE_AUTH_API_KEY', '')
     await expectUnavailable(finalize)
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+// Google の説明の文。原因の切り分けに載せるが、値が混ざっても漏らさない
+describe('describeError', () => {
+  it('コードの後ろの説明の文だけ（コードだけなら空）', () => {
+    expect(describeError('INVALID_RECAPTCHA_TOKEN : localhost is not supported')).toBe('localhost is not supported')
+    expect(describeError('CAPTCHA_CHECK_FAILED')).toBe('')
+  })
+
+  it('電話番号・SMS のコード（6桁以上の数字）と、token・キー（32文字以上）は伏せる', () => {
+    expect(describeError('X : phone +81 90-1234-5678 code 913274 ok')).toBe('phone […] code […] ok')
+    expect(describeError(`X : token ${'a'.repeat(40)} key 6Ldi8xwuAAAAAOPV8MlkljionzTDwYq2eke07CUF`)).toBe('token […] key […]')
+    expect(describeError('X : 5 attempts in 300 seconds')).toBe('5 attempts in 300 seconds') // 短い数字は残す
+  })
+
+  it('200 文字で切る', () => {
+    expect(describeError(`X : ${'word '.repeat(100)}`)).toHaveLength(200)
   })
 })
