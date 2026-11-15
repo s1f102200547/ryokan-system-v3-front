@@ -43,7 +43,7 @@ export async function loginFromUi(page: Page, url: string, email: string, passwo
   await page.goto(url)
   await submitPassword(page, email, password)
   await page.getByLabel('確認コード').waitFor()
+  // 6桁そろったら画面がボタンなしで送る
   await page.getByLabel('確認コード').fill(await latestSmsCode())
-  await page.getByRole('button', { name: '確認' }).click()
   await page.waitForURL('**/daily-dashboard**')
 }

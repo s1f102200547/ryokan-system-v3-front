@@ -145,9 +145,10 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
   const login = (credentials: Credentials) => sendCredentials(credentials, { isResend: false })
 
   // 2段目。成功したらダッシュボードへ直接移る（/ を経由すると proxy.ts の転送で1往復増える）。
-  // 移り終わるまで isPending のままにし、ボタンを押せない「確認中…」にしておく（画面が移ればこの hook ごと捨てられる）
-  const verify = async (code: string) => {
-    if (isLocked) return
+  // 移り終わるまで isPending のままにし、ボタンを押せない「確認中…」にしておく（画面が移ればこの hook ごと捨てられる）。
+  // 返り値: 合っていたか（画面は、合わなければ入力欄を空にして打ち直させる）。確認中・止められている間は送らずに false
+  const verify = async (code: string): Promise<boolean> => {
+    if (isLocked || isPending) return false
     setIsPending(true)
     setError(null)
     setNotice(null)
@@ -157,24 +158,24 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
       if (response.ok) {
         succeeded = true
         router.push('/daily-dashboard')
-        return
+        return true
       }
       const body = await readBody(response)
       if (response.status === 401 && body.error === 'mfa_expired') {
         // 途中の状態が切れた（5分）。パスワードからやり直す（パスワードマネージャーが入れ直すので、押し直すだけ）
         setStep('credentials')
         setError('コードの有効期限が切れました。もう一度ログインしてください')
-        return
+        return false
       }
       if (response.status === 401 && body.error === 'login_failed') {
         // コードは合ったが、サーバーがログインを通さなかった（理由は返ってこない）。打ち直しても通らないので、パスワードからやり直す
         setStep('credentials')
         setError('ログインできませんでした。もう一度ログインしてください')
-        return
+        return false
       }
       if (response.status === 401) {
         setError('コードが正しくありません')
-        return
+        return false
       }
       showCommonFailure(response, body)
     } catch {
@@ -182,6 +183,7 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
     } finally {
       if (!succeeded) setIsPending(false)
     }
+    return false
   }
 
   // コードを送り直す（SMS が届かない・期限が近い）。1日の上限まで。前の SMS から待ち時間が過ぎるまでは送らない

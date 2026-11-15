@@ -1,9 +1,10 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Box, TextField, Button, Alert, Typography, Paper } from '@mui/material'
+import { Box, TextField, Button, Alert, Typography, Paper, CircularProgress } from '@mui/material'
 import { formatWait, useLogin } from '@/hooks/auth/useLogin'
 import { createRecaptchaTokenGetter } from '@/hooks/auth/recaptchaEnterprise'
+import { MfaCodeInput } from '@/components/auth/MfaCodeInput'
 import {
   LOGIN_EMAIL_MAX_LENGTH, LOGIN_EMAIL_MIN_LENGTH, LOGIN_PASSWORD_MAX_LENGTH, LOGIN_PASSWORD_MIN_LENGTH, MFA_CODE_LENGTH,
 } from '@/constants/auth'
@@ -22,9 +23,15 @@ export function LoginForm({ recaptchaSiteKey }: { recaptchaSiteKey: string | nul
     await login({ email, password })
   }
 
+  // 6桁そろったら送る（ボタンなし）。合わなければマスを空にして、すぐ打ち直せるようにする（メッセージは useLogin が出す）
+  const submitCode = async (digits: string) => {
+    if (!(await verify(digits))) setCode('')
+  }
+
+  // Enter でも送れる（6桁そろっていれば。そろった時点で自動で送っているので、主に送り直し用）
   const handleCode = async (e: React.FormEvent) => {
     e.preventDefault()
-    await verify(code)
+    if (code.length === MFA_CODE_LENGTH) await submitCode(code)
   }
 
   const handleResend = async () => {
@@ -85,23 +92,16 @@ export function LoginForm({ recaptchaSiteKey }: { recaptchaSiteKey: string | nul
             <Typography variant="body2">
               {phoneHint ? `${phoneHint} に` : 'フロントの電話に'}SMS で送った {MFA_CODE_LENGTH} 桁のコードを入力してください
             </Typography>
-            <TextField
-              id="code"
-              label="確認コード"
-              value={code}
-              // 半角数字だけを残す（API の Zod と同じ規則。src/lib/api/loginSchema.ts）
-              onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, '').slice(0, MFA_CODE_LENGTH))}
-              required
-              fullWidth
-              autoFocus
-              autoComplete="one-time-code"
-              slotProps={{
-                htmlInput: { inputMode: 'numeric', pattern: `[0-9]{${MFA_CODE_LENGTH}}`, minLength: MFA_CODE_LENGTH, maxLength: MFA_CODE_LENGTH },
-              }}
-            />
-            <Button type="submit" variant="contained" disabled={isPending || isLocked} fullWidth>
-              {isPending ? '確認中…' : '確認'}
-            </Button>
+            <MfaCodeInput value={code} onChange={setCode} onComplete={submitCode} readOnly={isPending} disabled={isLocked} />
+            {/* 確認中の表示。出たり消えたりしても下のボタンが動かないよう、場所は常に取っておく */}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, minHeight: 24 }}>
+              {isPending && (
+                <>
+                  <CircularProgress size={18} aria-hidden />
+                  <Typography variant="body2">確認中…</Typography>
+                </>
+              )}
+            </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
               <Button type="button" onClick={back} disabled={isPending}>
                 戻る

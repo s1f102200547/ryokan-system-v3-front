@@ -62,14 +62,14 @@ test('SMS のコードを3回間違えると止まり、正しいコードでも
   const code = await latestSmsCode()
   const wrong = code === '000000' ? '111111' : '000000'
 
+  // 6桁入れると画面がボタンなしで送る。違えばマスを空にして打ち直せる状態に戻る
   for (let i = 0; i < 3; i++) {
     await page.getByLabel('確認コード').fill(wrong)
-    await page.getByRole('button', { name: '確認' }).click()
     await expect(page.getByText('コードが正しくありません')).toBeVisible()
-    await expect(page.getByRole('button', { name: '確認' })).toBeEnabled()
+    await expect(page.getByLabel('確認コード')).toHaveValue('')
+    await expect(page.getByLabel('確認コード')).toBeEditable()
   }
   await page.getByLabel('確認コード').fill(code)
-  await page.getByRole('button', { name: '確認' }).click()
   await expect(page.getByText(/ログインの失敗が続いたため、あと [01]:\d\d はログインできません/)).toBeVisible()
   expect((await context.cookies(APP)).find((c) => c.name === 'session')).toBeUndefined()
   await context.close()
@@ -85,10 +85,9 @@ test('正しいコードなら、途中で間違えていてもダッシュボ�
   await page.getByLabel('確認コード').waitFor()
   const code = await latestSmsCode()
   await page.getByLabel('確認コード').fill(code === '000000' ? '111111' : '000000')
-  await page.getByRole('button', { name: '確認' }).click()
   await expect(page.getByText('コードが正しくありません')).toBeVisible()
+  await expect(page.getByLabel('確認コード')).toHaveValue('')
   await page.getByLabel('確認コード').fill(code)
-  await page.getByRole('button', { name: '確認' }).click()
   await page.waitForURL('**/daily-dashboard**')
   await context.close()
 })

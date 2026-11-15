@@ -290,6 +290,34 @@ describe('useLogin', () => {
       expect(push).not.toHaveBeenCalled()
     })
 
+    // 画面は、合わなければマスを空にして打ち直させる
+    it('verify は合っていたかを返す', async () => {
+      const ok = await atCodeStep()
+      fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ success: true }), { status: 200 }))
+      let result = false
+      await act(async () => { result = await ok.current.verify('123456') })
+      expect(result).toBe(true)
+
+      const ng = await atCodeStep()
+      fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ error: 'invalid_code' }), { status: 401 }))
+      await act(async () => { result = await ng.current.verify('000000') })
+      expect(result).toBe(false)
+    })
+
+    // 6桁そろったら自動で送るので、確認の途中にもう一度呼ばれても二重に送らない
+    it('確認中にもう一度呼ばれても送らない', async () => {
+      const result = await atCodeStep()
+      let resolve: (r: Response) => void = () => {}
+      fetchMock.mockReturnValueOnce(new Promise<Response>((r) => { resolve = r }))
+      let first: Promise<boolean> = Promise.resolve(false)
+      act(() => { first = result.current.verify('123456') })
+      let second = true
+      await act(async () => { second = await result.current.verify('123456') })
+      expect(second).toBe(false)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      await act(async () => { resolve(new Response(JSON.stringify({ error: 'invalid_code' }), { status: 401 })); await first })
+    })
+
     it('止められている間は、コードを送らない', async () => {
       const result = await verifyWith(new Response(JSON.stringify({ error: 'too_many_attempts', retryAfterSeconds: 60 }), { status: 429 }))
       fetchMock.mockClear()
