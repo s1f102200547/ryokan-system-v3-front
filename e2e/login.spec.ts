@@ -63,7 +63,7 @@ test.describe('ログイン', () => {
       json: { success: true },
     })
 
-    test('パスワードの後に、伏せ字の電話番号とコードの入力欄を出す。正しいコードでダッシュボードへ', async ({ page }) => {
+    test('パスワードの後に、伏せ字の電話番号とコードの入力欄（6マス）を出す。6桁入れたらボタンなしで送り、ダッシュボードへ', async ({ page }) => {
       const sent: (string | null)[] = []
       await mockLogin(page, (route) => { sent.push(route.request().postData()); return ok(route) })
       await submit(page, 'test@example.com', 'password')
@@ -73,29 +73,51 @@ test.describe('ログイン', () => {
       await expect(code).toBeFocused()
       await expect(code).toHaveAttribute('autocomplete', 'one-time-code')
       await expect(code).toHaveAttribute('inputmode', 'numeric')
-      await code.fill('123456')
-      await page.getByRole('button', { name: '確認' }).click()
+      await expect(page.getByTestId('mfa-code-cell')).toHaveCount(6)
+      await expect(page.getByRole('button', { name: '確認' })).toHaveCount(0)
+      await code.pressSequentially('123456')
       await expect(page).toHaveURL('/daily-dashboard')
       expect(sent.map((b) => JSON.parse(b ?? '{}'))).toEqual([{ code: '123456' }])
     })
 
-    test('数字以外は入らず、6桁までしか入らない', async ({ page }) => {
-      await mockLogin(page, ok)
+    test('数字以外は入れずに理由を出し、次の数字で消す。区切り（-・空白）は黙って捨てる', async ({ page }) => {
+      const sent: (string | null)[] = []
+      await mockLogin(page, (route) => { sent.push(route.request().postData()); return ok(route) })
       await submit(page, 'test@example.com', 'password')
       const code = page.getByLabel('確認コード')
-      await code.pressSequentially('12a3-45 678')
-      await expect(code).toHaveValue('123456')
+      await code.pressSequentially('12a')
+      await expect(code).toHaveValue('12')
+      await expect(page.getByText('半角の数字（0〜9）で入力してください')).toBeVisible()
+      await code.pressSequentially('3-45 ')
+      await expect(page.getByText('半角の数字（0〜9）で入力してください')).toHaveCount(0)
+      await expect(code).toHaveValue('12345')
+      await code.pressSequentially('6')
+      await expect(page).toHaveURL('/daily-dashboard')
+      expect(sent.map((b) => JSON.parse(b ?? '{}'))).toEqual([{ code: '123456' }])
+    })
+
+    test('全角の数字は半角にして受け付ける（日本語入力がオンのまま打った・貼り付けた）', async ({ page }) => {
+      const sent: (string | null)[] = []
+      await mockLogin(page, (route) => { sent.push(route.request().postData()); return ok(route) })
+      await submit(page, 'test@example.com', 'password')
+      await page.getByLabel('確認コード').focus()
+      await page.keyboard.insertText('１２３４５６')
+      await expect(page).toHaveURL('/daily-dashboard')
+      expect(sent.map((b) => JSON.parse(b ?? '{}'))).toEqual([{ code: '123456' }])
+      await expect(page.getByText('半角の数字（0〜9）で入力してください')).toHaveCount(0)
     })
 
     test('コードが違えば理由を出し、打ち直せる', async ({ page }) => {
       let calls = 0
       await mockLogin(page, (route) => (++calls === 1 ? route.fulfill({ status: 401, json: { error: 'invalid_code' } }) : ok(route)))
       await submit(page, 'test@example.com', 'password')
-      await page.getByLabel('確認コード').fill('000000')
-      await page.getByRole('button', { name: '確認' }).click()
+      const code = page.getByLabel('確認コード')
+      await code.pressSequentially('000000')
       await expect(page.getByText('コードが正しくありません')).toBeVisible()
-      await page.getByLabel('確認コード').fill('123456')
-      await page.getByRole('button', { name: '確認' }).click()
+      // マスを空にして、フォーカスを残す（すぐ打ち直せる）
+      await expect(code).toHaveValue('')
+      await expect(code).toBeFocused()
+      await code.pressSequentially('123456')
       await expect(page).toHaveURL('/daily-dashboard')
     })
 
@@ -103,7 +125,6 @@ test.describe('ログイン', () => {
       await mockLogin(page, (route) => route.fulfill({ status: 401, json: { error: 'mfa_expired' } }))
       await submit(page, 'test@example.com', 'password')
       await page.getByLabel('確認コード').fill('123456')
-      await page.getByRole('button', { name: '確認' }).click()
       await expect(page.getByText('コードの有効期限が切れました。もう一度ログインしてください')).toBeVisible()
       await expect(page.getByLabel('パスワード')).toHaveValue('password') // 押し直すだけで入り直せる
     })
@@ -112,19 +133,28 @@ test.describe('ログイン', () => {
       await mockLogin(page, (route) => route.fulfill({ status: 401, json: { error: 'login_failed' } }))
       await submit(page, 'test@example.com', 'password')
       await page.getByLabel('確認コード').fill('123456')
-      await page.getByRole('button', { name: '確認' }).click()
       await expect(page.getByText('ログインできませんでした。もう一度ログインしてください')).toBeVisible()
       await expect(page.getByText('コードが正しくありません')).toHaveCount(0)
       await expect(page.getByLabel('パスワード')).toHaveValue('password')
     })
 
-    test('再送は1段目を送り直し、知らせを出す。戻るでパスワードの画面へ', async ({ page }) => {
+    // SMS を送ってから30秒は再送を押せない（src/constants/auth.ts の MFA_RESEND_COOLDOWN_MS。画面だけで数える）
+    test('再送は30秒たつまで押せず、残りの秒を出す。過ぎたら1段目を送り直し、知らせを出す。戻るでパスワードの画面へ', async ({ page }) => {
+      await page.clock.install()
       let logins = 0
       await page.route('**/api/auth/login', (route) => { logins++; return route.fulfill({ status: 200, json: { mfaRequired: true, phoneHint: '+81*******1234' } }) })
       await submit(page, 'test@example.com', 'password')
-      await page.getByRole('button', { name: 'コードを再送' }).click()
+      const resend = page.getByRole('button', { name: /^コードを再送/ })
+      await expect(resend).toHaveText('コードを再送（あと 0:30）')
+      await expect(resend).toBeDisabled()
+      await page.clock.runFor(10_000)
+      await expect(resend).toHaveText('コードを再送（あと 0:20）')
+      await page.clock.runFor(20_000)
+      await expect(resend).toHaveText('コードを再送')
+      await resend.click()
       await expect(page.getByText('コードを再送しました')).toBeVisible()
       expect(logins).toBe(2)
+      await expect(resend).toBeDisabled() // 再送で SMS を送ったので、また30秒待つ
       await page.getByRole('button', { name: '戻る' }).click()
       await expect(page.getByLabel('メールアドレス')).toHaveValue('test@example.com')
     })
@@ -135,7 +165,6 @@ test.describe('ログイン', () => {
       await mockLogin(page, ok)
       await submit(page, 'test@example.com', 'password')
       await page.getByLabel('確認コード').fill('123456')
-      await page.getByRole('button', { name: '確認' }).click()
       await expect(page).toHaveURL('/daily-dashboard')
       expect(requests.filter((u) => /googleapis\.com|firebase|recaptcha|gstatic/.test(u))).toEqual([])
     })

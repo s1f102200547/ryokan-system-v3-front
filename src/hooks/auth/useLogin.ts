@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { MFA_RESEND_COOLDOWN_MS } from '@/constants/auth'
 
 type Credentials = { email: string; password: string }
 
@@ -26,6 +27,9 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
   const [lockDeadline, setLockDeadline] = useState<number | null>(null)
   const [lockRemainingMs, setLockRemainingMs] = useState<number | null>(null)
   const isLocked = lockRemainingMs !== null
+  // SMS を送ってから「コードを再送」を押せるまでの待ち（MFA_RESEND_COOLDOWN_MS）。止められている間と同じく経過時間で数える
+  const [resendDeadline, setResendDeadline] = useState<number | null>(null)
+  const [resendRemainingMs, setResendRemainingMs] = useState<number | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -41,6 +45,20 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
     }, LOCK_TICK_MS)
     return () => clearInterval(timer)
   }, [lockDeadline])
+
+  useEffect(() => {
+    if (resendDeadline === null) return
+    const timer = setInterval(() => {
+      const left = resendDeadline - performance.now()
+      if (left <= 0) {
+        setResendDeadline(null)
+        setResendRemainingMs(null)
+      } else {
+        setResendRemainingMs(left)
+      }
+    }, LOCK_TICK_MS)
+    return () => clearInterval(timer)
+  }, [resendDeadline])
 
   // 失敗の応答を画面の状態にする（401 以外。両方の段で同じ）
   const showCommonFailure = (response: Response, body: ErrorBody): void => {
@@ -101,6 +119,9 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
         credentialsRef.current = credentials
         setPhoneHint(typeof body.phoneHint === 'string' && body.phoneHint !== '' ? body.phoneHint : null)
         setStep('code')
+        // SMS を送った。ここから再送を待たせる（送れなかったときは待たせない）
+        setResendDeadline(performance.now() + MFA_RESEND_COOLDOWN_MS)
+        setResendRemainingMs(MFA_RESEND_COOLDOWN_MS)
         if (isResend) setNotice('コードを再送しました')
         return
       }
@@ -124,9 +145,10 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
   const login = (credentials: Credentials) => sendCredentials(credentials, { isResend: false })
 
   // 2段目。成功したらダッシュボードへ直接移る（/ を経由すると proxy.ts の転送で1往復増える）。
-  // 移り終わるまで isPending のままにし、ボタンを押せない「確認中…」にしておく（画面が移ればこの hook ごと捨てられる）
-  const verify = async (code: string) => {
-    if (isLocked) return
+  // 移り終わるまで isPending のままにし、ボタンを押せない「確認中…」にしておく（画面が移ればこの hook ごと捨てられる）。
+  // 返り値: 合っていたか（画面は、合わなければ入力欄を空にして打ち直させる）。確認中・止められている間は送らずに false
+  const verify = async (code: string): Promise<boolean> => {
+    if (isLocked || isPending) return false
     setIsPending(true)
     setError(null)
     setNotice(null)
@@ -136,24 +158,24 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
       if (response.ok) {
         succeeded = true
         router.push('/daily-dashboard')
-        return
+        return true
       }
       const body = await readBody(response)
       if (response.status === 401 && body.error === 'mfa_expired') {
         // 途中の状態が切れた（5分）。パスワードからやり直す（パスワードマネージャーが入れ直すので、押し直すだけ）
         setStep('credentials')
         setError('コードの有効期限が切れました。もう一度ログインしてください')
-        return
+        return false
       }
       if (response.status === 401 && body.error === 'login_failed') {
         // コードは合ったが、サーバーがログインを通さなかった（理由は返ってこない）。打ち直しても通らないので、パスワードからやり直す
         setStep('credentials')
         setError('ログインできませんでした。もう一度ログインしてください')
-        return
+        return false
       }
       if (response.status === 401) {
         setError('コードが正しくありません')
-        return
+        return false
       }
       showCommonFailure(response, body)
     } catch {
@@ -161,11 +183,12 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
     } finally {
       if (!succeeded) setIsPending(false)
     }
+    return false
   }
 
-  // コードを送り直す（SMS が届かない・期限が近い）。1日の上限まで
+  // コードを送り直す（SMS が届かない・期限が近い）。1日の上限まで。前の SMS から待ち時間が過ぎるまでは送らない
   const resend = async () => {
-    if (credentialsRef.current === null) return
+    if (credentialsRef.current === null || resendRemainingMs !== null) return
     await sendCredentials(credentialsRef.current, { isResend: true })
   }
 
@@ -176,11 +199,19 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
     setNotice(null)
   }
 
-  // 止められている間のメッセージは、残りの時間から作る（毎秒変わる）
+  // 止められている間のメッセージは、残りの時間から作る（毎秒変わる）。
+  // resendWaitSeconds: 「コードを再送」を押せるまでの秒（切り上げ）。0 なら押せる
   return {
     step, phoneHint, login, verify, resend, back, isPending, isLocked, notice,
+    resendWaitSeconds: resendRemainingMs === null ? 0 : Math.max(1, Math.ceil(resendRemainingMs / 1000)),
     error: isLocked ? lockMessage(lockRemainingMs) : error,
   }
+}
+
+// 「4:59」の形（秒は切り上げ。0:00 は出さない）。止められている間と、再送の待ちで使う
+export function formatWait(remainingMs: number): string {
+  const seconds = Math.max(1, Math.ceil(remainingMs / 1000))
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 }
 
 const LOCK_TICK_MS = 250
@@ -195,12 +226,8 @@ const FORBIDDEN_MESSAGES: Record<string, string> = {
   recaptcha_failed: 'ブラウザの確認（reCAPTCHA）で止められました。ページを読み込み直して、もう一度お試しください',
 }
 
-// 「あと 4:59」の形（秒は切り上げ。0:00 は出さない）
 function lockMessage(remainingMs: number): string {
-  const seconds = Math.max(1, Math.ceil(remainingMs / 1000))
-  const mm = Math.floor(seconds / 60)
-  const ss = String(seconds % 60).padStart(2, '0')
-  return `ログインの失敗が続いたため、あと ${mm}:${ss} はログインできません`
+  return `ログインの失敗が続いたため、あと ${formatWait(remainingMs)} はログインできません`
 }
 
 const MAX_BUSY_RETRIES = 5
