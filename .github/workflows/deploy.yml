@@ -41,6 +41,22 @@ jobs:
             exit 1
           fi
 
+      # SMS の2要素目を誰に求めるか（GitHub の Variables の MFA_MODE）。all: 全アカウント / enrolled_only: 電話を登録したアカウントだけ
+      # （本番で SMS を試す間。docs/Development.md「SMS の2要素目」）。アプリは未設定・想定外の値を all として扱うので、
+      # 設定を忘れたまま SMS を試すつもりでデプロイすると、電話を登録していないスタッフが入れなくなる。その前に落とす。
+      # 値は src/constants/auth.ts の MFA_MODES と同じ（tests/unit/config/deployWorkflow.test.ts が突き合わせる）
+      - name: Check MFA_MODE
+        env:
+          MFA_MODE: ${{ vars.MFA_MODE }}
+        run: |
+          case "$MFA_MODE" in
+            all|enrolled_only) ;;
+            *)
+              echo "::error::GitHub の Variables に MFA_MODE がないか、all・enrolled_only のどちらでもありません（docs/Development.md「SMS の2要素目」）"
+              exit 1
+              ;;
+          esac
+
       # CI が検査したコミットを取得する。workflow_run の github.sha は「deploy が始まった時点の main の最新」で、
       # CI のあとに push されたコミットを指すことがあるため、head_sha を使う
       # Semgrep は「workflow_run で PR のコードを checkout している」と指摘するが、上の if: で main への push の CI に限っているので、
@@ -82,9 +98,11 @@ jobs:
           # サーバーサイド専用の環境変数（Firebase Admin は ADC で自動認証、NEXT_PUBLIC_ 不要）。
           # RECAPTCHA_SITE_KEY: ログイン画面の reCAPTCHA Enterprise のサイトキー。公開の値なので Secrets ではなく Variables から渡す。
           # SMS を送る前に Identity Platform が token を求める。空だとログインが 503 になる（docs/Development.md「SMS の2要素目」）
+          # MFA_MODE: SMS の2要素目を誰に求めるか（all / enrolled_only）。上の Check MFA_MODE で確かめた値
           env_vars: |
             SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}
             RECAPTCHA_SITE_KEY=${{ vars.RECAPTCHA_SITE_KEY }}
+            MFA_MODE=${{ vars.MFA_MODE }}
           # パスワードと SMS のコードの確認（src/infra/auth/identityToolkit.ts）に使う API キー。Identity Toolkit API だけに絞ったもの。
           # Secret Manager から実行時に渡す（実行用の SA に roles/secretmanager.secretAccessor が要る。docs/Development.md）
           secrets: |
