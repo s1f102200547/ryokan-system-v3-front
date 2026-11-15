@@ -226,7 +226,7 @@ describe('POST /api/auth/login', () => {
     })
 
     it('Google が token を断ったら 403 recaptcha_failed。途中の状態の Cookie なし、Slack に拒否（数えない）', async () => {
-      vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'recaptcha_rejected', code: 'INVALID_RECAPTCHA_TOKEN' } })
+      vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'recaptcha_rejected', code: 'INVALID_RECAPTCHA_TOKEN', description: '' } })
       const response = await POST(makeRequest({ ...VALID, recaptchaToken: 'stale-token' }))
       expect(response.status).toBe(403)
       expect(await response.json()).toEqual({ error: 'recaptcha_failed' })
@@ -237,7 +237,7 @@ describe('POST /api/auth/login', () => {
 
     // 本番で実際に来たコードを Slack で見られるように（点数が低いときのコードは本番でまだ見ていない）
     it('Slack の拒否に Firebase のコードを載せる。ブラウザには返さない', async () => {
-      vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'recaptcha_rejected', code: 'CAPTCHA_CHECK_FAILED' } })
+      vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'recaptcha_rejected', code: 'CAPTCHA_CHECK_FAILED', description: '' } })
       const response = await POST(makeRequest({ ...VALID, recaptchaToken: 'low-score-token' }))
       expect(response.status).toBe(403)
       expect(JSON.stringify(await response.json())).not.toContain('CAPTCHA_CHECK_FAILED')
@@ -245,8 +245,19 @@ describe('POST /api/auth/login', () => {
       expect(vi.mocked(notifySlackFireAndForget).mock.calls[0][0]).not.toContain('[ALERT]')
     })
 
+    // 2026-11-15 の本番で、コードだけ（INVALID_RECAPTCHA_TOKEN）では原因（ドメイン・キー）を絞れなかった
+    it('Google の説明の文があれば、Slack とログの拒否にコードと一緒に載せる。ブラウザには返さない', async () => {
+      vi.mocked(startPhoneMfa).mockResolvedValue({
+        success: false, error: { kind: 'recaptcha_rejected', code: 'INVALID_RECAPTCHA_TOKEN', description: 'token domain is not allowed' },
+      })
+      const response = await POST(makeRequest({ ...VALID, recaptchaToken: 't' }))
+      expect(await response.json()).toEqual({ error: 'recaptcha_failed' })
+      expect(vi.mocked(notifySlackFireAndForget).mock.calls[0][0]).toContain('（INVALID_RECAPTCHA_TOKEN: token domain is not allowed）')
+      expect(JSON.stringify(vi.mocked(logger.warn).mock.calls)).toContain('token domain is not allowed')
+    })
+
     it('token はログにも Slack にも出ない', async () => {
-      vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'recaptcha_rejected', code: 'INVALID_RECAPTCHA_TOKEN' } })
+      vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'recaptcha_rejected', code: 'INVALID_RECAPTCHA_TOKEN', description: '' } })
       await POST(makeRequest({ ...VALID, recaptchaToken: 'token-must-not-leak-77' }))
       const everything = JSON.stringify([vi.mocked(logger.info).mock.calls, vi.mocked(logger.warn).mock.calls, vi.mocked(notifySlackFireAndForget).mock.calls])
       expect(everything).not.toContain('token-must-not-leak-77')
