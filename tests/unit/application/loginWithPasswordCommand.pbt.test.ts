@@ -23,6 +23,7 @@ import { signInWithPassword } from '@/infra/auth/passwordSignIn'
 import { firestoreLoginThrottleRepository } from '@/infra/auth/firestoreLoginThrottleRepository'
 import { loginWithPasswordCommand } from '@/application/auth/loginWithPasswordCommand'
 import { verifyMfaCodeCommand } from '@/application/auth/verifyMfaCodeCommand'
+import { finishLoginAttempt } from '@/application/auth/loginAttempt'
 import { finalizePhoneMfa } from '@/infra/auth/mfaSignIn'
 import { firestoreMfaPendingRepository } from '@/infra/auth/firestoreMfaPendingRepository'
 import type { createMemoryLoginThrottleRepository } from '@tests/utils/memoryLoginThrottleRepository'
@@ -94,8 +95,12 @@ describe('loginWithPasswordCommand と verifyMfaCodeCommand（1つのメール�
 
         const isCode = s.op === 'codeRight' || s.op === 'codeWrong'
         const run = isCode ? verifyCode(now) : loginWithPasswordCommand({ email: EMAIL, password: 'pw1', ip: IP, nowMs: now, passwordOnlyAllowed })
+        // Route の役目: 札が返ってきたら、Session Cookie を出せた（ここでは常に出せる）として結果を確定させる（F-07）
         const actual = await run
-          .then((r) => (r.success ? 'ok' : r.error.kind === 'rate_limited' ? `429:${r.error.retryAfterMs}` : '401'), () => '503')
+          .then(async (r) => {
+            if (r.success && r.value.attempt) await finishLoginAttempt(r.value.attempt, true)
+            return r.success ? 'ok' : r.error.kind === 'rate_limited' ? `429:${r.error.retryAfterMs}` : '401'
+          }, () => '503')
 
         // 模範
         let expected: string

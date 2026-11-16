@@ -115,22 +115,22 @@ const ROWS: [string, Row][] = [
   ['コードの確認の障害 → 503、数えない、途中の状態は残る', { finalize: '障害',
     expected: { status: 503, body: { error: 'internal server error' }, mfaCookie: 'そのまま', sessionCookie: false, pendingLeft: true, finalized: true, failures: 1, slack: ['ALERT'] } }],
 
-  // --- コードが合った後
+  // --- コードが合った後（失敗の回数を 0 に戻すのは Session Cookie を出せたときだけ。断った・503 なら前の回数のまま: F-07）
   ['ID トークンが無効 → 401 login_failed、Slack にコード', { idToken: '無効',
-    expected: { status: 401, body: { error: 'login_failed' }, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 0, slack: ['ログイン拒否'], slackAccount: EMAIL } }],
+    expected: { status: 401, body: { error: 'login_failed' }, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 1, slack: ['ログイン拒否'], slackAccount: EMAIL } }],
   ['ID トークンの確認の障害 → 503 mfa_restart、途中の状態の Cookie を消す（F-02）', { idToken: '障害',
-    expected: { status: 503, body: { error: 'mfa_restart' }, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 0, slack: ['ALERT'] },
+    expected: { status: 503, body: { error: 'mfa_restart' }, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 1, slack: ['ALERT'] },
     note: 'F-02（途中の状態も Cookie も消し、画面はパスワードの段へ）' }],
   ['2要素目を通っていない → 403 no_second_factor', { secondFactor: 'なし',
-    expected: { status: 403, body: { error: 'no_second_factor' }, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 0, slack: ['ログイン拒否'], slackAccount: EMAIL } }],
+    expected: { status: 403, body: { error: 'no_second_factor' }, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 1, slack: ['ログイン拒否'], slackAccount: EMAIL } }],
   ['2要素目を通っていない・トークンに email がない → Slack は途中の状態のアカウント', { secondFactor: 'なし', emailInToken: false,
-    expected: { status: 403, body: { error: 'no_second_factor' }, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 0, slack: ['ログイン拒否'], slackAccount: EMAIL } }],
+    expected: { status: 403, body: { error: 'no_second_factor' }, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 1, slack: ['ログイン拒否'], slackAccount: EMAIL } }],
   ['Linux → 403 client_not_allowed', { client: 'Linux',
-    expected: { status: 403, body: { error: 'client_not_allowed' }, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 0, slack: ['ログイン拒否'], slackAccount: EMAIL } }],
+    expected: { status: 403, body: { error: 'client_not_allowed' }, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 1, slack: ['ログイン拒否'], slackAccount: EMAIL } }],
   ['Linux・トークンに email がない → Slack は途中の状態のアカウント', { client: 'Linux', emailInToken: false,
-    expected: { status: 403, body: { error: 'client_not_allowed' }, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 0, slack: ['ログイン拒否'], slackAccount: EMAIL } }],
+    expected: { status: 403, body: { error: 'client_not_allowed' }, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 1, slack: ['ログイン拒否'], slackAccount: EMAIL } }],
   ['Session Cookie を作れない → 503 mfa_restart、途中の状態の Cookie を消す（F-02）', { session: '失敗',
-    expected: { status: 503, body: { error: 'mfa_restart' }, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 0, slack: ['ALERT'] },
+    expected: { status: 503, body: { error: 'mfa_restart' }, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 1, slack: ['ALERT'] },
     note: 'F-02' }],
 ]
 
@@ -225,6 +225,8 @@ describe('/api/auth/login/verify のデシジョンテーブル', () => {
     expect(throttle.states.get(`ip:${requestIp}`)?.failures ?? 0).toBe(e.failures)
     // メールアドレスの回数は、途中の状態を信じて数えたときだけ見る（接続元が違えば、メールアドレスは使わない）
     if (requestIp !== OTHER_IP) expect(throttle.states.get(`email:${EMAIL}`)?.failures ?? 0).toBe(e.failures)
+    // 試行中の札は、どの行でも応答までに外している（Session Cookie を出した後に外す行も。F-07）
+    if (row.pre !== '札が埋まっている') expect([...throttle.states.values()].every((st) => st.pending.length === 0)).toBe(true)
 
     const messages = vi.mocked(notifySlackFireAndForget).mock.calls.map(([m]) => String(m))
     expect(messages.map((m) => /^\[([^\]]+)\]/.exec(m)?.[1])).toEqual(e.slack)

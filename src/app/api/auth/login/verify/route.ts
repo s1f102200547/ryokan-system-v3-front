@@ -11,6 +11,7 @@ import { isOutsideBusinessHours } from '@/lib/businessHours'
 import { MfaVerifyBodySchema } from '@/lib/api/loginSchema'
 import { handleRouteError, parseCookieValue } from '@/lib/api/routeHelpers'
 import { verifyMfaCodeCommand } from '@/application/auth/verifyMfaCodeCommand'
+import { finishLoginAttempt, type LoginAttemptHandle } from '@/application/auth/loginAttempt'
 import { MFA_PENDING_COOKIE } from '@/constants/auth'
 
 // ログインの2段目: SMS のコードを確かめ、Session Cookie を発行する。
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
   const userAgent = request.headers.get('user-agent')
   const ip = forwardedIps(forwardedFor).at(-1) ?? null
 
-  let verified: { idToken: string; email: string }
+  let verified: { idToken: string; email: string; attempt: LoginAttemptHandle }
   try {
     const result = await verifyMfaCodeCommand({ pendingId, code: parsed.data.code, ip, nowMs: Date.now() })
     if (!result.success) {
@@ -69,6 +70,18 @@ export async function POST(request: Request) {
     return handleRouteError(e, 'ログイン（SMS のコード）')
   }
 
+  // コードは合った。失敗の回数を 0 に戻すのは Session Cookie を出せたときだけ（その後に断った・503 なら札を外すだけ。F-07）
+  let response: NextResponse | null = null
+  try {
+    response = await completeLogin(verified, forwardedFor, userAgent)
+    return response
+  } finally {
+    await finishLoginAttempt(verified.attempt, response?.status === 200)
+  }
+}
+
+// コードが合った後: トークンの検証 → 2要素目を通ったトークンか → 端末 → Session Cookie
+async function completeLogin(verified: { idToken: string; email: string }, forwardedFor: string | null, userAgent: string | null): Promise<NextResponse> {
   // ここから先の障害（503）は mfaRestart: コードと途中の状態はもう使い終わっていて、打ち直しても通らない（F-02）
   const decoded = await verifyLoginIdToken(verified.idToken)
   if (!decoded.success) {

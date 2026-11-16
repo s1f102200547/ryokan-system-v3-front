@@ -10,7 +10,7 @@ import type { Result } from '@/types/result'
 
 // ログインの失敗回数の制限の手順。パスワードの確認（loginWithPasswordCommand）と SMS のコードの確認（verifyMfaCodeCommand）が、
 // 同じメールアドレス・IP の key を同じ表で数える（domain/auth/loginThrottle.ts）。
-// 確定した失敗を 0 に戻すのは、コードが合ったとき（ログインが最後まで通ったとき）だけ。
+// 確定した失敗を 0 に戻すのは、ログインが最後まで通ったとき（Session Cookie を出せたとき）だけ。
 // パスワードが合っただけで 0 に戻すと、パスワードを知る攻撃者が「パスワード → コード」を繰り返して、コードを無限に試せる
 
 export type ThrottleRejection =
@@ -66,4 +66,14 @@ export async function finishAttempt(keys: ThrottleKey[], attemptId: string, outc
     notifySlackFireAndForget(buildLoginLockNotice({ key: keys[i], failures: r.failures, lockMs: r.lockMs }))
   })
   return lockMs
+}
+
+// 確かめ終えたが、結果の確定を Route に任せた試行（パスワードかコードが合い、この後に Session Cookie を出す）。
+// Route は Cookie を出せたかで finishLoginAttempt を呼ぶ（F-07: 前は Cookie を出す前に 0 に戻していた。
+// その後に端末で断った・トークンが無効・503 でも、失敗の回数が 0 に戻っていた）
+export type LoginAttemptHandle = { keys: ThrottleKey[]; attemptId: string; nowMs: number }
+
+// Session Cookie を出せたら success（0 に戻す）、出せなければ void（札を外すだけ。数えない）。失敗しても投げない
+export async function finishLoginAttempt(handle: LoginAttemptHandle, sessionIssued: boolean): Promise<void> {
+  await finishAttempt(handle.keys, handle.attemptId, sessionIssued ? 'success' : 'void', handle.nowMs)
 }

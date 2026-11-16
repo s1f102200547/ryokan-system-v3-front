@@ -12,6 +12,7 @@ import { LoginBodySchema } from '@/lib/api/loginSchema'
 import { handleRouteError } from '@/lib/api/routeHelpers'
 import { loginWithPasswordCommand } from '@/application/auth/loginWithPasswordCommand'
 import { startMfaCommand } from '@/application/auth/startMfaCommand'
+import { finishLoginAttempt } from '@/application/auth/loginAttempt'
 
 // ログインの1段目: パスワードを確かめ、登録済みの電話に SMS のコードを送る。Session Cookie は2段目（./verify）で発行する。
 // 順番: 時間帯（22:55 以降も断る）→ 送り元 → 長さ → 失敗回数 → パスワード → 端末・ブラウザ（A）→ 2要素目の登録 → SMS の通数 → SMS の送信。
@@ -66,14 +67,26 @@ export async function POST(request: Request) {
     // 旅館の PC（Windows）の Chrome か Edge だけ。パスワードが合った後に確かめる（誰でも送れるリクエストで [ログイン拒否] を出させない）。
     // パスワードは合っているので、失敗としては数えない。条件に合わない端末には SMS を送らない
     const client = checkClient(userAgent)
-    if (!client.success) return reject(client.error, 'client_not_allowed')
 
     // 2要素目なしで通った = 電話を登録していないアカウント（登録は scripts/mfa/enrollPhone.ts）。
-    // MFA_MODE=all なら Cookie は発行しない。enrolled_only（本番で SMS を試す間）なら、パスワードだけでログインを終える
-    if (result.value.kind === 'signed_in') {
-      if (!passwordOnlyAllowed) return reject('mfa_not_enrolled', 'mfa_not_enrolled')
-      return await issuePasswordOnlySession(result.value.idToken, forwardedFor, userAgent, reject)
+    // enrolled_only（本番で SMS を試す間）なら、パスワードだけでログインを終える。Command は札を外さずに attempt を返すので、
+    // Session Cookie を出せたときだけ失敗の回数を 0 に戻す（端末で断った・トークンが無効・503 なら数えない。F-07）
+    const attempt = result.value.attempt
+    if (result.value.kind === 'signed_in' && attempt !== null) {
+      let response: NextResponse | null = null
+      try {
+        response = client.success
+          ? await issuePasswordOnlySession(result.value.idToken, forwardedFor, userAgent, reject)
+          : reject(client.error, 'client_not_allowed')
+        return response
+      } finally {
+        await finishLoginAttempt(attempt, response?.status === 200)
+      }
     }
+
+    if (!client.success) return reject(client.error, 'client_not_allowed')
+    // MFA_MODE=all なら、電話を登録していないアカウントに Cookie は発行しない
+    if (result.value.kind === 'signed_in') return reject('mfa_not_enrolled', 'mfa_not_enrolled')
 
     const started = await startMfaCommand({
       email: account,

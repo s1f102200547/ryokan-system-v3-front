@@ -28,6 +28,7 @@ import { notifySlackFireAndForget } from '@/lib/slack'
 import { logger } from '@/lib/logger'
 import { startMfaCommand } from '@/application/auth/startMfaCommand'
 import { verifyMfaCodeCommand } from '@/application/auth/verifyMfaCodeCommand'
+import { finishLoginAttempt } from '@/application/auth/loginAttempt'
 import { MFA_PENDING_TTL_MS, MFA_SMS_DAILY_LIMIT } from '@/constants/auth'
 import type { createMemoryLoginThrottleRepository } from '@tests/utils/memoryLoginThrottleRepository'
 import type { createMemoryMfaPendingRepository, createMemorySmsQuotaRepository } from '@tests/utils/memoryMfaRepositories'
@@ -116,19 +117,36 @@ describe('verifyMfaCodeCommand', () => {
   }
   const verify = (pendingId: string, ip: string | null = IP) => verifyMfaCodeCommand({ pendingId, code: '123456', ip, nowMs: Date.now() })
 
-  it('コードが合えば idToken。途中の状態は消え、もう使えない。失敗の回数は 0 に戻る', async () => {
+  // [F-07] コードが合っても、Command は札を外さず attempt を返す。0 に戻すのは Route が Session Cookie を出せたとき
+  it('コードが合えば idToken と attempt。途中の状態は消え、もう使えない。失敗の回数は Session Cookie を出せたときに 0 に戻る', async () => {
     const id = await startedPendingId()
     vi.mocked(finalizePhoneMfa).mockResolvedValueOnce({ success: false, error: { kind: 'invalid_code', code: 'INVALID_CODE' } })
     expect(await verify(id)).toEqual({ success: false, error: { kind: 'invalid_code' } })
     expect(throttle.states.size).toBe(2) // email と IP に1回ずつ
 
     vi.mocked(finalizePhoneMfa).mockResolvedValueOnce({ success: true, value: { idToken: 'id-token' } })
-    expect(await verify(id)).toEqual({ success: true, value: { idToken: 'id-token', email: EMAIL } })
+    const ok = await verify(id)
+    expect(ok).toMatchObject({ success: true, value: { idToken: 'id-token', email: EMAIL } })
     expect(finalizePhoneMfa).toHaveBeenLastCalledWith(SECRET_PENDING, SECRET_SESSION, '123456')
     expect(pendings.items.size).toBe(0)
+    // 札を持ったまま、回数もまだ残っている
+    expect([...throttle.states.values()].map((st) => [st.failures, st.pending.length])).toEqual([[1, 1], [1, 1]])
+    if (!ok.success) throw new Error('unreachable')
+    await finishLoginAttempt(ok.value.attempt, true)
     expect(throttle.states.size).toBe(0)
     expect(await verify(id)).toEqual({ success: false, error: { kind: 'expired' } })
     expectNoSecretsLogged()
+  })
+
+  it('[F-07] コードが合っても Session Cookie を出せなければ、札を外すだけで回数は残る', async () => {
+    const id = await startedPendingId()
+    vi.mocked(finalizePhoneMfa).mockResolvedValueOnce({ success: false, error: { kind: 'invalid_code', code: 'INVALID_CODE' } })
+    await verify(id)
+    vi.mocked(finalizePhoneMfa).mockResolvedValueOnce({ success: true, value: { idToken: 'id-token' } })
+    const ok = await verify(id)
+    if (!ok.success) throw new Error('unreachable')
+    await finishLoginAttempt(ok.value.attempt, false)
+    expect([...throttle.states.values()].map((st) => [st.failures, st.pending.length])).toEqual([[1, 0], [1, 0]])
   })
 
   it('知らない ID・期限切れは expired（Firebase に送らない）', async () => {

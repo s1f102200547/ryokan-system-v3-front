@@ -123,16 +123,16 @@ const ROWS: [string, Row][] = [
   ['enrolled_only: MFA なし → SMS なしで Session Cookie、失敗の回数を 0 に', { mode: 'enrolled_only', password: 'MFA なし',
     expected: { status: 200, body: { success: true }, mfaCookie: '消す', sessionCookie: true, smsSent: false, smsCount: 0, failures: 0, slack: ['ログイン'] } }],
   ['enrolled_only: MFA なし・Linux → 端末で断る', { mode: 'enrolled_only', password: 'MFA なし', client: 'Linux',
-    expected: { status: 403, body: { error: 'client_not_allowed' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: '未定', slack: ['ログイン拒否'] },
-    note: 'F-07（断ったのに失敗の回数を 0 に戻す）' }],
+    expected: { status: 403, body: { error: 'client_not_allowed' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: 1, slack: ['ログイン拒否'] },
+    note: 'F-07（0 に戻すのは Session Cookie を出せたときだけ）' }],
   ['enrolled_only: MFA なし・トークンが無効 → 401 login_failed', { mode: 'enrolled_only', password: 'MFA なし', idToken: '無効',
-    expected: { status: 401, body: { error: 'login_failed' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: '未定', slack: ['ログイン拒否'] },
+    expected: { status: 401, body: { error: 'login_failed' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: 1, slack: ['ログイン拒否'] },
     note: 'F-07' }],
   ['enrolled_only: MFA なし・トークンの確認の障害 → 503', { mode: 'enrolled_only', password: 'MFA なし', idToken: '障害',
-    expected: { status: 503, body: { error: 'server error' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: '未定', slack: ['ALERT'] },
+    expected: { status: 503, body: { error: 'server error' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: 1, slack: ['ALERT'] },
     note: 'F-07' }],
   ['enrolled_only: MFA なし・Session Cookie を作れない → 503', { mode: 'enrolled_only', password: 'MFA なし', session: '失敗',
-    expected: { status: 503, body: { error: 'server error' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: '未定', slack: ['ALERT'] },
+    expected: { status: 503, body: { error: 'server error' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: 1, slack: ['ALERT'] },
     note: 'F-07' }],
   ['enrolled_only: パスワードが違う → 401、失敗に数える', { mode: 'enrolled_only', password: '違う',
     expected: { status: 401, body: { error: 'invalid_credentials' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: 2, slack: [] } }],
@@ -224,6 +224,8 @@ describe('/api/auth/login のデシジョンテーブル', () => {
       expect(throttle.states.get(`email:${EMAIL}`)?.failures ?? 0).toBe(e.failures)
       expect(throttle.states.get('ip:unknown')?.failures ?? 0).toBe(e.failures) // IP も同じに数える
     }
+    // 試行中の札は、どの行でも応答までに外している（Session Cookie を出した後に外す行も。F-07）
+    expect([...throttle.states.values()].every((st) => st.pending.length === 0)).toBe(true)
 
     const kinds = vi.mocked(notifySlackFireAndForget).mock.calls.map(([m]) => /^\[([^\]]+)\]/.exec(String(m))?.[1])
     expect(kinds).toEqual(e.slack)
