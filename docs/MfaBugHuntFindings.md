@@ -16,7 +16,7 @@
 |---|---|---|---|---|---|---|---|---|
 | F-01 | S1 | 仕様の穴 | 中 | reCAPTCHA で断られたとき・Firebase が送信を止めたとき・`start` の障害のときも、SMS の1日の通数を1つ消費する。D の `/api/auth/login` は `recaptcha_failed` を「数えない」、「SMS が10通を超えたら」と書く一方、D の `mfaSmsQuota` と `domain/auth/smsQuota.ts` は「送る前に1つ足し、送れなかった分も戻さない」と書く。読み込み直しを繰り返すと、SMS が届かないまま上限に達しうる | `src/application/auth/startMfaCommand.ts:36`（`consume` が `startPhoneMfa` より前）。MC:98 は通数を見ていない。S3: `tests/integration/api/auth/login/decisionTable.test.ts` の「Firebase が SMS を止めた」「reCAPTCHA の token を断られた」「SMS の送信の障害」の3行で、どれも通数が1つ減ることを確かめた（表では '未定' にして確かめていない） | 未定（「SMS の上限」が数えるのは送れた SMS か、試みか） | 同時の送信で上限を超えないよう、送る前に数える設計 | |
 | F-02 | S1 | 仕様の穴 | 中 | コードが合った後に ID トークンの確認（障害）か Session Cookie の作成で 503 になると、途中の状態はもう消えていて、パスワードからやり直しになる（SMS をもう1通使う）。仕様に書かれていない。画面はコードの段のまま「サービスが一時的に…」と出し、打ち直しても `mfa_expired` になる | `src/application/auth/verifyMfaCodeCommand.ts`（成功で `deleteQuietly`）→ `src/app/api/auth/login/verify/route.ts`（その後で `verifyLoginIdToken`・`issueSession`）。S4: `tests/integration/api/auth/login/verify/decisionTable.test.ts` の「ID トークンの確認の障害」「Session Cookie を作れない」の行で、503 のとき途中の状態は消え、`mfa_pending` の Cookie は消さずに残ることを確かめた（ブラウザは使えない Cookie を持ったまま、コードの段に留まる） | 未定（503 の後の画面の段と、途中の状態を残すか） | Firebase 側でもコードは使い終わっている | |
-| F-03 | S1 | 仕様の穴 | 中 | 「パスワードのときと同じ接続元」は、`X-Forwarded-For` の右端の文字列の完全一致。最大5分の間に IPv4 と IPv6 が切り替わる、IPv6 の一時アドレスが変わる、Wi-Fi やモバイル回線に変わると、`mfa_expired` と Slack の `[ログイン拒否]` になる。どこまでを同じ接続元とみなすかは決まっていない。本番での頻度も分からない | `src/domain/auth/mfaPending.ts:19`（`pending.ip !== ip`） | 未定。頻度は S17・S18 で見る | — | |
+| F-03 | S1 | 仕様の穴 | 中 | 「パスワードのときと同じ接続元」は、`X-Forwarded-For` の右端の文字列の完全一致。最大5分の間に IPv4 と IPv6 が切り替わる、IPv6 の一時アドレスが変わる、Wi-Fi やモバイル回線に変わると、`mfa_expired` と Slack の `[ログイン拒否]` になる。どこまでを同じ接続元とみなすかは決まっていない。本番での頻度も分からない | `src/domain/auth/mfaPending.ts:19`（`pending.ip !== ip`）。S10: `tests/integration/fuzz/mfaHeaders.fuzz.test.ts` で、同じ IPv4 を IPv4 射影の IPv6（`::ffff:203.0.113.5`）で書いたものも別の接続元になる（大文字・小文字は IPv4 では関係ない）。Google のフロントエンドがどちらの形で書くかは S17 | 未定。頻度は S17・S18 で見る | — | |
 | F-04 | S1 | 仕様の穴 | 中 | `enrolled_only` を終える仕組みが手順書だけにある（期限・通知・デプロイでの確認がない）。また `enrolled_only` の間に `--remove` で電話を外したアカウントは、パスワードだけで入れる。V の `--remove` の説明「解除（ログインできなくなる）」は `all` のときだけ正しい | `src/lib/auth/mfaMode.ts`、`.github/workflows/deploy.yml`（値の形だけ確かめる）、`docs/Development.md` の `mfa:enroll` の例。S8: `tests/emulator/mfaStateTransitions.test.ts`「enrolled_only で電話を外したアカウント」で、電話を外すと `enrolled_only` では 200（パスワードだけで入れる）、`all` では 403 になることを Emulator で確かめた | 未定（期限を持たせるか、`--remove` の説明を直すか） | — | |
 | F-05 | S1・S7 | バグ | 中 | reCAPTCHA の script の読み込みには10秒の期限があるが、読み込んだ後の `ready` と `execute` には期限がない。どちらかが返らないと、ボタンが「ログイン中…」のまま戻らない（R28 の仕様は「読み込めなければ」だけ） | `src/hooks/auth/recaptchaEnterprise.ts:53`（`ready` の中の `execute` に期限がない）。S7 で確かめた: `tests/unit/hooks/recaptchaEnterprise.test.ts` の `[F-05]`（`ready` が呼ばれない・`execute` が返らないと、30秒たっても終わらない）、`tests/unit/hooks/useLogin.stateMachine.test.ts` の `[F-05]`（`isPending` のまま、パスワードも送らない。120秒でも同じ）。どちらも `it.fails` | 一定の時間で理由を出して押せる状態に戻る（と思われる） | — | |
 | F-06 | S1 | ドキュメント | 低 | N・D・S は「失敗の回数は SMS のコードが合ったときだけ0に戻す」と書くが、`enrolled_only` で SMS なしのログインが成功したときも0に戻す（コードと R1:165 は戻す）。例外が書かれていない | `src/application/auth/loginWithPasswordCommand.ts`（`completed`）、`docs/NormalOperation.md`、`docs/Domain.md` の `loginThrottle`、`docs/Security.md` | ドキュメントに例外を書く | — | |
@@ -29,6 +29,7 @@
 | F-13 | S7 | 気になる点 | 低 | 再送（1段目の送り直し）が 401 `invalid_credentials`・403 `mfa_not_enrolled`・429 `sms_limit` などで断られても、コードの段のまま理由を出す。パスワードの誤りを、コードの段で言われる（戻るしかできない） | `tests/unit/hooks/useLogin.stateMachine.test.ts`「C での再送」の3行（今の動き） | 未定（パスワードが原因のときはパスワードの段へ戻すか）。再送の間にパスワード・電話の登録が変わったときだけ起きる | — | |
 | F-14 | S8 | 仕様の穴 | 中 | 「コードを再送」はパスワードの段をもう一度通すので、新しい途中の状態と Cookie を作る。前の途中の状態とコードは、期限（5分）まで使える（Emulator で、1回目の Cookie と1回目のコードでも 200）。ブラウザの Cookie は2回目のものに替わるので、**再送の後に、遅れて届いた1通目の SMS のコードを打つと 401 `invalid_code` になり、失敗として数える**（画面は「コードが正しくありません」）。SMS が遅れて再送を押す場面で起きやすく、3回で止まる（同じ回線のほかの PC も。F-15） | `tests/emulator/mfaStateTransitions.test.ts`「再送の後に、1通目の SMS のコードを打つと…」「パスワードを2回通したら…」（今の動きを PROBE_OUT に残す）。本番の Identity Platform で、前のコードが使えるままかは未確認（S17） | 未定（前のコードも受け付けるか、再送の画面で「新しい SMS のコードを」と知らせるか、前の途中の状態を消すか） | 再送は1段目の送り直しで、前の途中の状態と結び付けていない | |
 | F-15 | S8 | 気になる点 | 中 | 失敗の回数は IP ごとにも数えるので、旅館の PC が同じ回線（同じ IP）なら、1台のアカウントがコードを3回間違えると、ほかの PC のアカウントも正しいパスワードで 429 になる（1分。続けば5分・15分・1時間）。止まっている間は誰も成功できないので、回数は止める時間が過ぎるまで0に戻らない（ほかの PC が成功すれば0に戻る）。仕様（IP ごとにも数える）どおりだが、旅館での影響は大きい。F-14 と重なると起きやすい | `tests/emulator/mfaStateTransitions.test.ts`「PC1 のアカウントがコードを3回間違えると…」「PC2 のアカウントがコードを通すと…」 | 未定（IP の段の表をメールアドレスと分けるか、今のままか）。本番の PC が同じ IP かは S18 | `throttleKeys` がメールアドレスと IP に同じ表を使う | |
+| F-16 | S10 | 気になる点 | 低 | Google の説明の文を Slack・ログに載せる前の伏せ方（`describeError`）は、空白・ハイフンで区切った数字と、つながった6桁以上の半角数字だけを伏せる。「.」で区切った電話番号（`090.1234.5678`）と全角の数字（`０９０１２３４５６７８`）は伏せずに残る（括弧の形 `(090)1234-5678` は市外局番だけが残る）。説明の文は Google が書くもので、利用者の入力が入ることは確認していない | `tests/pbt/auth.pbt.test.ts` の `[F-16]`（`it.fails`）。半角の連続・空白とハイフンの区切り・32文字以上の英数字・200文字の上限は、PBT（2000回）で守られている | 未定（区切りの文字を広げ、NFKC にしてから伏せるか） | 正規表現の区切りが `[\d\s-]` だけ | |
 
 ## 網羅率（S2）
 
@@ -48,12 +49,12 @@ unit だけの値: 分岐 85.6%（482/563）。Emulator だけの値: 61.7%（23
 | `src/hooks/auth/fetchWithSession.ts` | 13/14 | 10: サーバー側で呼ばれたとき | 対象外（使われ方の確認だけ S11） |
 | `src/infra/auth/firestoreLoginThrottleRepository.ts` | 21/24 | 70・78・98: key が0個 | 対象外（`throttleKeys` は必ず2個） |
 | `src/infra/auth/firestoreSmsQuotaRepository.ts` | 3/4 → 4/4（S9） | ~~27: 形の崩れた `mfaSmsQuota` のドキュメント~~ `tests/emulator/mfaContracts.test.ts` | S9 |
-| `src/infra/auth/identityToolkit.ts` | 16/18 | 35: `split(...)[0] ?? ''` の右側（`split` は必ず1つ以上返すので**到達しない**。空のメッセージは S9 の `identityToolkit.test.ts` で通した）/ 47: 5桁以下の数字の並びを伏せずに残す | S10 |
+| `src/infra/auth/identityToolkit.ts` | 16/18 → 17/18（S10） | 35: `split(...)[0] ?? ''` の右側（`split` は必ず1つ以上返すので**到達しない**。空のメッセージは S9 の `identityToolkit.test.ts` で通した）/ ~~47: 5桁以下の数字の並びを伏せずに残す~~ S10 の PBT で通した | 対象外 |
 | `src/infra/auth/passwordSignIn.ts` | 15/16 | 54: `phone.phoneInfo ?? ''` の右側（`phoneInfo` があるものだけを選んでいるので**到達しない**） | 対象外 |
 | `src/domain/auth/loginThrottle.ts` | 51/52 | 89: `acquireAll` の成功のときの `r.success ? … : []` の右側（断る結果があれば先に返すので**到達しない**）。一部の key だけ断られたときの動きは、S9 の契約テスト「片方の key だけ埋まっていれば busy」で確かめた | 対象外 |
-| `src/lib/api/routeHelpers.ts` | 17/18 | 48: Error でない例外の記録 | S10 |
-| `src/lib/auth/loginNotice.ts` | 23/24 | 83: IP の制限の通知で、IP の形でない値 | S10 |
-| `src/lib/auth/verifySession.ts` | 16/17 | 18: オブジェクトでない例外 | S10 |
+| `src/lib/api/routeHelpers.ts` | 17/18 → 18/18（S10） | ~~48: Error でない例外の記録~~ `tests/unit/lib/nonErrorThrows.test.ts` | S10 |
+| `src/lib/auth/loginNotice.ts` | 23/24 → 24/24（S10） | ~~83: IP の制限の通知で、IP の形でない値~~ `tests/pbt/auth.pbt.test.ts` | S10 |
+| `src/lib/auth/verifySession.ts` | 16/17 → 17/17（S10） | ~~18: オブジェクトでない例外~~ `tests/unit/lib/nonErrorThrows.test.ts` | S10 |
 
 ほかの対象（`startMfaCommand.ts`・`loginWithPasswordCommand.ts`・`mfaSignIn.ts`・`mfaPending.ts`・`smsQuota.ts`・`loginSession.ts`・`businessHours.ts` など）は、分岐をすべて通っている。
 
@@ -61,4 +62,4 @@ unit だけの値: 分岐 85.6%（482/563）。Emulator だけの値: 61.7%（23
 
 | ステップ | 内容 | 再現 |
 |---|---|---|
-| S3、S5、S7 | `npm run test -- --run` を通しで流すと、ときどき予約まわりの UI テストと PBT が 5秒のタイムアウトで落ちる（`GuestInfoSection.test.tsx`、`ReservationModal.test.tsx`、`tests/pbt/reservationData.pbt.test.ts`）。落ちる組み合わせは毎回違い、ファイルだけを流すと通る（PBT は 2.5秒）。そのときの load average は16〜18（16コア）。CI で同じことが起きるかは見ていない。S7: このステップで足したテストを外しても、同じように落ちた（2回で5件・2件）。`--maxWorkers=8` でも1件落ちた。S2 で `npm ci` により vitest を 5.0.5 → 5.1.0（lockfile の版）にしてから目立つ | 通しで2〜3回流す |
+| S3、S5、S7 | `npm run test -- --run` を通しで流すと、ときどき予約まわりの UI テストと PBT が 5秒のタイムアウトで落ちる（`GuestInfoSection.test.tsx`、`ReservationModal.test.tsx`、`tests/pbt/reservationData.pbt.test.ts`）。落ちる組み合わせは毎回違い、ファイルだけを流すと通る（PBT は 2.5秒）。そのときの load average は16〜18（16コア）。CI で同じことが起きるかは見ていない。S7: このステップで足したテストを外しても、同じように落ちた（2回で5件・2件）。`--maxWorkers=8` でも1件落ちた。S2 で `npm ci` により vitest を 5.0.5 → 5.1.0（lockfile の版）にしてから目立つ。S10: `npm run coverage:auth` もこれで落ち、落ちると網羅率を書き出さない（ログインのテストのディレクトリに絞って測った） | 通しで2〜3回流す |
