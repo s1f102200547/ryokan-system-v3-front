@@ -50,7 +50,7 @@ const DECODED = { uid: 'uid-1', email: 'pc1@example.com', auth_time: AUTH_TIME, 
 
 type RequestOptions = { body?: unknown; userAgent?: string | null; cookie?: string | null; forwardedFor?: string | null }
 function makeRequest({ body = { code: CODE }, userAgent = CHROME_WIN, cookie = `mfa_pending=${PENDING_ID}`, forwardedFor = IP }: RequestOptions = {}) {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin' }
   if (userAgent !== null) headers['user-agent'] = userAgent
   if (cookie !== null) headers.cookie = cookie
   if (forwardedFor !== null) headers['x-forwarded-for'] = forwardedFor
@@ -119,6 +119,26 @@ describe('POST /api/auth/login/verify', () => {
     vi.stubEnv('NODE_ENV', 'production')
     expect((await POST(makeRequest())).status).toBe(403)
     expect(mockFinalize).not.toHaveBeenCalled()
+  })
+
+  // [F-21] 他のサイトから送らせない。途中の状態を読まず、コードを確かめず、数えない
+  it.each<[string, Record<string, string>]>([
+    ['Content-Type: text/plain', { 'Content-Type': 'text/plain', 'sec-fetch-site': 'same-origin' }],
+    ['Sec-Fetch-Site: cross-site', { 'Content-Type': 'application/json', 'sec-fetch-site': 'cross-site' }],
+    ['Sec-Fetch-Site なし', { 'Content-Type': 'application/json' }],
+  ])('[F-21] %s は 403（コードを確かめず、Slack にも出さない）', async (_label, headers) => {
+    await seedPending()
+    const response = await POST(new Request('http://localhost/api/auth/login/verify', {
+      method: 'POST',
+      headers: { ...headers, 'user-agent': CHROME_WIN, cookie: `mfa_pending=${PENDING_ID}`, 'x-forwarded-for': IP },
+      body: JSON.stringify({ code: CODE }),
+    }))
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({ error: 'forbidden_request' })
+    expect(mockFinalize).not.toHaveBeenCalled()
+    expect(throttle.states.size).toBe(0)
+    expect(await pendings.get(PENDING_ID)).not.toBeNull() // 途中の状態はそのまま（本物のブラウザからなら続けられる）
+    expect(notifySlackFireAndForget).not.toHaveBeenCalled()
   })
 
   it.each([

@@ -143,7 +143,7 @@ const ROWS: [string, Row][] = [
 function request(body: object, userAgent: string) {
   return new Request('http://localhost/api/auth/login', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'user-agent': userAgent },
+    headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': userAgent },
     body: JSON.stringify(body),
   })
 }

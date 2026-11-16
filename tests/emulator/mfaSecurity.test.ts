@@ -30,7 +30,7 @@ const clear = async () => {
   for (const c of ['loginThrottle', 'mfaPending', 'mfaSmsQuota']) await adminDb.recursiveDelete(adminDb.collection(c))
 }
 const loginRequest = (email: string, password: string, ip: string) => LOGIN(new Request('http://localhost/api/auth/login', {
-  method: 'POST', headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME, 'x-forwarded-for': ip },
+  method: 'POST', headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': WINDOWS_CHROME, 'x-forwarded-for': ip },
   body: JSON.stringify({ email, password }),
 }))
 const guestInfo = (cookie: string) => GUEST_INFO(new Request('http://localhost/api/guest-info?date=2026-05-20', { headers: { cookie } }))
@@ -54,7 +54,7 @@ describe('パスワードの段を飛ばす', () => {
   ])('途中の状態の Cookie を作って（%s）コードを送っても 401 mfa_expired。Firestore に何も残さない', async (_label, forged) => {
     const res = await VERIFY(new Request('http://localhost/api/auth/login/verify', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME, 'x-forwarded-for': nextIp(), cookie: `mfa_pending=${forged}` },
+      headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': WINDOWS_CHROME, 'x-forwarded-for': nextIp(), cookie: `mfa_pending=${forged}` },
       body: JSON.stringify({ code: '123456' }),
     }))
     expect(res.status).toBe(401)

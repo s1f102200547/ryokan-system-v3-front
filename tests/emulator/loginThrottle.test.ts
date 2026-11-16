@@ -25,7 +25,7 @@ async function createUser(): Promise<string> {
 
 const login = (email: string, password: string, ip: string) => LOGIN(new Request('http://localhost/api/auth/login', {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME, 'x-forwarded-for': ip },
+  headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': WINDOWS_CHROME, 'x-forwarded-for': ip },
   body: JSON.stringify({ email, password }),
 }))
 // テストごとに別の IP（IP の回数がほかのテストに残らないように）

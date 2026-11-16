@@ -4,6 +4,7 @@ import { notifySlackFireAndForget } from '@/lib/slack'
 import { buildLoginRejectedNotice, forwardedIps, type LoginRejection } from '@/lib/auth/loginNotice'
 import { describeUserAgent } from '@/lib/auth/userAgent'
 import { checkClient } from '@/lib/auth/clientCheck'
+import { checkLoginRequest } from '@/lib/auth/loginRequestGuard'
 import { hasPhoneSecondFactor } from '@/lib/auth/secondFactor'
 import { clearMfaPendingCookie, issueSession, verifyLoginIdToken } from '@/lib/auth/loginSession'
 import { isOutsideBusinessHours } from '@/lib/businessHours'
@@ -14,11 +15,18 @@ import { MFA_PENDING_COOKIE } from '@/constants/auth'
 
 // ログインの2段目: SMS のコードを確かめ、Session Cookie を発行する。
 // ログイン前の API なので requireSession は使わない。代わりに、1段目で発行した途中の状態の Cookie（mfa_pending）を求める。
-// 順番: 時間帯 → コードの形 → 途中の状態（期限・接続元）→ 失敗回数 → コード → トークンの検証 → 2要素目を通ったトークンか → A → B → Cookie
+// 順番: 時間帯 → 送り元 → コードの形 → 途中の状態（期限・接続元）→ 失敗回数 → コード → トークンの検証 → 2要素目を通ったトークンか → A → B → Cookie
 export async function POST(request: Request) {
   if (process.env.NODE_ENV === 'production' && isOutsideBusinessHours()) {
     logger.warn('ログイン拒否: 時間外')
     return NextResponse.json({ error: 'outside_business_hours' }, { status: 403 })
+  }
+
+  // 他のサイトのページから送らせない（src/lib/auth/loginRequestGuard.ts）。誰でも送れる要求なので Slack には出さない。数えない
+  const origin = checkLoginRequest(request.headers)
+  if (!origin.success) {
+    logger.warn('ログイン拒否: 送り元', { reason: origin.error })
+    return NextResponse.json({ error: 'forbidden_request' }, { status: 403 })
   }
 
   const parsed = MfaVerifyBodySchema.safeParse(await request.json().catch(() => null))

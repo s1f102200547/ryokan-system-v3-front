@@ -152,7 +152,7 @@ describe('同じアカウントに2台から', () => {
 describe('enrolled_only で電話を外したアカウント（F-04）', () => {
   const passwordLogin = (email: string) => LOGIN(new Request('http://localhost/api/auth/login', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME, 'x-forwarded-for': nextIp() },
+    headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': WINDOWS_CHROME, 'x-forwarded-for': nextIp() },
     body: JSON.stringify({ email, password: PASSWORD }),
   }))
 

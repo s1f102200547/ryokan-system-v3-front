@@ -68,7 +68,7 @@ const cookie = fc.option(fc.oneof(
 ), { nil: null })
 
 function request(url: string, body: object, h: { cookie: string | null; forwardedFor: string | null; userAgent: string | null }) {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin' }
   if (h.cookie !== null) headers.cookie = h.cookie
   if (h.forwardedFor !== null) headers['x-forwarded-for'] = h.forwardedFor
   if (h.userAgent !== null) headers['user-agent'] = h.userAgent
@@ -122,5 +122,27 @@ describe('ログインの API のヘッダーのファジング', () => {
     }), { numRuns: 500 })
     // Firebase に送る組（本物の Cookie・同じ接続元）を十分に試したこと
     expect(finalized).toBeGreaterThan(20)
+  }, FUZZ_TIMEOUT_MS)
+
+  // [F-21] Content-Type と Sec-Fetch-Site を壊す。通すのは application/json（パラメーターは問わない）と same-origin の組だけ
+  const contentType = fc.option(fc.oneof(
+    fc.constantFrom('application/json', 'application/json; charset=utf-8', 'APPLICATION/JSON', 'text/plain', 'application/x-www-form-urlencoded', 'multipart/form-data; boundary=x', 'application/jsonp', ''),
+    latin1,
+  ), { nil: null })
+  const fetchSite = fc.option(fc.oneof(fc.constantFrom('same-origin', 'same-site', 'cross-site', 'none', 'SAME-ORIGIN', ''), latin1), { nil: null })
+  it('[F-21] どんな Content-Type・Sec-Fetch-Site でも 5xx・Slack にならない。通すのは JSON と same-origin の組だけ', async () => {
+    await fc.assert(fc.asyncProperty(contentType, fetchSite, async (ct, site) => {
+      vi.mocked(notifySlackFireAndForget).mockClear()
+      vi.mocked(signInWithPassword).mockClear()
+      throttle.clear(); quota.clear()
+      const headers: Record<string, string> = { 'user-agent': WINDOWS_CHROME }
+      if (ct !== null) headers['Content-Type'] = ct
+      if (site !== null) headers['sec-fetch-site'] = site
+      const res = await LOGIN(new Request('http://localhost/api/auth/login', { method: 'POST', headers, body: JSON.stringify({ email: 'pc1@example.com', password: 'pw1' }) }))
+      const allowed = ct?.split(';')[0]?.trim().toLowerCase() === 'application/json' && site === 'same-origin'
+      expect(res.status).toBe(allowed ? 200 : 403)
+      expect(vi.mocked(signInWithPassword).mock.calls.length).toBe(allowed ? 1 : 0)
+      expect(slackKinds()).toEqual([])
+    }), { numRuns: 300 })
   }, FUZZ_TIMEOUT_MS)
 })

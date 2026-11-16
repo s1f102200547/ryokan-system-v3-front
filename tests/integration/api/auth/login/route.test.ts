@@ -64,7 +64,7 @@ const VALID = { email: 'pc1@example.com', password: PASSWORD }
 function makeRequest(body: object = VALID, userAgent: string | null = CHROME_WIN) {
   return new Request('http://localhost/api/auth/login', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(userAgent === null ? {} : { 'user-agent': userAgent }) },
+    headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', ...(userAgent === null ? {} : { 'user-agent': userAgent }) },
     body: JSON.stringify(body),
   })
 }
@@ -358,11 +358,37 @@ describe('POST /api/auth/login', () => {
   ])('%s で 400（Slack に通知しない）', async (_label, raw) => {
     const response = await POST(new Request('http://localhost/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin' },
       body: raw,
     }))
     expect(response.status).toBe(400)
     expect(notifySlackFireAndForget).not.toHaveBeenCalled()
+  })
+
+  // [F-21] 他のサイトのフォーム・fetch から送らせない。パスワードを確かめず、SMS も送らず、回数も数えない
+  it.each<[string, Record<string, string>]>([
+    ['Content-Type: text/plain（他のサイトのフォーム）', { 'Content-Type': 'text/plain', 'sec-fetch-site': 'same-origin' }],
+    ['Content-Type なし', { 'sec-fetch-site': 'same-origin' }],
+    ['Sec-Fetch-Site: cross-site（他のサイトの fetch）', { 'Content-Type': 'application/json', 'sec-fetch-site': 'cross-site' }],
+    ['Sec-Fetch-Site: same-site', { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-site' }],
+    ['Sec-Fetch-Site なし', { 'Content-Type': 'application/json' }],
+  ])('[F-21] %s は 403（SMS を送らず、数えず、Slack にも出さない）', async (_label, headers) => {
+    const response = await POST(new Request('http://localhost/api/auth/login', {
+      method: 'POST', headers: { ...headers, 'user-agent': CHROME_WIN }, body: JSON.stringify(VALID),
+    }))
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({ error: 'forbidden_request' })
+    expect(mockSignIn).not.toHaveBeenCalled()
+    expect(startPhoneMfa).not.toHaveBeenCalled()
+    expect(await throttle.read([{ kind: 'email', value: VALID.email }])).toEqual([null])
+    expect(notifySlackFireAndForget).not.toHaveBeenCalled()
+  })
+
+  it('[F-21] Content-Type に charset が付いていても通す', async () => {
+    const response = await POST(new Request('http://localhost/api/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json; charset=utf-8', 'sec-fetch-site': 'same-origin', 'user-agent': CHROME_WIN }, body: JSON.stringify(VALID),
+    }))
+    expect(response.status).toBe(200)
   })
 
   // 旅館の PC（Windows）の Chrome・Edge だけ。パスワードが合っていても、それ以外には SMS を送らない
@@ -397,7 +423,7 @@ describe('POST /api/auth/login', () => {
     it('拒否の通知に、生の User-Agent と X-Forwarded-For の書式を載せない', async () => {
       const response = await POST(new Request('http://localhost/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'user-agent': '<!channel> Mozilla/5.0 (X11; Linux x86_64)', 'x-forwarded-for': '<!here>, 203.0.113.5' },
+        headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': '<!channel> Mozilla/5.0 (X11; Linux x86_64)', 'x-forwarded-for': '<!here>, 203.0.113.5' },
         body: JSON.stringify(VALID),
       }))
       expect(response.status).toBe(403)
@@ -421,7 +447,7 @@ describe('POST /api/auth/login', () => {
     const wrong = () => mockSignIn.mockResolvedValue({ success: false, error: { kind: 'invalid_credentials', code: 'INVALID_LOGIN_CREDENTIALS' } })
     const from = (ip: string, body: object = VALID) => new Request('http://localhost/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'user-agent': CHROME_WIN, 'x-forwarded-for': ip },
+      headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': CHROME_WIN, 'x-forwarded-for': ip },
       body: JSON.stringify(body),
     })
     const slackMessages = () => vi.mocked(notifySlackFireAndForget).mock.calls.map((c) => c[0])

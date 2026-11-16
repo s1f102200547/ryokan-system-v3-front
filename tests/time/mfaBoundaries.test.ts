@@ -57,12 +57,12 @@ const jst = (iso: string) => Date.parse(`${iso}+09:00`)
 const at = (iso: string) => vi.setSystemTime(jst(iso))
 
 const login = () => LOGIN(new Request('http://localhost/api/auth/login', {
-  method: 'POST', headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME },
+  method: 'POST', headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': WINDOWS_CHROME },
   body: JSON.stringify({ email: 'pc1@example.com', password: 'pw1' }),
 }))
 const verify = (pendingId: string) => VERIFY(new Request('http://localhost/api/auth/login/verify', {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME, cookie: `mfa_pending=${pendingId}` },
+  headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': WINDOWS_CHROME, cookie: `mfa_pending=${pendingId}` },
   body: JSON.stringify({ code: '123456' }),
 }))
 async function verifyWithFreshPending(): Promise<Response> {

@@ -136,7 +136,7 @@ const ROWS: [string, Row][] = [
 
 function request(row: Row) {
   const pending = row.pending ?? 'ok'
-  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'user-agent': row.client === 'Linux' ? CHROME_LINUX : CHROME_WIN }
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': row.client === 'Linux' ? CHROME_LINUX : CHROME_WIN }
   if (pending !== 'Cookie なし') headers.cookie = `mfa_pending=${pending === '知らない ID' ? 'someone-else' : PENDING_ID}`
   if (pending !== '接続元なし') headers['x-forwarded-for'] = pending === 'IP 違い' || pending === '期限切れ・IP 違い' ? OTHER_IP : IP
   return new Request('http://localhost/api/auth/login/verify', { method: 'POST', headers, body: JSON.stringify({ code: '913274' }) })
@@ -157,7 +157,7 @@ async function arrange(row: Row) {
   vi.mocked(finalizePhoneMfa).mockResolvedValue({ success: false, error: { kind: 'invalid_code', code: 'INVALID_CODE' } })
   const seed = new Request('http://localhost/api/auth/login/verify', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'user-agent': CHROME_WIN, cookie: `mfa_pending=${PENDING_ID}`, ...(ip === null ? {} : { 'x-forwarded-for': ip }) },
+    headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': CHROME_WIN, cookie: `mfa_pending=${PENDING_ID}`, ...(ip === null ? {} : { 'x-forwarded-for': ip }) },
     body: JSON.stringify({ code: '000000' }),
   })
   for (let i = 0; i < failures; i++) await POST(seed.clone())

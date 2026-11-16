@@ -46,7 +46,7 @@ import { POST as VERIFY } from '@/app/api/auth/login/verify/route'
 const WINDOWS_CHROME = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
 
 const login = () => LOGIN(new Request('http://localhost/api/auth/login', {
-  method: 'POST', headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME }, body: JSON.stringify({ email: 'pc1@example.com', password: 'pw1' }),
+  method: 'POST', headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': WINDOWS_CHROME }, body: JSON.stringify({ email: 'pc1@example.com', password: 'pw1' }),
 }))
 const verify = async () => {
   await firestoreMfaPendingRepository.save('pending-1', {
@@ -54,7 +54,7 @@ const verify = async () => {
   })
   return VERIFY(new Request('http://localhost/api/auth/login/verify', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME, cookie: 'mfa_pending=pending-1' },
+    headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': WINDOWS_CHROME, cookie: 'mfa_pending=pending-1' },
     body: JSON.stringify({ code: '123456' }),
   }))
 }

@@ -85,7 +85,7 @@ describe('SMS の2要素目（本物の REST）', () => {
     const email = await createUser(false)
     const res = await LOGIN(new Request('http://localhost/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36' },
+      headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36' },
       body: JSON.stringify({ email, password: PASSWORD }),
     }))
     expect(res.status).toBe(403)
@@ -102,7 +102,7 @@ describe('SMS の2要素目（本物の REST）', () => {
       await new Promise((r) => setTimeout(r, 1100))
       const res = await LOGIN(new Request('http://localhost/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-forwarded-for': nextIp(), 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36' },
+        headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'x-forwarded-for': nextIp(), 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36' },
         body: JSON.stringify({ email, password: PASSWORD }),
       }))
       expect(res.status).toBe(200)
