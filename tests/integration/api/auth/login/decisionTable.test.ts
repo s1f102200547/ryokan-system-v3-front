@@ -76,7 +76,7 @@ type Row = {
 
 const MFA = { mfaRequired: true, phoneHint: '+81*******1234' }
 const TOO_MANY = { error: 'too_many_attempts', retryAfterSeconds: 60 }
-// 5xx の本文は経路で2通り（handleRouteError は internal server error、ID トークン・Session Cookie は server error）。F-08
+// 5xx の本文はどの経路でも internal server error（F-08 でそろえた。画面は本文を読まず同じ文言を出す）
 
 // 失敗の回数: 成功 = 0（記録を消す）/ 数えない（void）= 1 / 失敗 = 2 / 止まっている = 3（止めている間は数えない）
 const ROWS: [string, Row][] = [
@@ -129,10 +129,10 @@ const ROWS: [string, Row][] = [
     expected: { status: 401, body: { error: 'login_failed' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: 1, slack: ['ログイン拒否'] },
     note: 'F-07' }],
   ['enrolled_only: MFA なし・トークンの確認の障害 → 503', { mode: 'enrolled_only', password: 'MFA なし', idToken: '障害',
-    expected: { status: 503, body: { error: 'server error' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: 1, slack: ['ALERT'] },
+    expected: { status: 503, body: { error: 'internal server error' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: 1, slack: ['ALERT'] },
     note: 'F-07' }],
   ['enrolled_only: MFA なし・Session Cookie を作れない → 503', { mode: 'enrolled_only', password: 'MFA なし', session: '失敗',
-    expected: { status: 503, body: { error: 'server error' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: 1, slack: ['ALERT'] },
+    expected: { status: 503, body: { error: 'internal server error' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: 1, slack: ['ALERT'] },
     note: 'F-07' }],
   ['enrolled_only: パスワードが違う → 401、失敗に数える', { mode: 'enrolled_only', password: '違う',
     expected: { status: 401, body: { error: 'invalid_credentials' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: 2, slack: [] } }],

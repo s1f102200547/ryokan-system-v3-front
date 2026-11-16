@@ -126,7 +126,7 @@ async function issuePasswordOnlySession(
 ): Promise<NextResponse> {
   const decoded = await verifyLoginIdToken(idToken)
   if (!decoded.success) {
-    if (decoded.error.kind === 'unavailable') return NextResponse.json({ error: 'server error' }, { status: 503 })
+    if (decoded.error.kind === 'unavailable') return NextResponse.json({ error: 'internal server error' }, { status: 503 })
     // パスワードは合ったのに、トークンが無効（無効化の直後など）。ブラウザには理由を返さない。理由は Firebase のコードで Slack に残す
     return reject('password_only_token_rejected', 'login_failed', decoded.error.code, 401)
   }
