@@ -60,3 +60,34 @@ EM = `tests/emulator/mfaLogin.test.ts`、UL = `tests/unit/hooks/useLogin.test.ts
 | R32 | `mfaPending` の ID は Cookie の値の SHA-256。形の崩れたドキュメントはなかったものとして扱う | D | `tests/unit/infra/auth/firestoreMfaPendingRepository.test.ts`、`tests/emulator/mfaStores.test.ts`:22・37 | ○ |
 | R33 | `mfaSmsQuota` は送る前にトランザクションで1つ足す。`expireAt` は最後に書いてから2日 | D | `tests/emulator/mfaStores.test.ts`:45 | △ `expireAt` の値は S9 |
 | R34 | TTL ポリシー（`mfaPending.expireAt`・`mfaSmsQuota.expireAt`・`loginThrottle.expireAt`） | D, V | — | × クラウドの設定。S16 |
+
+## ログイン画面の状態遷移（S7、`src/hooks/auth/useLogin.ts`）
+
+状態: **P** パスワードの段 / **P…** 1段目を送っている（「ログイン中…」）/ **P🔒** パスワードの段で止められている /
+**C** コードの段（再送の待ちあり・なし）/ **C…** コードを確認中、または再送中 / **C🔒** コードの段で止められている / **→** ダッシュボードへ移っている（移り終わるまで「確認中…」）。
+テスト: `tests/unit/hooks/useLogin.stateMachine.test.ts`（表の全行）、`tests/unit/hooks/useLogin.test.ts`、`tests/unit/hooks/useLogin.boundaries.test.ts`
+
+| 元 | 出来事 | 先 | 画面に出すもの |
+|---|---|---|---|
+| P | login | P… | — |
+| P… | 200 `mfaRequired` | C（再送は30秒待ち） | 伏せ字の番号 |
+| P… | 200 `success`（SMS なしのログイン） | → | — |
+| P… | 401 `invalid_credentials` / `login_failed` | P | パスワードの誤り / 「ログインできませんでした」 |
+| P… | 429 `too_many_attempts` | P🔒 | 「あと M:SS」 |
+| P… | 429 `attempt_in_progress` | P…（最大5回、自動で送り直す）→ P | 「混み合っています」 |
+| P… | 429 `sms_limit` / 403（理由ごと）/ 5xx / 通信エラー / reCAPTCHA を読み込めない | P | 理由 |
+| P🔒 | 時間が来る | P | — |
+| C | verify | C… | — |
+| C… | 200 | → | — |
+| C… | 401 `invalid_code` | C | 「コードが正しくありません」 |
+| C… | 401 `mfa_expired` / `login_failed` | P | 期限切れ / 「ログインできませんでした」 |
+| C… | 429 `too_many_attempts` | C🔒 | 「あと M:SS」 |
+| C… | 403 / 5xx / 通信エラー | C | 理由 |
+| C | resend（待ちが0のとき） | C… → C（また30秒待ち） | 「コードを再送しました」 |
+| C… | 再送が 401・403・429 `sms_limit` | C | 理由（コードの段のまま。F-13） |
+| C🔒 | 時間が来る | C | — |
+| C / C🔒 | back | P / P🔒（止められている状態は残る） | エラーと知らせを消す |
+
+**送らない（何もしない）こと**: P🔒・C🔒 での login・verify・resend、C… での verify（**同じ描画の中で2回呼ぶと2回送る**: F-12）、再送の待ちの間の resend。
+**hook では止めず、画面のボタンで止めていること**: P… での login、C… での resend（F-11）。P での resend は、戻る前のメールアドレスとパスワードで1段目を送り直し、C へ移る（画面に再送のボタンがないので起きない）。
+**決まっていないこと**: reCAPTCHA の token が返らないとき、P… のまま戻らない（F-05）。
