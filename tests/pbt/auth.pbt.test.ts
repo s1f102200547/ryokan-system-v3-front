@@ -35,12 +35,23 @@ describe('describeError（ログ・Slack に載せる Google の説明の文）'
     }))
   })
 
-  // 仕様の言葉（電話番号・SMS のコードを伏せる）からは、区切りが「.」「()」でも、全角の数字でも伏せたい
-  it.fails('[F-16] 「.」「()」で区切った電話番号・全角の数字の電話番号も伏せる', () => {
-    for (const p of ['090.1234.5678', '(090)1234-5678', '０９０１２３４５６７８', '090 1234 5678']) {
+  // 区切りが「.」「()」でも、全角の数字でも伏せる（NFKC にしてから伏せる）
+  it('[F-16] 「.」「()」で区切った電話番号・全角の数字の電話番号も伏せる', () => {
+    for (const p of ['090.1234.5678', '(090)1234-5678', '０９０１２３４５６７８', '090 1234 5678', '＋８１ ９０-１２３４-５６７８', '(03) 1234.5678']) {
       const out = describeError(`INVALID_PHONE_NUMBER : ${p}`)
       expect(out.normalize('NFKC').replace(/\D/g, '').length).toBeLessThan(6)
     }
+  })
+
+  it('[F-16] 区切り（空白・- . ( )）と全角の数字をどう混ぜても、NFKC にした出力に6桁以上の数字が残らない', () => {
+    const digit = fc.constantFrom(...'0123456789０１２３４５６７８９'.split(''))
+    const sep = fc.constantFrom('', ' ', '-', '.', '(', ')', '－', '．', '（', '）')
+    const phone = fc.array(fc.tuple(digit, sep), { minLength: 6, maxLength: 15 }).map((a) => a.map(([d, s]) => d + s).join(''))
+    fc.assert(fc.property(phone, (p) => {
+      const out = describeError(`INVALID_PHONE_NUMBER : number ${p} rejected`)
+      // 数字が区切りをはさんで6つ以上つづく並びが残らない
+      expect(out.normalize('NFKC')).not.toMatch(/(?:\d[\s\-.()]*){6,}/)
+    }), { numRuns: 2000 })
   })
 })
 

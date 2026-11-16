@@ -39,12 +39,13 @@ const DESCRIPTION_MAX_LENGTH = 200
 
 // コードの後ろの、Google の説明の文（例: "INVALID_RECAPTCHA_TOKEN : localhost is not supported" の "localhost is not supported"）。
 // 原因を一度で突き止めるためにログ・Slack に載せる。値が混ざっても漏らさないよう、6桁以上の数字の並び（電話番号・SMS のコード）と
-// 32文字以上の英数字の並び（token・キー）を伏せ、200文字で切る。なければ空
+// 32文字以上の英数字の並び（token・キー）を伏せ、200文字で切る。なければ空。
+// 全角の数字も伏せるよう、先に NFKC で半角にする。数字の並びの区切りは、空白・ハイフンのほか「.」「(」「)」も（F-16）
 export function describeError(message: string): string {
-  const rest = message.slice(errorCode(message).length).replace(/^[\s:]+/, '')
+  const rest = message.slice(errorCode(message).length).replace(/^[\s:]+/, '').normalize('NFKC')
   return rest
     .replace(/[A-Za-z0-9_\-.]{32,}/g, '[…]')
-    .replace(/\+?\d[\d\s-]{4,}\d/g, (m) => (m.replace(/\D/g, '').length >= 6 ? '[…]' : m))
+    .replace(/\+?\(?\d[\d\s\-.()]{4,}\d/g, (m) => (m.replace(/\D/g, '').length >= 6 ? '[…]' : m))
     .slice(0, DESCRIPTION_MAX_LENGTH)
 }
 
