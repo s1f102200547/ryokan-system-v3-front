@@ -74,6 +74,8 @@ function request(url: string, body: object, h: { cookie: string | null; forwarde
   if (h.userAgent !== null) headers['user-agent'] = h.userAgent
   return new Request(url, { method: 'POST', headers, body: JSON.stringify(body) })
 }
+// 1回に数百通りを試す。単体では 2〜3 秒だが、npm run test で並列に流すと既定の 5 秒を超えることがある
+const FUZZ_TIMEOUT_MS = 30_000
 const slackKinds = () => vi.mocked(notifySlackFireAndForget).mock.calls.map(([m]) => /^\[([^\]]+)\]/.exec(String(m))?.[1])
 
 describe('ログインの API のヘッダーのファジング', () => {
@@ -95,7 +97,7 @@ describe('ログインの API のヘッダーのファジング', () => {
       expect(slackKinds().every((k) => k === 'ログイン拒否')).toBe(true)
       expect(vi.mocked(startPhoneMfa).mock.calls.length).toBe(res.status === 200 ? 1 : 0)
     }), { numRuns: 300 })
-  })
+  }, FUZZ_TIMEOUT_MS)
 
   let finalized = 0
   it('2段目: どんなヘッダーでも 5xx にならず、[ALERT] を出さない。コードを確かめるのは、本物の途中の状態の Cookie と、保存した接続元と同じ右端のときだけ', async () => {
@@ -120,5 +122,5 @@ describe('ログインの API のヘッダーのファジング', () => {
     }), { numRuns: 500 })
     // Firebase に送る組（本物の Cookie・同じ接続元）を十分に試したこと
     expect(finalized).toBeGreaterThan(20)
-  })
+  }, FUZZ_TIMEOUT_MS)
 })
