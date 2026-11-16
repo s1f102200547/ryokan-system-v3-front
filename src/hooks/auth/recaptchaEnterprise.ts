@@ -17,6 +17,8 @@ declare global {
 }
 
 const LOAD_TIMEOUT_MS = 10_000
+// 読み込んだ後の ready・execute の期限。どちらかが返らないと、ボタンが「ログイン中…」のまま戻らなかった（F-05）
+const EXECUTE_TIMEOUT_MS = 10_000
 let loading: Promise<Enterprise> | null = null
 
 function load(siteKey: string): Promise<Enterprise> {
@@ -50,7 +52,9 @@ export function createRecaptchaTokenGetter(siteKey: string): () => Promise<strin
   return async () => {
     const enterprise = await load(siteKey)
     return new Promise<string>((resolve, reject) => {
-      enterprise.ready(() => { enterprise.execute(siteKey, { action: MFA_RECAPTCHA_ACTION }).then(resolve, reject) })
+      const timer = setTimeout(() => reject(new Error('reCAPTCHA execute timeout')), EXECUTE_TIMEOUT_MS)
+      const settle = <T,>(fn: (v: T) => void) => (v: T) => { clearTimeout(timer); fn(v) }
+      enterprise.ready(() => { enterprise.execute(siteKey, { action: MFA_RECAPTCHA_ACTION }).then(settle(resolve), settle(reject)) })
     })
   }
 }

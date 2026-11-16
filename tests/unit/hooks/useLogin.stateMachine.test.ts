@@ -229,13 +229,23 @@ describe('useLogin の状態遷移', () => {
       expect(fetchMock).toHaveBeenCalledTimes(2)
     })
 
-    // 返らない token を待ち続け、「ログイン中…」から戻らない。パスワードも送らない
-    it.fails('[F-05] reCAPTCHA の token が返らないとき、しばらくして理由を出し、押せる状態に戻る', async () => {
-      const h = renderHook(() => useLogin({ getRecaptchaToken: () => new Promise<string>(() => {}) }))
+    // token が返らなくても、25秒（RECAPTCHA_TOKEN_TIMEOUT_MS）で理由を出してボタンを戻す。パスワードは送らない
+    it('[F-05] reCAPTCHA の token が返らないとき、25秒で理由を出し、押せる状態に戻る（パスワードは送らない）', async () => {
+      let token: () => Promise<string> = () => new Promise<string>(() => {})
+      const h = renderHook(() => useLogin({ getRecaptchaToken: () => token() }))
       act(() => { void h.result.current.login(credentials) })
-      await advance(60_000)
+      await advance(24_999)
+      expect(h.result.current.isPending).toBe(true)
+      await advance(1)
       expect(h.result.current.isPending).toBe(false)
-      expect(h.result.current.error).not.toBeNull()
+      expect(h.result.current.error).toBe('ブラウザの確認（reCAPTCHA）を読み込めませんでした。ページを読み込み直して、もう一度お試しください')
+      expect(fetchMock).not.toHaveBeenCalled()
+      // 同じ画面で押し直せる（送信中の印も戻っている）
+      token = async () => 'token'
+      fetchMock.mockResolvedValueOnce(MFA())
+      await act(async () => { await h.result.current.login(credentials) })
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(h.result.current.step).toBe('code')
     })
   })
 })

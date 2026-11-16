@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { MFA_RESEND_COOLDOWN_MS } from '@/constants/auth'
+import { MFA_RESEND_COOLDOWN_MS, RECAPTCHA_TOKEN_TIMEOUT_MS } from '@/constants/auth'
 
 type Credentials = { email: string; password: string }
 
@@ -102,9 +102,9 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
       let recaptchaToken: string | undefined
       if (getRecaptchaToken) {
         try {
-          recaptchaToken = await getRecaptchaToken()
+          recaptchaToken = await withTimeout(getRecaptchaToken(), RECAPTCHA_TOKEN_TIMEOUT_MS)
         } catch {
-          // Google の reCAPTCHA を読み込めない（回線・拡張機能が止めている）。パスワードはまだ送っていない
+          // Google の reCAPTCHA を読み込めない（回線・拡張機能が止めている）・返ってこない。パスワードはまだ送っていない
           setError('ブラウザの確認（reCAPTCHA）を読み込めませんでした。ページを読み込み直して、もう一度お試しください')
           return
         }
@@ -261,6 +261,14 @@ async function postWithBusyRetry(url: string, payload: object): Promise<Response
 function busyWaitMs(retryAfterSeconds: unknown): number {
   if (typeof retryAfterSeconds !== 'number' || !(retryAfterSeconds > 0)) return 1000
   return Math.min(retryAfterSeconds * 1000, MAX_BUSY_WAIT_MS)
+}
+
+// 期限までに終わらなければ reject（token を待ち続けて、ボタンが「ログイン中…」のまま戻らないのを防ぐ。F-05）
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout')), ms)
+    promise.then((v) => { clearTimeout(timer); resolve(v) }, (e: unknown) => { clearTimeout(timer); reject(e) })
+  })
 }
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
