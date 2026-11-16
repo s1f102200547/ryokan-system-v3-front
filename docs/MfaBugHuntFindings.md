@@ -38,7 +38,7 @@ unit だけの値: 分岐 85.6%（482/563）。Emulator だけの値: 61.7%（23
 | `src/hooks/auth/recaptchaEnterprise.ts` | 0/4 | すべて（unit なし。`e2e/prod/recaptcha.spec.ts` が読み込みの成功と失敗だけを通る）。読み込み済みの `grecaptcha` の再利用、`enterprise` がない、`ready`・`execute` が返らない（F-05） | S7、S14 |
 | `src/components/auth/LoginForm.tsx` | 0/26 | すべて（unit なし。E2E だけ） | S7、S14 |
 | `src/components/auth/MfaCodeInput.tsx` | 34/39 | 105: `onSelect` でカーソルを末尾に戻す（jsdom では起きない） | S14 |
-| `src/hooks/auth/useLogin.ts` | 91/93 | 120: `phoneHint` が空・文字列でない / 251: 自動の送り直しで `retryAfterSeconds` がない | S5 |
+| `src/hooks/auth/useLogin.ts` | 91/93 → 93/93（S5） | ~~120: `phoneHint` が空・文字列でない / 251: 自動の送り直しで `retryAfterSeconds` がない~~ S5 で通した | S5 |
 | `src/hooks/auth/fetchWithSession.ts` | 13/14 | 10: サーバー側で呼ばれたとき | 対象外（使われ方の確認だけ S11） |
 | `src/infra/auth/firestoreLoginThrottleRepository.ts` | 21/24 | 70・78・98: key が0個 | 対象外（`throttleKeys` は必ず2個） |
 | `src/infra/auth/firestoreSmsQuotaRepository.ts` | 3/4 | 27: 形の崩れた `mfaSmsQuota` のドキュメント | S9 |
@@ -50,3 +50,9 @@ unit だけの値: 分岐 85.6%（482/563）。Emulator だけの値: 61.7%（23
 | `src/lib/auth/verifySession.ts` | 16/17 | 18: オブジェクトでない例外 | S10 |
 
 ほかの対象（`startMfaCommand.ts`・`loginWithPasswordCommand.ts`・`mfaSignIn.ts`・`mfaPending.ts`・`smsQuota.ts`・`loginSession.ts`・`businessHours.ts` など）は、分岐をすべて通っている。
+
+## 範囲外（MFA と関係ないが、作業中に見つけたもの）
+
+| ステップ | 内容 | 再現 |
+|---|---|---|
+| S3、S5 | `npm run test -- --run` を通しで流すと、ときどき予約まわりの UI テストと PBT が 5秒のタイムアウトで落ちる（`GuestInfoSection.test.tsx`、`ReservationModal.test.tsx`、`tests/pbt/reservationData.pbt.test.ts`）。落ちる組み合わせは毎回違い、ファイルだけを流すと通る（PBT は 2.5秒）。そのときの load average は16〜18（16コア）。CI で同じことが起きるかは見ていない | 通しで2〜3回流す |
