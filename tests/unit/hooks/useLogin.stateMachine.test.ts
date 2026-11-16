@@ -173,8 +173,8 @@ describe('useLogin の状態遷移', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
     })
 
-    // 確認中かを state で見ているので、描画の前に2回呼ばれると2回送る（hook のコメント「確認中は送らない」に反する）
-    it.fails('[F-12] 同じ描画の中で verify を2回呼んでも、送るのは1回', async () => {
+    // 確認中かを ref で持つ（state だと、描画の前に2回呼ばれると2回送っていた）
+    it('[F-12] 同じ描画の中で verify を2回呼んでも、送るのは1回', async () => {
       const h = await atC()
       fetchMock.mockImplementation(never)
       act(() => {
@@ -183,6 +183,50 @@ describe('useLogin の状態遷移', () => {
       })
       await advance(0)
       expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('[F-11] 同じ描画の中で login を2回呼んでも、送るのは1回', async () => {
+      const h = atP()
+      fetchMock.mockImplementation(never)
+      act(() => {
+        void h.result.current.login(credentials)
+        void h.result.current.login(credentials)
+      })
+      await advance(0)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('[F-11] C…（確認中）に resend を呼んでも送らない', async () => {
+      const h = await atC()
+      fetchMock.mockImplementation(never)
+      act(() => {
+        void h.result.current.verify('123456')
+        void h.result.current.resend()
+      })
+      await advance(0)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(fetchMock.mock.calls[0][0]).toBe('/api/auth/login/verify')
+    })
+
+    it('[F-11] 再送中に verify を呼んでも送らない', async () => {
+      const h = await atC()
+      fetchMock.mockImplementation(never)
+      act(() => {
+        void h.result.current.resend()
+        void h.result.current.verify('123456')
+      })
+      await advance(0)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(fetchMock.mock.calls[0][0]).toBe('/api/auth/login')
+    })
+
+    it('失敗した後は、また送れる（送信中の印を戻す）', async () => {
+      const h = await atC()
+      fetchMock.mockResolvedValueOnce(json({ error: 'invalid_code' }, 401))
+      await act(async () => { await h.result.current.verify('111111') })
+      fetchMock.mockResolvedValueOnce(json({ error: 'invalid_code' }, 401))
+      await act(async () => { await h.result.current.verify('222222') })
+      expect(fetchMock).toHaveBeenCalledTimes(2)
     })
 
     // 返らない token を待ち続け、「ログイン中…」から戻らない。パスワードも送らない

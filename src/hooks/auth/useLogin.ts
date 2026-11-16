@@ -21,6 +21,9 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
   const [notice, setNotice] = useState<string | null>(null) // 「コードを再送しました」など、エラーでない知らせ
   // 再送のために、1段目で送ったメールアドレスとパスワードを持っておく（画面の入力欄にも残っている。サーバーには送り直すだけ）
   const credentialsRef = useRef<Credentials | null>(null)
+  // 送信中か（1段目・2段目・再送で共通）。state の isPending は描画の後にしか変わらないので、同じ描画の中で2回呼ばれると
+  // 2回送っていた（F-12・F-11）。ref はすぐ変わる。成功して画面が移るときは true のまま（hook ごと捨てられる）
+  const inFlightRef = useRef(false)
   // 失敗が続いて止められている（429 too_many_attempts）間は、画面のボタンを押せなくし、残りの時間を出す。
   // 時間が来たら自動で戻す。時間は PC の時計ではなく、受け取ってからの経過（performance.now）で数える（時計の巻き戻りに左右されない）。
   // 早く戻ってもサーバーがまだ止めていれば、また 429 になるだけ（止めている間の試行は数えないので、止める時間は延びない）
@@ -89,7 +92,8 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
 
   // 1段目。再送（resend）も同じ手順で送り直す
   const sendCredentials = async (credentials: Credentials, { isResend }: { isResend: boolean }) => {
-    if (isLocked) return
+    if (isLocked || inFlightRef.current) return
+    inFlightRef.current = true
     setIsPending(true)
     setError(null)
     setNotice(null)
@@ -138,7 +142,10 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
     } catch {
       setError('通信エラーが発生しました。ネットワーク接続を確認してください')
     } finally {
-      if (!succeeded) setIsPending(false)
+      if (!succeeded) {
+        inFlightRef.current = false
+        setIsPending(false)
+      }
     }
   }
 
@@ -148,7 +155,8 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
   // 移り終わるまで isPending のままにし、ボタンを押せない「確認中…」にしておく（画面が移ればこの hook ごと捨てられる）。
   // 返り値: 合っていたか（画面は、合わなければ入力欄を空にして打ち直させる）。確認中・止められている間は送らずに false
   const verify = async (code: string): Promise<boolean> => {
-    if (isLocked || isPending) return false
+    if (isLocked || inFlightRef.current) return false
+    inFlightRef.current = true
     setIsPending(true)
     setError(null)
     setNotice(null)
@@ -181,7 +189,10 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
     } catch {
       setError('通信エラーが発生しました。ネットワーク接続を確認してください')
     } finally {
-      if (!succeeded) setIsPending(false)
+      if (!succeeded) {
+        inFlightRef.current = false
+        setIsPending(false)
+      }
     }
     return false
   }
