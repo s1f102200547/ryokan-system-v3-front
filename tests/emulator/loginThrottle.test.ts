@@ -25,7 +25,7 @@ async function createUser(): Promise<string> {
 
 const login = (email: string, password: string, ip: string) => LOGIN(new Request('http://localhost/api/auth/login', {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME, 'x-forwarded-for': ip },
+  headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': WINDOWS_CHROME, 'x-forwarded-for': ip },
   body: JSON.stringify({ email, password }),
 }))
 // テストごとに別の IP（IP の回数がほかのテストに残らないように）
@@ -57,7 +57,8 @@ describe('ログインの失敗回数の制限（本物の REST と Firestore）
   it('間違いが3回で 429。正しいパスワードでも止まる。回数はメールアドレスのハッシュの ID で残る', async () => {
     const email = await createUser()
     const ip = nextIp()
-    for (let i = 0; i < 3; i++) expect((await login(email, 'wrong-password', ip)).status).toBe(401)
+    for (let i = 0; i < 2; i++) expect((await login(email, 'wrong-password', ip)).status).toBe(401)
+    expect((await login(email, 'wrong-password', ip)).status).toBe(429) // 止め始めた3回目は、その応答で 429（F-20）
     const locked = await login(email, PASSWORD, ip)
     expect(locked.status).toBe(429)
     expect(Number(locked.headers.get('retry-after'))).toBeGreaterThan(0)
@@ -72,11 +73,12 @@ describe('ログインの失敗回数の制限（本物の REST と Firestore）
   it('存在しないメールアドレスも、同じ 401 で同じように数える', async () => {
     const ip = nextIp()
     const email = `${RUN_ID}-nobody@example.com`
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       const res = await login(email, 'xxx', ip)
       expect(res.status).toBe(401)
       expect(await res.json()).toEqual({ error: 'invalid_credentials' })
     }
+    expect((await login(email, 'xxx', ip)).status).toBe(429) // 3回目で止め始める（F-20）
     expect((await login(email, 'xxx', ip)).status).toBe(429)
   })
 
@@ -106,8 +108,11 @@ describe('ログインの失敗回数の制限（本物の REST と Firestore）
     const email = await createUser()
     const ip = nextIp()
     const statuses = await Promise.all(Array.from({ length: 10 }, () => login(email, 'wrong-password', ip).then((r) => r.status)))
-    expect(statuses.filter((s) => s === 401)).toHaveLength(3)
-    expect(statuses.filter((s) => s === 429)).toHaveLength(7)
+    // 届いた3回のうち、止め始めた1回は 429 で返る（F-20）。確定した失敗が3回であることで、届いた回数を確かめる
+    expect(statuses.filter((s) => s === 401)).toHaveLength(2)
+    expect(statuses.filter((s) => s === 429)).toHaveLength(8)
+    const [state] = await firestoreLoginThrottleRepository.read([{ kind: 'email', value: email }])
+    expect(state?.failures).toBe(3)
   })
 
   it('札を外す: failure は数え、void は数えず、success は 0 に戻す（記録を消す）', async () => {

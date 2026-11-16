@@ -58,7 +58,7 @@ async function postWithBusyRetry<R extends Response>(send: () => Promise<R>): Pr
 type One = { loginStatus: number; loginRetries: number; loginMs: number; verifyStatus: number | null; verifyRetries: number; verifyMs: number; totalMs: number; error?: string }
 
 async function loginOnce(email: string, ip: string): Promise<One> {
-  const headers = { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME, 'x-forwarded-for': ip }
+  const headers = { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': WINDOWS_CHROME, 'x-forwarded-for': ip }
   const t0 = performance.now()
   const login = await postWithBusyRetry(() => LOGIN(new Request('http://localhost/api/auth/login', { method: 'POST', headers, body: JSON.stringify({ email, password: PASSWORD }) })))
   const t1 = performance.now()

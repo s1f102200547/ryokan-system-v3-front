@@ -103,7 +103,8 @@ export async function issueSession({ idToken, decoded, forwardedFor, userAgent, 
     // getUser・setCustomUserClaims・createSessionCookie は FirebaseError を throw する（InfraError ではない）
     logger.error('ログイン Session Cookie 作成失敗', { message: String(e) })
     notifySlackFireAndForget(`[ALERT] Session Cookie 作成失敗: ${String(e)}`)
-    return NextResponse.json({ error: 'server error' }, { status: 503 })
+    // 本文は handleRouteError と同じ（どこが壊れたかを外から見分けさせない。F-08）
+    return NextResponse.json({ error: 'internal server error' }, { status: 503 })
   }
 }
 

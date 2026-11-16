@@ -31,7 +31,9 @@ async function createUser(): Promise<{ email: string; uid: string }> {
 // ログインの Set-Cookie から属性を外す（対照実験）。session Cookie を発行するのは2段目（SMS のコードの確認）
 async function stripCookieAttribute(context: BrowserContext, attribute: RegExp) {
   await context.route(`${APP}/api/auth/login/verify`, async (route) => {
-    const response = await route.fetch()
+    // route.fetch は Playwright から送り直すので、ブラウザが付けた Sec-Fetch-Site が落ちる（allHeaders にも出ない）。
+    // 元はログイン画面（同じサイト）からの要求なので、same-origin を付け直す（ログインの API が求める。F-21）
+    const response = await route.fetch({ headers: { ...route.request().headers(), 'sec-fetch-site': 'same-origin' } })
     const headers = { ...response.headers() }
     headers['set-cookie'] = headers['set-cookie'].replace(attribute, '')
     await route.fulfill({ response, headers })

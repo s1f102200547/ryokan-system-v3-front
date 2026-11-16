@@ -56,7 +56,7 @@ describe('ログイン時の Session Cookie の期限', () => {
     })
     const res = await POST(new Request('http://localhost/api/auth/login/verify', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME, cookie: 'mfa_pending=pending-1' },
+      headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': WINDOWS_CHROME, cookie: 'mfa_pending=pending-1' },
       body: JSON.stringify({ code: '123456' }),
     }))
     expect(res.status).toBe(200)

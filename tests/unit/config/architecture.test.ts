@@ -75,12 +75,12 @@ describe('層の依存（AGENTS.md の表）', () => {
   const EXCEPTIONS: [from: RegExp, to: RegExp, why: string][] = [
     [/^domain\//, /^lib\/dateUtils$/, 'domain は lib/dateUtils だけ使ってよい'],
     [/^hooks\//, /^application\//, 'hooks は application の型だけ（下で typeOnly を確かめる）'],
-    // 記録 F-17: AGENTS.md の表は「infra は domain/ports だけ」。回数・通数の判定（純粋な domain の関数）を、
-    // Firestore のトランザクションの中で呼ぶ（読みと書きの間に割り込ませない）。表を直すか、ここを直すかは S19
+    // 回数・通数の判定（純粋な domain の関数）を、Firestore のトランザクションの中で呼ぶ（読みと書きの間に割り込ませない）。
+    // AGENTS.md の「既存の例外」に書いた（F-17）
     [/^infra\/auth\/firestoreLoginThrottleRepository\.ts$/, /^domain\/auth\/loginThrottle$/, 'F-17'],
     [/^infra\/auth\/firestoreSmsQuotaRepository\.ts$/, /^domain\/auth\/smsQuota$/, 'F-17'],
   ]
-  // 型だけの import は実行時に残らない。domain・domain/ports・application・types の型は、どの層から使ってもよい（記録 F-17: 表には書かれていない）
+  // 型だけの import は実行時に残らない。domain・domain/ports・application・types の型は、どの層から使ってもよい（AGENTS.md の「既存の例外」。F-17）
   const TYPE_ONLY_TARGETS = ['domain', 'domain/ports', 'application', 'types']
 
   const edges = FILES.flatMap((file) => importsOf(file).flatMap(({ spec, typeOnly }) => {

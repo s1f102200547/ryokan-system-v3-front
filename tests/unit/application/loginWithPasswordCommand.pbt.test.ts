@@ -23,6 +23,7 @@ import { signInWithPassword } from '@/infra/auth/passwordSignIn'
 import { firestoreLoginThrottleRepository } from '@/infra/auth/firestoreLoginThrottleRepository'
 import { loginWithPasswordCommand } from '@/application/auth/loginWithPasswordCommand'
 import { verifyMfaCodeCommand } from '@/application/auth/verifyMfaCodeCommand'
+import { finishLoginAttempt } from '@/application/auth/loginAttempt'
 import { finalizePhoneMfa } from '@/infra/auth/mfaSignIn'
 import { firestoreMfaPendingRepository } from '@/infra/auth/firestoreMfaPendingRepository'
 import type { createMemoryLoginThrottleRepository } from '@tests/utils/memoryLoginThrottleRepository'
@@ -94,8 +95,12 @@ describe('loginWithPasswordCommand と verifyMfaCodeCommand（1つのメール�
 
         const isCode = s.op === 'codeRight' || s.op === 'codeWrong'
         const run = isCode ? verifyCode(now) : loginWithPasswordCommand({ email: EMAIL, password: 'pw1', ip: IP, nowMs: now, passwordOnlyAllowed })
+        // Route の役目: 札が返ってきたら、Session Cookie を出せた（ここでは常に出せる）として結果を確定させる（F-07）
         const actual = await run
-          .then((r) => (r.success ? 'ok' : r.error.kind === 'rate_limited' ? `429:${r.error.retryAfterMs}` : '401'), () => '503')
+          .then(async (r) => {
+            if (r.success && r.value.attempt) await finishLoginAttempt(r.value.attempt, true)
+            return r.success ? 'ok' : r.error.kind === 'rate_limited' ? `429:${r.error.retryAfterMs}` : '401'
+          }, () => '503')
 
         // 模範
         let expected: string
@@ -117,7 +122,8 @@ describe('loginWithPasswordCommand と verifyMfaCodeCommand（1つのメール�
           failures += 1
           lastFailureAt = now
           lockedUntil = modelLockMs(failures) > 0 ? now + modelLockMs(failures) : 0
-          expected = s.op !== 'throttled' ? '401' : `429:${modelLockMs(failures) > 0 ? modelLockMs(failures) : 60_000}`
+          // 止め始めた失敗は、その応答で 429 と止める時間（F-20）。Firebase が止めたときは、こちらが止めていなければ 60秒
+          expected = modelLockMs(failures) > 0 ? `429:${modelLockMs(failures)}` : s.op !== 'throttled' ? '401' : '429:60000'
         }
         expect(actual, JSON.stringify({ s, now, failures, passwordOnlyAllowed })).toBe(expected)
         // 止めている間は Firebase に送らない
@@ -151,8 +157,8 @@ describe('パスワードを知る攻撃者が、パスワードとコードを�
       const r = await verifyCode(now + i * 2 + 1)
       results.push(r.success ? 'code-ok' : r.error.kind)
     }
-    // 3回目のコードの間違いで1分止まり、次はパスワードも確かめない
-    expect(results).toEqual(['pw-ok', 'invalid_code', 'pw-ok', 'invalid_code', 'pw-ok', 'invalid_code'])
+    // 3回目のコードの間違いで1分止まり（その応答で rate_limited。F-20）、次はパスワードも確かめない
+    expect(results).toEqual(['pw-ok', 'invalid_code', 'pw-ok', 'invalid_code', 'pw-ok', 'rate_limited'])
     const next = await loginWithPasswordCommand({ email: EMAIL, password: 'pw1', ip: IP, nowMs: now + 10, passwordOnlyAllowed: false })
     expect(next).toEqual({ success: false, error: { kind: 'rate_limited', retryAfterMs: 60_000 - 10 + 5 } })
   })

@@ -101,8 +101,8 @@ describe('createRecaptchaTokenGetter', () => {
     await expect(createRecaptchaTokenGetter(SITE_KEY)()).rejects.toThrow('network')
   })
 
-  // 読み込みには10秒の期限があるが、その後の ready・execute には期限がない。返らなければ、ログイン画面は「ログイン中…」のまま
-  it.fails.each<[string, Partial<Enterprise>]>([
+  // [F-05] ready・execute にも期限（10秒）。返らなければ失敗を返し、ログイン画面はボタンを戻す
+  it.each<[string, Partial<Enterprise>]>([
     ['ready が呼ばれない', { ready: () => {} }],
     ['execute が返らない', { execute: () => new Promise<string>(() => {}) }],
   ])('[F-05] %s → 30秒以内に失敗を返す', async (_label, overrides) => {
@@ -111,6 +111,6 @@ describe('createRecaptchaTokenGetter', () => {
     let settled = false
     createRecaptchaTokenGetter(SITE_KEY)().then(() => { settled = true }, () => { settled = true })
     await vi.advanceTimersByTimeAsync(30_000)
-    expect(settled).toBe(true) // 今は返らない（F-05）。直したら it.fails を外す
+    expect(settled).toBe(true)
   })
 })

@@ -100,7 +100,8 @@ describe('同じ IP（旅館の回線）の別アカウント', () => {
     const pc2 = await createUser()
     const ip = nextIp()
     const started = await startLogin(pc1.email, PASSWORD, { forwardedFor: ip })
-    for (let i = 0; i < 3; i++) expect((await verifyCode(started.pendingId!, wrongOf(started.code!), { forwardedFor: ip })).status).toBe(401)
+    for (let i = 0; i < 2; i++) expect((await verifyCode(started.pendingId!, wrongOf(started.code!), { forwardedFor: ip })).status).toBe(401)
+    expect((await verifyCode(started.pendingId!, wrongOf(started.code!), { forwardedFor: ip })).status).toBe(429) // 止め始めた3回目（F-20）
 
     const pc2Login = await startLogin(pc2.email, PASSWORD, { forwardedFor: ip })
     expect(pc2Login.res.status).toBe(429)
@@ -152,7 +153,7 @@ describe('同じアカウントに2台から', () => {
 describe('enrolled_only で電話を外したアカウント（F-04）', () => {
   const passwordLogin = (email: string) => LOGIN(new Request('http://localhost/api/auth/login', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME, 'x-forwarded-for': nextIp() },
+    headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': WINDOWS_CHROME, 'x-forwarded-for': nextIp() },
     body: JSON.stringify({ email, password: PASSWORD }),
   }))
 

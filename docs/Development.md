@@ -56,7 +56,7 @@ make            # Emulator 起動 → データ投入 → next dev。Ctrl+C で�
 2. GitHub の Variables に `MFA_MODE=enrolled_only` を入れ、このコードをデプロイする。スタッフのアカウントは何も変わらない（Slack の `[ログイン]` に `SMS なし` が付く）
 3. 開発者のアカウントにだけ `--phone` で電話を登録し、本番でログインして確かめる（本番のドメインで作った reCAPTCHA の token、`finalize` のコード、点数。[MfaUnverified.md](MfaUnverified.md) の 2）。だめなら `--remove` で開発者のアカウントの登録を外す（スタッフには影響しない）
 4. 確かめ終わったら、`--phone` でスタッフの全アカウントに登録し、`--list` で確かめる
-5. `MFA_MODE=all` にしてデプロイし直す（23:00〜6:00 の時間外に）。以後、電話を登録していないアカウントは入れない
+5. `MFA_MODE=all` にしてデプロイし直す（23:00〜6:00 の時間外に）。以後、電話を登録していないアカウントは入れない。`enrolled_only` の間にパスワードだけで受け取った Session Cookie も、`all` の版が動いた時点で使えなくなる（`verifySession` が2要素目を見る。昼にデプロイすると、SMS なしで入っていた PC はログイン画面に戻る）
 
 ### 本番データの匿名化（人だけが実行する）
 

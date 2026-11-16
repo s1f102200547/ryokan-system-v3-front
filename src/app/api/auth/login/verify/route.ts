@@ -4,21 +4,30 @@ import { notifySlackFireAndForget } from '@/lib/slack'
 import { buildLoginRejectedNotice, forwardedIps, type LoginRejection } from '@/lib/auth/loginNotice'
 import { describeUserAgent } from '@/lib/auth/userAgent'
 import { checkClient } from '@/lib/auth/clientCheck'
+import { checkLoginRequest } from '@/lib/auth/loginRequestGuard'
 import { hasPhoneSecondFactor } from '@/lib/auth/secondFactor'
 import { clearMfaPendingCookie, issueSession, verifyLoginIdToken } from '@/lib/auth/loginSession'
 import { isOutsideBusinessHours } from '@/lib/businessHours'
 import { MfaVerifyBodySchema } from '@/lib/api/loginSchema'
 import { handleRouteError, parseCookieValue } from '@/lib/api/routeHelpers'
 import { verifyMfaCodeCommand } from '@/application/auth/verifyMfaCodeCommand'
+import { finishLoginAttempt, type LoginAttemptHandle } from '@/application/auth/loginAttempt'
 import { MFA_PENDING_COOKIE } from '@/constants/auth'
 
 // ログインの2段目: SMS のコードを確かめ、Session Cookie を発行する。
 // ログイン前の API なので requireSession は使わない。代わりに、1段目で発行した途中の状態の Cookie（mfa_pending）を求める。
-// 順番: 時間帯 → コードの形 → 途中の状態（期限・接続元）→ 失敗回数 → コード → トークンの検証 → 2要素目を通ったトークンか → A → B → Cookie
+// 順番: 時間帯 → 送り元 → コードの形 → 途中の状態（期限・接続元）→ 失敗回数 → コード → トークンの検証 → 2要素目を通ったトークンか → A → B → Cookie
 export async function POST(request: Request) {
   if (process.env.NODE_ENV === 'production' && isOutsideBusinessHours()) {
     logger.warn('ログイン拒否: 時間外')
     return NextResponse.json({ error: 'outside_business_hours' }, { status: 403 })
+  }
+
+  // 他のサイトのページから送らせない（src/lib/auth/loginRequestGuard.ts）。誰でも送れる要求なので Slack には出さない。数えない
+  const origin = checkLoginRequest(request.headers)
+  if (!origin.success) {
+    logger.warn('ログイン拒否: 送り元', { reason: origin.error })
+    return NextResponse.json({ error: 'forbidden_request' }, { status: 403 })
   }
 
   const parsed = MfaVerifyBodySchema.safeParse(await request.json().catch(() => null))
@@ -34,7 +43,7 @@ export async function POST(request: Request) {
   const userAgent = request.headers.get('user-agent')
   const ip = forwardedIps(forwardedFor).at(-1) ?? null
 
-  let verified: { idToken: string; email: string }
+  let verified: { idToken: string; email: string; attempt: LoginAttemptHandle }
   try {
     const result = await verifyMfaCodeCommand({ pendingId, code: parsed.data.code, ip, nowMs: Date.now() })
     if (!result.success) {
@@ -61,9 +70,22 @@ export async function POST(request: Request) {
     return handleRouteError(e, 'ログイン（SMS のコード）')
   }
 
+  // コードは合った。失敗の回数を 0 に戻すのは Session Cookie を出せたときだけ（その後に断った・503 なら札を外すだけ。F-07）
+  let response: NextResponse | null = null
+  try {
+    response = await completeLogin(verified, forwardedFor, userAgent)
+    return response
+  } finally {
+    await finishLoginAttempt(verified.attempt, response?.status === 200)
+  }
+}
+
+// コードが合った後: トークンの検証 → 2要素目を通ったトークンか → 端末 → Session Cookie
+async function completeLogin(verified: { idToken: string; email: string }, forwardedFor: string | null, userAgent: string | null): Promise<NextResponse> {
+  // ここから先の障害（503）は mfaRestart: コードと途中の状態はもう使い終わっていて、打ち直しても通らない（F-02）
   const decoded = await verifyLoginIdToken(verified.idToken)
   if (!decoded.success) {
-    if (decoded.error.kind === 'unavailable') return NextResponse.json({ error: 'server error' }, { status: 503 })
+    if (decoded.error.kind === 'unavailable') return mfaRestart()
     // コードは合ったのに、トークンが無効（失効・無効化したアカウントなど）。途中の状態は使い終わっていて、打ち直しても通らない。
     // ブラウザには理由を返さない（アカウントを止めたことを攻撃者に教えない）。理由は Firebase のコードでログと Slack に残す
     notifyRejected('token_rejected', verified.email, forwardedFor, userAgent, decoded.error.code)
@@ -83,11 +105,19 @@ export async function POST(request: Request) {
     return clearMfaPendingCookie(NextResponse.json({ error: 'client_not_allowed' }, { status: 403 }))
   }
 
-  return issueSession({ idToken: verified.idToken, decoded: decoded.value, forwardedFor, userAgent })
+  const issued = await issueSession({ idToken: verified.idToken, decoded: decoded.value, forwardedFor, userAgent })
+  return issued.status === 503 ? mfaRestart() : issued
 }
 
 function mfaExpired(): NextResponse {
   return clearMfaPendingCookie(NextResponse.json({ error: 'mfa_expired' }, { status: 401 }))
+}
+
+// コードが合った後の障害（ID トークンの確認・Session Cookie の作成）。途中の状態はもう使えないので Cookie を消し、
+// 画面をパスワードの段に戻させる（前は コードの段のまま 503 を出し、打ち直しても mfa_expired になっていた。F-02）。
+// 画面の文言は 500・503 と同じ（監視の存在を見せない）。障害の通知は、それぞれの確認の中で済んでいる
+function mfaRestart(): NextResponse {
+  return clearMfaPendingCookie(NextResponse.json({ error: 'mfa_restart' }, { status: 503 }))
 }
 
 // account が null: 途中の状態を信じられない（接続元が違う）ので、アカウントは載せない

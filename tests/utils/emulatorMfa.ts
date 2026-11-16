@@ -44,7 +44,7 @@ type Headers = { userAgent?: string; forwardedFor?: string }
 
 function headersOf({ userAgent = WINDOWS_CHROME, forwardedFor }: Headers, cookie?: string): Record<string, string> {
   return {
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin',
     'user-agent': userAgent,
     ...(forwardedFor ? { 'x-forwarded-for': forwardedFor } : {}),
     ...(cookie ? { cookie } : {}),

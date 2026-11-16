@@ -30,7 +30,7 @@ const clear = async () => {
   for (const c of ['loginThrottle', 'mfaPending', 'mfaSmsQuota']) await adminDb.recursiveDelete(adminDb.collection(c))
 }
 const loginRequest = (email: string, password: string, ip: string) => LOGIN(new Request('http://localhost/api/auth/login', {
-  method: 'POST', headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME, 'x-forwarded-for': ip },
+  method: 'POST', headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': WINDOWS_CHROME, 'x-forwarded-for': ip },
   body: JSON.stringify({ email, password }),
 }))
 const guestInfo = (cookie: string) => GUEST_INFO(new Request('http://localhost/api/guest-info?date=2026-05-20', { headers: { cookie } }))
@@ -54,7 +54,7 @@ describe('パスワードの段を飛ばす', () => {
   ])('途中の状態の Cookie を作って（%s）コードを送っても 401 mfa_expired。Firestore に何も残さない', async (_label, forged) => {
     const res = await VERIFY(new Request('http://localhost/api/auth/login/verify', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'user-agent': WINDOWS_CHROME, 'x-forwarded-for': nextIp(), cookie: `mfa_pending=${forged}` },
+      headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': WINDOWS_CHROME, 'x-forwarded-for': nextIp(), cookie: `mfa_pending=${forged}` },
       body: JSON.stringify({ code: '123456' }),
     }))
     expect(res.status).toBe(401)
@@ -108,17 +108,18 @@ describe('途中の状態の Cookie は、ログインの代わりにならな�
 })
 
 describe('MFA_MODE を enrolled_only から all に戻したとき', () => {
-  // enrolled_only の間にパスワードだけで受け取った Session Cookie は、all に戻した後も、期限（当日 23:00）まで使える。
-  // セッションの確認（verifySession）は2要素目を通ったかを見ない。Development.md は、all への切り替えを時間外（23:00〜6:00）に行う手順
-  it('enrolled_only で出した SMS なしの Session Cookie は、all に戻しても、期限まで画面の API に通る（記録 F-18）', async () => {
+  // [F-18] enrolled_only の間にパスワードだけで受け取った Session Cookie は、all に戻した時点で使えなくなる
+  // （verifySession が all のときは2要素目を通ったかを見る）。enrolled_only の間は使える
+  it('[F-18] enrolled_only で出した SMS なしの Session Cookie は、enrolled_only の間は通り、all に戻すと未ログイン', async () => {
     vi.stubEnv('MFA_MODE', 'enrolled_only')
     const email = await createUser(false)
     const res = await loginRequest(email, PASSWORD, nextIp())
     expect(res.status).toBe(200)
     const session = res.cookies.get('session')?.value ?? ''
 
-    vi.stubEnv('MFA_MODE', 'all')
     expect(await verifySession(session)).not.toBeNull()
+    vi.stubEnv('MFA_MODE', 'all')
+    expect(await verifySession(session)).toBeNull()
     const decoded = await adminAuth.verifySessionCookie(session, true)
     expect(decoded.firebase.sign_in_second_factor).toBeUndefined()
   })

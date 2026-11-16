@@ -1,6 +1,8 @@
 import { adminAuth } from '@/lib/firebase/admin'
 import { InfraError } from '@/types/errors'
 import { SESSION_AUTH_TIME_CLAIM } from '@/constants/auth'
+import { currentMfaMode } from '@/lib/auth/mfaMode'
+import { hasPhoneSecondFactor } from '@/lib/auth/secondFactor'
 
 // Session Cookie そのものが無効なことを表すコード（未ログインとして 401 にする）
 const INVALID_SESSION_CODES = new Set([
@@ -36,6 +38,9 @@ export async function verifySession(
 
   try {
     const decoded = await adminAuth.verifySessionCookie(cookieValue, true)
+    // MFA_MODE=all なら、2要素目（SMS）を通った Cookie だけ。enrolled_only の間にパスワードだけで受け取った Cookie を、
+    // all に戻した後に期限（当日 23:00）まで使わせない（F-18）。Firebase に問い合わせる前に断る
+    if (currentMfaMode() === 'all' && !hasPhoneSecondFactor(decoded)) return null
     // 1アカウント1セッション。ログイン API がユーザーのクレームに、最後のログインの時刻（auth_time）を書いている。
     // 新しいログインがあると時刻が変わるので、前のセッションの Cookie は合わなくなる。クレームがなければ閉じる側に倒す
     const user = await adminAuth.getUser(decoded.uid)

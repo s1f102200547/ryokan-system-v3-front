@@ -76,7 +76,7 @@ type Row = {
 
 const MFA = { mfaRequired: true, phoneHint: '+81*******1234' }
 const TOO_MANY = { error: 'too_many_attempts', retryAfterSeconds: 60 }
-// 5xx の本文は経路で2通り（handleRouteError は internal server error、ID トークン・Session Cookie は server error）。F-08
+// 5xx の本文はどの経路でも internal server error（F-08 でそろえた。画面は本文を読まず同じ文言を出す）
 
 // 失敗の回数: 成功 = 0（記録を消す）/ 数えない（void）= 1 / 失敗 = 2 / 止まっている = 3（止めている間は数えない）
 const ROWS: [string, Row][] = [
@@ -103,14 +103,14 @@ const ROWS: [string, Row][] = [
     expected: { status: 429, body: TOO_MANY, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: 2, slack: [] } }],
   ['all: パスワードの確認の障害 → 503、数えない', { mode: 'all', password: '障害',
     expected: { status: 503, body: { error: 'internal server error' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: 1, slack: ['ALERT'] } }],
-  ['all: Firebase が SMS を止めた → 429', { mode: 'all', password: 'MFA あり', start: 'throttled',
-    expected: { status: 429, body: TOO_MANY, mfaCookie: 'なし', sessionCookie: false, smsSent: true, smsCount: '未定', failures: 1, slack: [] },
-    note: 'F-01（送れなかった SMS を通数に数えるか）' }],
-  ['all: reCAPTCHA の token を断られた → 403', { mode: 'all', password: 'MFA あり', start: 'recaptcha_rejected', token: true,
-    expected: { status: 403, body: { error: 'recaptcha_failed' }, mfaCookie: 'なし', sessionCookie: false, smsSent: true, smsCount: '未定', failures: 1, slack: ['ログイン拒否'] },
+  ['all: Firebase が SMS を止めた → 429、通数は戻す', { mode: 'all', password: 'MFA あり', start: 'throttled',
+    expected: { status: 429, body: TOO_MANY, mfaCookie: 'なし', sessionCookie: false, smsSent: true, smsCount: 0, failures: 1, slack: [] },
+    note: 'F-01（数えるのは送れた SMS）' }],
+  ['all: reCAPTCHA の token を断られた → 403、通数は戻す', { mode: 'all', password: 'MFA あり', start: 'recaptcha_rejected', token: true,
+    expected: { status: 403, body: { error: 'recaptcha_failed' }, mfaCookie: 'なし', sessionCookie: false, smsSent: true, smsCount: 0, failures: 1, slack: ['ログイン拒否'] },
     note: 'F-01' }],
-  ['all: SMS の送信の障害 → 503', { mode: 'all', password: 'MFA あり', start: '障害',
-    expected: { status: 503, body: { error: 'internal server error' }, mfaCookie: 'なし', sessionCookie: false, smsSent: true, smsCount: '未定', failures: 1, slack: ['ALERT'] },
+  ['all: SMS の送信の障害 → 503、通数は戻す', { mode: 'all', password: 'MFA あり', start: '障害',
+    expected: { status: 503, body: { error: 'internal server error' }, mfaCookie: 'なし', sessionCookie: false, smsSent: true, smsCount: 0, failures: 1, slack: ['ALERT'] },
     note: 'F-01' }],
   ['all: 今日の SMS が上限 → 429 sms_limit、送らない', { mode: 'all', pre: 'SMS 上限', password: 'MFA あり',
     expected: { status: 429, body: { error: 'sms_limit' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: MFA_SMS_DAILY_LIMIT + 1, failures: 1, slack: ['SMS 上限'] } }],
@@ -123,16 +123,16 @@ const ROWS: [string, Row][] = [
   ['enrolled_only: MFA なし → SMS なしで Session Cookie、失敗の回数を 0 に', { mode: 'enrolled_only', password: 'MFA なし',
     expected: { status: 200, body: { success: true }, mfaCookie: '消す', sessionCookie: true, smsSent: false, smsCount: 0, failures: 0, slack: ['ログイン'] } }],
   ['enrolled_only: MFA なし・Linux → 端末で断る', { mode: 'enrolled_only', password: 'MFA なし', client: 'Linux',
-    expected: { status: 403, body: { error: 'client_not_allowed' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: '未定', slack: ['ログイン拒否'] },
-    note: 'F-07（断ったのに失敗の回数を 0 に戻す）' }],
+    expected: { status: 403, body: { error: 'client_not_allowed' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: 1, slack: ['ログイン拒否'] },
+    note: 'F-07（0 に戻すのは Session Cookie を出せたときだけ）' }],
   ['enrolled_only: MFA なし・トークンが無効 → 401 login_failed', { mode: 'enrolled_only', password: 'MFA なし', idToken: '無効',
-    expected: { status: 401, body: { error: 'login_failed' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: '未定', slack: ['ログイン拒否'] },
+    expected: { status: 401, body: { error: 'login_failed' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: 1, slack: ['ログイン拒否'] },
     note: 'F-07' }],
   ['enrolled_only: MFA なし・トークンの確認の障害 → 503', { mode: 'enrolled_only', password: 'MFA なし', idToken: '障害',
-    expected: { status: 503, body: { error: 'server error' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: '未定', slack: ['ALERT'] },
+    expected: { status: 503, body: { error: 'internal server error' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: 1, slack: ['ALERT'] },
     note: 'F-07' }],
   ['enrolled_only: MFA なし・Session Cookie を作れない → 503', { mode: 'enrolled_only', password: 'MFA なし', session: '失敗',
-    expected: { status: 503, body: { error: 'server error' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: '未定', slack: ['ALERT'] },
+    expected: { status: 503, body: { error: 'internal server error' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: 1, slack: ['ALERT'] },
     note: 'F-07' }],
   ['enrolled_only: パスワードが違う → 401、失敗に数える', { mode: 'enrolled_only', password: '違う',
     expected: { status: 401, body: { error: 'invalid_credentials' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: 0, failures: 2, slack: [] } }],
@@ -143,7 +143,7 @@ const ROWS: [string, Row][] = [
 function request(body: object, userAgent: string) {
   return new Request('http://localhost/api/auth/login', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'user-agent': userAgent },
+    headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': userAgent },
     body: JSON.stringify(body),
   })
 }
@@ -224,6 +224,8 @@ describe('/api/auth/login のデシジョンテーブル', () => {
       expect(throttle.states.get(`email:${EMAIL}`)?.failures ?? 0).toBe(e.failures)
       expect(throttle.states.get('ip:unknown')?.failures ?? 0).toBe(e.failures) // IP も同じに数える
     }
+    // 試行中の札は、どの行でも応答までに外している（Session Cookie を出した後に外す行も。F-07）
+    expect([...throttle.states.values()].every((st) => st.pending.length === 0)).toBe(true)
 
     const kinds = vi.mocked(notifySlackFireAndForget).mock.calls.map(([m]) => /^\[([^\]]+)\]/.exec(String(m))?.[1])
     expect(kinds).toEqual(e.slack)

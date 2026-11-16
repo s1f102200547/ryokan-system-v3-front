@@ -76,7 +76,8 @@ describe('SMS の2要素目（本物の REST）', () => {
     const ip = nextIp()
     const started = await startLogin(email, PASSWORD, { forwardedFor: ip })
     const wrong = started.code === '000000' ? '111111' : '000000'
-    for (let i = 0; i < 3; i++) expect((await verifyCode(started.pendingId!, wrong, { forwardedFor: ip })).status).toBe(401)
+    for (let i = 0; i < 2; i++) expect((await verifyCode(started.pendingId!, wrong, { forwardedFor: ip })).status).toBe(401)
+    expect((await verifyCode(started.pendingId!, wrong, { forwardedFor: ip })).status).toBe(429) // 止め始めた3回目（F-20）
     expect((await verifyCode(started.pendingId!, started.code!, { forwardedFor: ip })).status).toBe(429)
     expect((await startLogin(email, PASSWORD, { forwardedFor: ip })).res.status).toBe(429)
   })
@@ -85,7 +86,7 @@ describe('SMS の2要素目（本物の REST）', () => {
     const email = await createUser(false)
     const res = await LOGIN(new Request('http://localhost/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36' },
+      headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36' },
       body: JSON.stringify({ email, password: PASSWORD }),
     }))
     expect(res.status).toBe(403)
@@ -102,7 +103,7 @@ describe('SMS の2要素目（本物の REST）', () => {
       await new Promise((r) => setTimeout(r, 1100))
       const res = await LOGIN(new Request('http://localhost/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-forwarded-for': nextIp(), 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36' },
+        headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'x-forwarded-for': nextIp(), 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36' },
         body: JSON.stringify({ email, password: PASSWORD }),
       }))
       expect(res.status).toBe(200)

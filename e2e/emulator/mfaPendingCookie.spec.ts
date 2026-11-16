@@ -30,7 +30,9 @@ async function passwordStep(page: Page) {
 // 対照実験: 1段目の応答の Set-Cookie を書き換える
 async function rewritePendingCookie(context: BrowserContext, rewrite: (setCookie: string) => string) {
   await context.route(`${APP}/api/auth/login`, async (route) => {
-    const response = await route.fetch()
+    // route.fetch は Playwright から送り直すので、ブラウザが付けた Sec-Fetch-Site が落ちる（allHeaders にも出ない）。
+    // 元はログイン画面（同じサイト）からの要求なので、same-origin を付け直す（ログインの API が求める。F-21）
+    const response = await route.fetch({ headers: { ...route.request().headers(), 'sec-fetch-site': 'same-origin' } })
     const headers = { ...response.headers() }
     headers['set-cookie'] = rewrite(headers['set-cookie'] ?? '')
     await route.fulfill({ response, headers })

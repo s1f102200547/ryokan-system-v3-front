@@ -32,7 +32,7 @@ async function call(handler: unknown, path: string, method: string, params: Reco
   const request = new Request(`http://localhost${path}`, {
     method,
     // mfa_pending: verify が Firestore の途中の状態まで読むように（知らない ID）
-    headers: { 'Content-Type': 'application/json', cookie: 'session=emulator-test; mfa_pending=emutest-unknown-pending' },
+    headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', cookie: 'session=emulator-test; mfa_pending=emutest-unknown-pending' },
     body: method === 'GET' ? undefined : (rawBody ?? ''),
   })
   return (handler as Handler)(request, { params: Promise.resolve(params) })

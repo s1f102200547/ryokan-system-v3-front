@@ -90,6 +90,38 @@ export function describeSmsQuotaContract({ name, repo, reset, prefix }: Setup<Sm
       await repo.consume(`${prefix}-d@example.com`, '2026-11-16')
       expect((await repo.consume(`${prefix}-e@example.com`, '2026-11-16')).next.count).toBe(1)
     })
+
+    // [F-01] 送れなかった分を戻す
+    it('refund で1通戻す。戻した後の consume は戻した数から数える', async () => {
+      const email = `${prefix}-f@example.com`
+      for (let i = 0; i < 3; i++) await repo.consume(email, '2026-11-16')
+      await repo.refund(email, '2026-11-16')
+      expect((await repo.consume(email, '2026-11-16')).next.count).toBe(3)
+    })
+
+    it('上限まで使っても、戻せばもう1通送れる', async () => {
+      const email = `${prefix}-g@example.com`
+      for (let i = 0; i < MFA_SMS_DAILY_LIMIT; i++) await repo.consume(email, '2026-11-16')
+      await repo.refund(email, '2026-11-16')
+      expect((await repo.consume(email, '2026-11-16')).allowed).toBe(true)
+      expect((await repo.consume(email, '2026-11-16')).allowed).toBe(false)
+    })
+
+    it('記録がない・前の日の記録なら、refund は何もしない（0 より下げない・前の日を書き換えない）', async () => {
+      await repo.refund(`${prefix}-h@example.com`, '2026-11-16')
+      expect((await repo.consume(`${prefix}-h@example.com`, '2026-11-16')).next.count).toBe(1)
+      const email = `${prefix}-i@example.com`
+      await repo.consume(email, '2026-11-15')
+      await repo.refund(email, '2026-11-16')
+      expect((await repo.consume(email, '2026-11-15')).next.count).toBe(2)
+    })
+
+    it('同時に consume と refund が重なっても、数がずれない', async () => {
+      const email = `${prefix}-j@example.com`
+      for (let i = 0; i < 5; i++) await repo.consume(email, '2026-11-16')
+      await Promise.all([...Array.from({ length: 3 }, () => repo.refund(email, '2026-11-16')), ...Array.from({ length: 2 }, () => repo.consume(email, '2026-11-16'))])
+      expect((await repo.consume(email, '2026-11-16')).next.count).toBe(5) // 5 - 3 + 2 + 1
+    })
   })
 }
 
