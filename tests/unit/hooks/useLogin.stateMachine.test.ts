@@ -92,6 +92,7 @@ describe('useLogin の状態遷移', () => {
       ['429 too_many_attempts → C🔒', () => json({ error: 'too_many_attempts', retryAfterSeconds: 60 }, 429), { step: 'code', isLocked: true }],
       ['403 client_not_allowed → C', () => json({ error: 'client_not_allowed' }, 403), { step: 'code', isPending: false, error: 'この PC もしくはブラウザからはログインできません。' }],
       ['503 → C', () => json({}, 503), { step: 'code', isPending: false, error: 'サービスが一時的に利用できません。しばらくお待ちください' }],
+      ['503 mfa_restart → P（コードは使い終わった後の障害。F-02）', () => json({ error: 'mfa_restart' }, 503), { step: 'credentials', isPending: false, pushed: false, error: 'サービスが一時的に利用できません。しばらくしてから、もう一度ログインしてください' }],
     ])('%s', async (_name, response, expected) => {
       const h = await atC()
       fetchMock.mockResolvedValueOnce(response())

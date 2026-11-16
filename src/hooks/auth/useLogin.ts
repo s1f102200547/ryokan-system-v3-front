@@ -185,6 +185,12 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
         setError('ログインできませんでした。もう一度ログインしてください')
         return false
       }
+      if (response.status === 503 && body.error === 'mfa_restart') {
+        // コードは合ったが、その後の障害でログインを終えられなかった。途中の状態はもう使えないので、パスワードからやり直す（F-02）
+        setStep('credentials')
+        setError('サービスが一時的に利用できません。しばらくしてから、もう一度ログインしてください')
+        return false
+      }
       if (response.status === 401) {
         setError(resentRef.current ? `コードが正しくありません。${LATEST_CODE_HINT}` : 'コードが正しくありません')
         return false

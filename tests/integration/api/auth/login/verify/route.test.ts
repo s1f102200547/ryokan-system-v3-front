@@ -319,7 +319,9 @@ describe('POST /api/auth/login/verify', () => {
       mockVerifyIdToken.mockRejectedValue({ code: 'auth/internal-error', message: 'Firebase down' })
       const response = await POST(makeRequest())
       expect(response.status).toBe(503)
-      expect(await response.json()).toEqual({ error: 'server error' })
+      // コードはもう使い終わっているので、途中の状態の Cookie を消してパスワードからやり直させる（F-02）
+      expect(await response.json()).toEqual({ error: 'mfa_restart' })
+      expect(response.cookies.get('mfa_pending')?.value).toBe('')
     })
   })
 
@@ -388,11 +390,13 @@ describe('POST /api/auth/login/verify', () => {
     it.each([
       ['ユーザーが読めない', () => mockGetUser.mockRejectedValue(new Error('Auth down'))],
       ['クレームが書けない', () => mockSetCustomUserClaims.mockRejectedValue(new Error('Auth down'))],
-    ])('%s なら 503 で Cookie を返さない（Slack に通知）', async (_label, fail) => {
+    ])('%s なら 503 mfa_restart で Session Cookie を返さず、途中の状態の Cookie を消す（Slack に通知）', async (_label, fail) => {
       fail()
       const response = await POST(makeRequest())
       expect(response.status).toBe(503)
-      expect(response.headers.get('set-cookie')).toBeNull()
+      expect(await response.json()).toEqual({ error: 'mfa_restart' })
+      expect(response.cookies.get('session')).toBeUndefined()
+      expect(response.cookies.get('mfa_pending')?.value).toBe('')
       expect(mockCreateSessionCookie).not.toHaveBeenCalled()
       expect(slackMessages()[0]).toMatch(/^\[ALERT\]/)
     })

@@ -69,9 +69,10 @@ export async function POST(request: Request) {
     return handleRouteError(e, 'ログイン（SMS のコード）')
   }
 
+  // ここから先の障害（503）は mfaRestart: コードと途中の状態はもう使い終わっていて、打ち直しても通らない（F-02）
   const decoded = await verifyLoginIdToken(verified.idToken)
   if (!decoded.success) {
-    if (decoded.error.kind === 'unavailable') return NextResponse.json({ error: 'server error' }, { status: 503 })
+    if (decoded.error.kind === 'unavailable') return mfaRestart()
     // コードは合ったのに、トークンが無効（失効・無効化したアカウントなど）。途中の状態は使い終わっていて、打ち直しても通らない。
     // ブラウザには理由を返さない（アカウントを止めたことを攻撃者に教えない）。理由は Firebase のコードでログと Slack に残す
     notifyRejected('token_rejected', verified.email, forwardedFor, userAgent, decoded.error.code)
@@ -91,11 +92,19 @@ export async function POST(request: Request) {
     return clearMfaPendingCookie(NextResponse.json({ error: 'client_not_allowed' }, { status: 403 }))
   }
 
-  return issueSession({ idToken: verified.idToken, decoded: decoded.value, forwardedFor, userAgent })
+  const issued = await issueSession({ idToken: verified.idToken, decoded: decoded.value, forwardedFor, userAgent })
+  return issued.status === 503 ? mfaRestart() : issued
 }
 
 function mfaExpired(): NextResponse {
   return clearMfaPendingCookie(NextResponse.json({ error: 'mfa_expired' }, { status: 401 }))
+}
+
+// コードが合った後の障害（ID トークンの確認・Session Cookie の作成）。途中の状態はもう使えないので Cookie を消し、
+// 画面をパスワードの段に戻させる（前は コードの段のまま 503 を出し、打ち直しても mfa_expired になっていた。F-02）。
+// 画面の文言は 500・503 と同じ（監視の存在を見せない）。障害の通知は、それぞれの確認の中で済んでいる
+function mfaRestart(): NextResponse {
+  return clearMfaPendingCookie(NextResponse.json({ error: 'mfa_restart' }, { status: 503 }))
 }
 
 // account が null: 途中の状態を信じられない（接続元が違う）ので、アカウントは載せない

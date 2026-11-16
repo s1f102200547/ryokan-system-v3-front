@@ -118,9 +118,9 @@ const ROWS: [string, Row][] = [
   // --- コードが合った後
   ['ID トークンが無効 → 401 login_failed、Slack にコード', { idToken: '無効',
     expected: { status: 401, body: { error: 'login_failed' }, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 0, slack: ['ログイン拒否'], slackAccount: EMAIL } }],
-  ['ID トークンの確認の障害 → 503', { idToken: '障害',
-    expected: { status: 503, body: { error: 'server error' }, mfaCookie: 'そのまま', sessionCookie: false, pendingLeft: false, finalized: true, failures: 0, slack: ['ALERT'] },
-    note: 'F-02（途中の状態は消えたが、Cookie は残る）' }],
+  ['ID トークンの確認の障害 → 503 mfa_restart、途中の状態の Cookie を消す（F-02）', { idToken: '障害',
+    expected: { status: 503, body: { error: 'mfa_restart' }, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 0, slack: ['ALERT'] },
+    note: 'F-02（途中の状態も Cookie も消し、画面はパスワードの段へ）' }],
   ['2要素目を通っていない → 403 no_second_factor', { secondFactor: 'なし',
     expected: { status: 403, body: { error: 'no_second_factor' }, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 0, slack: ['ログイン拒否'], slackAccount: EMAIL } }],
   ['2要素目を通っていない・トークンに email がない → Slack は途中の状態のアカウント', { secondFactor: 'なし', emailInToken: false,
@@ -129,8 +129,8 @@ const ROWS: [string, Row][] = [
     expected: { status: 403, body: { error: 'client_not_allowed' }, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 0, slack: ['ログイン拒否'], slackAccount: EMAIL } }],
   ['Linux・トークンに email がない → Slack は途中の状態のアカウント', { client: 'Linux', emailInToken: false,
     expected: { status: 403, body: { error: 'client_not_allowed' }, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 0, slack: ['ログイン拒否'], slackAccount: EMAIL } }],
-  ['Session Cookie を作れない → 503', { session: '失敗',
-    expected: { status: 503, body: { error: 'server error' }, mfaCookie: 'そのまま', sessionCookie: false, pendingLeft: false, finalized: true, failures: 0, slack: ['ALERT'] },
+  ['Session Cookie を作れない → 503 mfa_restart、途中の状態の Cookie を消す（F-02）', { session: '失敗',
+    expected: { status: 503, body: { error: 'mfa_restart' }, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 0, slack: ['ALERT'] },
     note: 'F-02' }],
 ]
 
