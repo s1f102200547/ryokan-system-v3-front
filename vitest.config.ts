@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config'
 import path from 'path'
+import { AUTH_COVERAGE_TARGETS } from './vitest.coverageTargets'
 
 export default defineConfig({
   test: {
@@ -14,6 +15,13 @@ export default defineConfig({
       FIRESTORE_EMULATOR_HOST: '127.0.0.1:1',
       FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:1',
       FIREBASE_PROJECT_ID: 'demo-test',
+    },
+    // --coverage のときだけ（npm run coverage:auth）。普段の npm run test では測らない
+    coverage: {
+      provider: 'v8',
+      include: AUTH_COVERAGE_TARGETS,
+      reporter: ['text', 'json'],
+      reportsDirectory: 'coverage/unit',
     },
   },
   resolve: {
