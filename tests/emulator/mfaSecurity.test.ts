@@ -108,17 +108,18 @@ describe('途中の状態の Cookie は、ログインの代わりにならな�
 })
 
 describe('MFA_MODE を enrolled_only から all に戻したとき', () => {
-  // enrolled_only の間にパスワードだけで受け取った Session Cookie は、all に戻した後も、期限（当日 23:00）まで使える。
-  // セッションの確認（verifySession）は2要素目を通ったかを見ない。Development.md は、all への切り替えを時間外（23:00〜6:00）に行う手順
-  it('enrolled_only で出した SMS なしの Session Cookie は、all に戻しても、期限まで画面の API に通る（記録 F-18）', async () => {
+  // [F-18] enrolled_only の間にパスワードだけで受け取った Session Cookie は、all に戻した時点で使えなくなる
+  // （verifySession が all のときは2要素目を通ったかを見る）。enrolled_only の間は使える
+  it('[F-18] enrolled_only で出した SMS なしの Session Cookie は、enrolled_only の間は通り、all に戻すと未ログイン', async () => {
     vi.stubEnv('MFA_MODE', 'enrolled_only')
     const email = await createUser(false)
     const res = await loginRequest(email, PASSWORD, nextIp())
     expect(res.status).toBe(200)
     const session = res.cookies.get('session')?.value ?? ''
 
-    vi.stubEnv('MFA_MODE', 'all')
     expect(await verifySession(session)).not.toBeNull()
+    vi.stubEnv('MFA_MODE', 'all')
+    expect(await verifySession(session)).toBeNull()
     const decoded = await adminAuth.verifySessionCookie(session, true)
     expect(decoded.firebase.sign_in_second_factor).toBeUndefined()
   })
