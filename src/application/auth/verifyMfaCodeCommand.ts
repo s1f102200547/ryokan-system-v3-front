@@ -61,6 +61,8 @@ export async function verifyMfaCodeCommand(input: VerifyInput): Promise<Result<{
   if (finalized.error.kind === 'throttled') {
     return { success: false, error: { kind: 'rate_limited', retryAfterMs: lockMs > 0 ? lockMs : FIREBASE_THROTTLED_RETRY_MS } }
   }
+  // この誤りで止め始めたなら、その場で伝える（F-20）。401 のままだと、4回目の正しいコードが 429 で断られて見える
+  if (lockMs > 0) return { success: false, error: { kind: 'rate_limited', retryAfterMs: lockMs } }
   return { success: false, error: { kind: 'invalid_code' } }
 }
 

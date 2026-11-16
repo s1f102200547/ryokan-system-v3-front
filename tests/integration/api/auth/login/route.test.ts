@@ -474,9 +474,14 @@ describe('POST /api/auth/login', () => {
       expect(slackMessages()).toEqual([])
     })
 
-    it('3回目の失敗で、メールアドレスと IP の両方を1分止め、Slack に知らせる。止めている間は REST に送らず 429', async () => {
+    // [F-20] 止め始めた3回目の応答で 429 と残りの時間を返す（401 のままだと、次の正しいパスワードが断られて理由が分からない）
+    it('3回目の失敗で、メールアドレスと IP の両方を1分止め、Slack に知らせ、その応答で 429。止めている間は REST に送らず 429', async () => {
       wrong()
-      for (let i = 0; i < 3; i++) expect((await POST(from('203.0.113.5'))).status).toBe(401)
+      for (let i = 0; i < 2; i++) expect((await POST(from('203.0.113.5'))).status).toBe(401)
+      const third = await POST(from('203.0.113.5'))
+      expect(third.status).toBe(429)
+      expect(await third.json()).toEqual({ error: 'too_many_attempts', retryAfterSeconds: 1 * MIN })
+      expect(third.headers.get('retry-after')).toBe('60')
       expect(slackMessages()).toEqual([
         '[ログイン制限] アカウント pc1@example.com / 3回続けて失敗 / 1分止める',
         '[ログイン制限] IP 203.0.113.5 / 3回続けて失敗 / 1分止める',
@@ -501,7 +506,7 @@ describe('POST /api/auth/login', () => {
 
       vi.advanceTimersByTime(30_000)
       mockSignIn.mockClear()
-      expect((await POST(from('203.0.113.5'))).status).toBe(401) // 4回目の失敗
+      expect((await POST(from('203.0.113.5'))).status).toBe(429) // 4回目の失敗（止め始めたので 429）
       expect(mockSignIn).toHaveBeenCalledTimes(1)
       expect(slackMessages().at(-2)).toBe('[ログイン制限] アカウント pc1@example.com / 4回続けて失敗 / 5分止める')
     })
@@ -518,9 +523,10 @@ describe('POST /api/auth/login', () => {
 
     it('IP ごとにも数える: 同じ IP から別のアドレスを順に試しても、3回で止まる', async () => {
       wrong()
-      for (const email of ['a@example.com', 'b@example.com', 'c@example.com']) {
+      for (const email of ['a@example.com', 'b@example.com']) {
         expect((await POST(from('203.0.113.5', { email, password: 'xxx' }))).status).toBe(401)
       }
+      expect((await POST(from('203.0.113.5', { email: 'c@example.com', password: 'xxx' }))).status).toBe(429) // IP の3回目で止め始める
       expect((await POST(from('203.0.113.5', { email: 'd@example.com', password: 'xxx' }))).status).toBe(429)
       expect((await POST(from('198.51.100.7', { email: 'd@example.com', password: 'xxx' }))).status).toBe(401) // 別の IP なら試せる
     })

@@ -130,7 +130,7 @@
 | `pending` | `{ id, expiresAt }[]` | 試行中の札。外し忘れても `expiresAt`（15秒後）で無効になる。札を入れる前のドキュメントにはない（空として読む） |
 | `expireAt` | Timestamp | TTL 用（最後の失敗か最後に書いた時刻 + 25時間）。Firestore の TTL ポリシーをこのフィールドに設定する |
 
-確かめる前に「試行中の札」（`pending`）を出し（`acquire`）、確かめ終わったら外して結果を確定させる（`complete`）。札は次に止める段までの残りの回数までしか出さない（同時の試行ですり抜けない）。判定は `domain/auth/loginThrottle.ts` の `acquireAll`・`completeAttempt`。
+確かめる前に「試行中の札」（`pending`）を出し（`acquire`）、確かめ終わったら外して結果を確定させる（`complete`）。札は次に止める段までの残りの回数までしか出さない（同時の試行ですり抜けない）。判定は `domain/auth/loginThrottle.ts` の `acquireAll`・`completeAttempt`。止め始めた失敗（3回目など）は、その応答で 429 と止める時間を返す（401 にしない。次の正しい試行が理由なく断られて見えるため。F-20）。
 
 形が違うドキュメントは、なかったものとして扱う（止めない側に倒し、次の失敗で書き直す）。
 

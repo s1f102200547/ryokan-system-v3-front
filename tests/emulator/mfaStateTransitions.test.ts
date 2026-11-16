@@ -100,7 +100,8 @@ describe('同じ IP（旅館の回線）の別アカウント', () => {
     const pc2 = await createUser()
     const ip = nextIp()
     const started = await startLogin(pc1.email, PASSWORD, { forwardedFor: ip })
-    for (let i = 0; i < 3; i++) expect((await verifyCode(started.pendingId!, wrongOf(started.code!), { forwardedFor: ip })).status).toBe(401)
+    for (let i = 0; i < 2; i++) expect((await verifyCode(started.pendingId!, wrongOf(started.code!), { forwardedFor: ip })).status).toBe(401)
+    expect((await verifyCode(started.pendingId!, wrongOf(started.code!), { forwardedFor: ip })).status).toBe(429) // 止め始めた3回目（F-20）
 
     const pc2Login = await startLogin(pc2.email, PASSWORD, { forwardedFor: ip })
     expect(pc2Login.res.status).toBe(429)

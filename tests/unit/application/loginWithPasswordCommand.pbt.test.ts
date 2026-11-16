@@ -117,7 +117,8 @@ describe('loginWithPasswordCommand と verifyMfaCodeCommand（1つのメール�
           failures += 1
           lastFailureAt = now
           lockedUntil = modelLockMs(failures) > 0 ? now + modelLockMs(failures) : 0
-          expected = s.op !== 'throttled' ? '401' : `429:${modelLockMs(failures) > 0 ? modelLockMs(failures) : 60_000}`
+          // 止め始めた失敗は、その応答で 429 と止める時間（F-20）。Firebase が止めたときは、こちらが止めていなければ 60秒
+          expected = modelLockMs(failures) > 0 ? `429:${modelLockMs(failures)}` : s.op !== 'throttled' ? '401' : '429:60000'
         }
         expect(actual, JSON.stringify({ s, now, failures, passwordOnlyAllowed })).toBe(expected)
         // 止めている間は Firebase に送らない
@@ -151,8 +152,8 @@ describe('パスワードを知る攻撃者が、パスワードとコードを�
       const r = await verifyCode(now + i * 2 + 1)
       results.push(r.success ? 'code-ok' : r.error.kind)
     }
-    // 3回目のコードの間違いで1分止まり、次はパスワードも確かめない
-    expect(results).toEqual(['pw-ok', 'invalid_code', 'pw-ok', 'invalid_code', 'pw-ok', 'invalid_code'])
+    // 3回目のコードの間違いで1分止まり（その応答で rate_limited。F-20）、次はパスワードも確かめない
+    expect(results).toEqual(['pw-ok', 'invalid_code', 'pw-ok', 'invalid_code', 'pw-ok', 'rate_limited'])
     const next = await loginWithPasswordCommand({ email: EMAIL, password: 'pw1', ip: IP, nowMs: now + 10, passwordOnlyAllowed: false })
     expect(next).toEqual({ success: false, error: { kind: 'rate_limited', retryAfterMs: 60_000 - 10 + 5 } })
   })

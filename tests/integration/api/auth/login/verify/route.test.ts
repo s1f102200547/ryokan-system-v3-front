@@ -221,9 +221,13 @@ describe('POST /api/auth/login/verify', () => {
       expect((await POST(makeRequest())).status).toBe(200)
     })
 
-    it('3回目の誤りで、メールアドレスと IP を1分止め、Slack に知らせる。止めている間は Firebase に送らず 429', async () => {
+    // [F-20] 止め始めた3回目の応答で 429（401 のままだと、4回目の正しいコードが断られて見える）
+    it('3回目の誤りで、メールアドレスと IP を1分止め、Slack に知らせ、その応答で 429。止めている間は Firebase に送らず 429', async () => {
       wrongCode()
-      for (let i = 0; i < 3; i++) expect((await POST(makeRequest())).status).toBe(401)
+      for (let i = 0; i < 2; i++) expect((await POST(makeRequest())).status).toBe(401)
+      const third = await POST(makeRequest())
+      expect(third.status).toBe(429)
+      expect(await third.json()).toEqual({ error: 'too_many_attempts', retryAfterSeconds: 60 })
       expect(slackMessages()).toEqual([
         '[ログイン制限] アカウント pc1@example.com / 3回続けて失敗 / 1分止める',
         '[ログイン制限] IP 203.0.113.5 / 3回続けて失敗 / 1分止める',

@@ -76,7 +76,8 @@ describe('SMS の2要素目（本物の REST）', () => {
     const ip = nextIp()
     const started = await startLogin(email, PASSWORD, { forwardedFor: ip })
     const wrong = started.code === '000000' ? '111111' : '000000'
-    for (let i = 0; i < 3; i++) expect((await verifyCode(started.pendingId!, wrong, { forwardedFor: ip })).status).toBe(401)
+    for (let i = 0; i < 2; i++) expect((await verifyCode(started.pendingId!, wrong, { forwardedFor: ip })).status).toBe(401)
+    expect((await verifyCode(started.pendingId!, wrong, { forwardedFor: ip })).status).toBe(429) // 止め始めた3回目（F-20）
     expect((await verifyCode(started.pendingId!, started.code!, { forwardedFor: ip })).status).toBe(429)
     expect((await startLogin(email, PASSWORD, { forwardedFor: ip })).res.status).toBe(429)
   })

@@ -103,8 +103,8 @@ const ROWS: [string, Row][] = [
   // --- コードの確認
   ['コードが違う → 401 invalid_code、途中の状態は残り、失敗に数える', { finalize: '誤',
     expected: { status: 401, body: { error: 'invalid_code' }, mfaCookie: 'そのまま', sessionCookie: false, pendingLeft: true, finalized: true, failures: 2, slack: [] } }],
-  ['コードが違って3回目 → 401 invalid_code、止め始めて Slack', { pre: 2, finalize: '誤',
-    expected: { status: 401, body: { error: 'invalid_code' }, mfaCookie: 'そのまま', sessionCookie: false, pendingLeft: true, finalized: true, failures: 3, slack: ['ログイン制限', 'ログイン制限'] } }],
+  ['コードが違って3回目 → 止め始めて Slack、その応答で 429（F-20）', { pre: 2, finalize: '誤',
+    expected: { status: 429, body: TOO_MANY, mfaCookie: 'そのまま', sessionCookie: false, pendingLeft: true, finalized: true, failures: 3, slack: ['ログイン制限', 'ログイン制限'] } }],
   ['Firebase がコードの期限切れを返した → 401 mfa_expired、数えない', { finalize: '期限切れ',
     expected: { status: 401, body: EXPIRED, mfaCookie: '消す', sessionCookie: false, pendingLeft: false, finalized: true, failures: 1, slack: [] } }],
   ['Firebase が止めた → 429（こちらはまだ止めていない: 60秒）、失敗に数える', { finalize: 'throttled',

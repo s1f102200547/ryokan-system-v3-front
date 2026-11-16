@@ -55,5 +55,7 @@ export async function loginWithPasswordCommand(input: LoginInput): Promise<Resul
   if (signIn.error.kind === 'firebase_throttled') {
     return { success: false, error: { kind: 'rate_limited', retryAfterMs: lockMs > 0 ? lockMs : FIREBASE_THROTTLED_RETRY_MS } }
   }
+  // この失敗で止め始めたなら、その場で伝える（F-20）。401 を返すと、次の試行が正しくても 429 で断られ、スタッフには理由が分からない
+  if (lockMs > 0) return { success: false, error: { kind: 'rate_limited', retryAfterMs: lockMs } }
   return { success: false, error: { kind: 'invalid_credentials' } }
 }
