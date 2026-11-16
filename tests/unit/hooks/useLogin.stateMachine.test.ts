@@ -65,6 +65,7 @@ describe('useLogin の状態遷移', () => {
       ['429 too_many_attempts → P🔒', () => json({ error: 'too_many_attempts', retryAfterSeconds: 60 }, 429), { step: 'credentials', isLocked: true }],
       ['429 sms_limit → P', () => json({ error: 'sms_limit' }, 429), { step: 'credentials', isLocked: false, error: '今日の SMS の送信回数の上限に達しました。管理者に連絡してください' }],
       ['403 mfa_not_enrolled → P', () => json({ error: 'mfa_not_enrolled' }, 403), { step: 'credentials', error: 'このアカウントは SMS の確認が設定されていません。管理者に連絡してください' }],
+      ['403 closing_soon → P（22:55 以降。F-10）', () => json({ error: 'closing_soon' }, 403), { step: 'credentials', error: '23:00 が近いため、今日はもうログインできません（ログインは 22:55 まで）' }],
       ['503 → P', () => json({}, 503), { step: 'credentials', isPending: false, error: 'サービスが一時的に利用できません。しばらくお待ちください' }],
     ])('%s', async (_name, response, expected) => {
       const h = atP()

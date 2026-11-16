@@ -7,14 +7,14 @@ import { checkClient } from '@/lib/auth/clientCheck'
 import { checkLoginRequest } from '@/lib/auth/loginRequestGuard'
 import { issueSession, setMfaPendingCookie, verifyLoginIdToken } from '@/lib/auth/loginSession'
 import { currentMfaMode } from '@/lib/auth/mfaMode'
-import { isOutsideBusinessHours } from '@/lib/businessHours'
+import { isLoginClosingSoon, isOutsideBusinessHours } from '@/lib/businessHours'
 import { LoginBodySchema } from '@/lib/api/loginSchema'
 import { handleRouteError } from '@/lib/api/routeHelpers'
 import { loginWithPasswordCommand } from '@/application/auth/loginWithPasswordCommand'
 import { startMfaCommand } from '@/application/auth/startMfaCommand'
 
 // ログインの1段目: パスワードを確かめ、登録済みの電話に SMS のコードを送る。Session Cookie は2段目（./verify）で発行する。
-// 順番: 時間帯 → 送り元 → 長さ → 失敗回数 → パスワード → 端末・ブラウザ（A）→ 2要素目の登録 → SMS の通数 → SMS の送信。
+// 順番: 時間帯（22:55 以降も断る）→ 送り元 → 長さ → 失敗回数 → パスワード → 端末・ブラウザ（A）→ 2要素目の登録 → SMS の通数 → SMS の送信。
 // MFA_MODE=enrolled_only のときだけ、電話を登録していないアカウントは「2要素目の登録」のところで Session Cookie を出して終わる
 export async function POST(request: Request) {
   // 本番は時間外のログインを断る。画面は proxy.ts で時間外に開けないが、API を直接呼ぶと
@@ -22,6 +22,11 @@ export async function POST(request: Request) {
   if (process.env.NODE_ENV === 'production' && isOutsideBusinessHours()) {
     logger.warn('ログイン拒否: 時間外')
     return NextResponse.json({ error: 'outside_business_hours' }, { status: 403 })
+  }
+  // 22:55〜23:00 は新しく SMS を送らない（コードを打つ前に時間外になる。F-10）。パスワードも確かめず、数えない
+  if (process.env.NODE_ENV === 'production' && isLoginClosingSoon()) {
+    logger.warn('ログイン拒否: 終了の直前')
+    return NextResponse.json({ error: 'closing_soon' }, { status: 403 })
   }
 
   // 他のサイトのページから送らせない（src/lib/auth/loginRequestGuard.ts）。誰でも送れる要求なので Slack には出さない。数えない

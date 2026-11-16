@@ -39,7 +39,7 @@ vi.mock('@/lib/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: 
 vi.mock('@/lib/slack', () => ({ notifySlackFireAndForget: vi.fn() }))
 import { adminAuth } from '@/lib/firebase/admin'
 import { notifySlackFireAndForget } from '@/lib/slack'
-import { finalizePhoneMfa, startPhoneMfa } from '@/infra/auth/mfaSignIn'
+import { startPhoneMfa } from '@/infra/auth/mfaSignIn'
 import { firestoreMfaPendingRepository } from '@/infra/auth/firestoreMfaPendingRepository'
 import type { createMemoryMfaPendingRepository } from '@tests/utils/memoryMfaRepositories'
 import { POST as LOGIN } from '@/app/api/auth/login/route'
@@ -87,11 +87,12 @@ describe('SMS の2要素目の時刻の境界', () => {
   })
 
   it.each([
-    ['05:59:59.999', 403], ['06:00:00.000', 200], ['22:59:59.999', 200], ['23:00:00.000', 403],
-  ] as const)('ログインの1段目・2段目: JST %s → %i（ミリ秒の境目）', async (time, status) => {
+    ['05:59:59.999', 403, 403], ['06:00:00.000', 200, 200], ['22:54:59.999', 200, 200], ['22:55:00.000', 403, 200],
+    ['22:59:59.999', 403, 200], ['23:00:00.000', 403, 403],
+  ] as const)('ログインの1段目・2段目: JST %s → %i・%i（ミリ秒の境目。22:55 からは1段目だけ断る: F-10）', async (time, first, second) => {
     at(`2026-05-20T${time}`)
-    expect((await login()).status).toBe(status)
-    expect((await verifyWithFreshPending()).status).toBe(status)
+    expect((await login()).status).toBe(first)
+    expect((await verifyWithFreshPending()).status).toBe(second)
   })
 
   it.each([
@@ -100,22 +101,27 @@ describe('SMS の2要素目の時刻の境界', () => {
     expect(isOutsideApiHours(jst(`2026-05-20T${time}`))).toBe(outside)
   })
 
-  // 22:59 にパスワードを通すと SMS は届くが、23:00 を過ぎたコードは断る。途中の状態は期限（5分）まで残る
-  it('1段目が 22:59:59、2段目が 23:00:01 → SMS は送ったが、コードは 403 outside_business_hours（コードを確かめない）', async () => {
+  // [F-10] 22:55 からは SMS を送らない（前は 22:59 に送った SMS のコードが 23:00 を過ぎて断られ、1通無駄になっていた）
+  it('[F-10] 22:59:59 の1段目は 403 closing_soon で、SMS を送らない', async () => {
     at('2026-05-20T22:59:59.000')
     const first = await login()
-    expect(first.status).toBe(200)
-    expect(startPhoneMfa).toHaveBeenCalledTimes(1)
-    const pendingId = first.cookies.get('mfa_pending')?.value ?? ''
+    expect(first.status).toBe(403)
+    expect(await first.json()).toEqual({ error: 'closing_soon' })
+    expect(startPhoneMfa).not.toHaveBeenCalled()
+    expect(first.cookies.get('mfa_pending')).toBeUndefined()
+  })
 
-    at('2026-05-20T23:00:01.000')
-    const second = await verify(pendingId)
-    expect(second.status).toBe(403)
-    expect(await second.json()).toEqual({ error: 'outside_business_hours' })
-    expect(finalizePhoneMfa).not.toHaveBeenCalled()
-    expect(adminAuth.createSessionCookie).not.toHaveBeenCalled()
-    expect(pendings.items.size).toBe(1) // 消さない（期限で消える）
-    expect(notifySlackFireAndForget).not.toHaveBeenCalled()
+  // 22:55 より前に送った SMS の途中の状態は、23:00 までに期限（5分）が来る。23:00 を過ぎてから使える途中の状態は残らない
+  it('[F-10] 22:54:59.999 に送った SMS のコードは 23:00 の前まで使え、途中の状態は 23:00 までに切れる', async () => {
+    at('2026-05-20T22:54:59.999')
+    const first = await login()
+    expect(first.status).toBe(200)
+    const pendingId = first.cookies.get('mfa_pending')?.value ?? ''
+    const [saved] = [...pendings.items.values()]
+    expect(saved.expiresAtMs).toBeLessThanOrEqual(jst('2026-05-20T23:00:00.000'))
+
+    at('2026-05-20T22:59:59.000')
+    expect((await verify(pendingId)).status).toBe(200)
   })
 
   // Session Cookie は当日 23:00 まで（最短5分）。22:55 以降のログインは最長 23:05 まで生き、ほかの API の時間帯（23:05 まで）に収まる

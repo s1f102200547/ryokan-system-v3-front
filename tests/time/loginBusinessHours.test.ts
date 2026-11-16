@@ -72,7 +72,7 @@ describe('ログイン API の時間帯制限', () => {
   })
 
   it.each([
-    ['00:00', 403], ['05:59', 403], ['06:00', 200], ['22:59', 200], ['23:00', 403], ['23:59', 403],
+    ['00:00', 403], ['05:59', 403], ['06:00', 200], ['22:54', 200], ['23:00', 403], ['23:59', 403],
   ] as const)('production: JST %s → %i', async (time, status) => {
     vi.stubEnv('NODE_ENV', 'production')
     setNowJST(`2026-05-20T${time}`)
@@ -86,6 +86,19 @@ describe('ログイン API の時間帯制限', () => {
       expect(adminAuth.createSessionCookie).not.toHaveBeenCalled()
       expect(notifySlackFireAndForget).not.toHaveBeenCalled()
     }
+  })
+
+  // [F-10] 22:55〜23:00 は1段目（SMS を送る）だけ断る。2段目（22:55 より前に届いたコード）は 23:00 まで受け付ける
+  it.each(['22:55', '22:57', '22:59'])('production: JST %s → 1段目は 403 closing_soon（パスワードを確かめず SMS も送らない）、2段目は 200', async (time) => {
+    vi.stubEnv('NODE_ENV', 'production')
+    setNowJST(`2026-05-20T${time}`)
+    const first = await login()
+    expect(first.status).toBe(403)
+    expect(await first.json()).toEqual({ error: 'closing_soon' })
+    expect(signInWithPassword).not.toHaveBeenCalled()
+    expect(startPhoneMfa).not.toHaveBeenCalled()
+    expect(notifySlackFireAndForget).not.toHaveBeenCalled()
+    expect((await verify()).status).toBe(200)
   })
 
   it('development は時間外でもログインできる', async () => {

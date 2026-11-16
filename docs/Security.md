@@ -119,7 +119,7 @@
 - ログイン前の API（`/api/auth/login`・`/api/auth/login/verify`）の、他サイトからの送信の禁止: `Content-Type: application/json` と `Sec-Fetch-Site: same-origin` の要求だけを受け付け、それ以外は 403（数えない。Slack に出さない）。SameSite=Strict の Session Cookie はログイン前の API を守らないため、罠のページから旅館の PC にパスワードを送らせ、フロントの電話に SMS を送らせることができた（[MfaBugHuntFindings.md](MfaBugHuntFindings.md) F-21。`src/lib/auth/loginRequestGuard.ts`）
 - セッション Cookie の、JavaScript からの読み取りと他サイトからの送信の禁止（Emulator の E2E で、属性を外すと読める・送られることの対照実験つきで確認。Secure は本番だけで付くことを integration で確認）
 - セッションの期限の、当日の 23:00 まで（22:55 以降のログインは Firebase の最低値の 5 分後まで）への限定
-- 営業時間外の、ログインの拒否と、ログイン以外の API の拒否（ログインと画面は 23:00 から、ほかの API は 23:05 から 6:00 まで。API はセッションを確かめる前に 403）
+- 営業時間外の、ログインの拒否と、ログイン以外の API の拒否（ログインと画面は 23:00 から、ほかの API は 23:05 から 6:00 まで。API はセッションを確かめる前に 403。ログインの1段目は 22:55 から断り、SMS を送らない）
 - Windowsの Chrome・Edge 以外からの、ログインの拒否
 - 指定できる日付の範囲の、過去 100 日・未来 365 日への限定（返すのはその日に関係する予約だけ）
 - 宿泊税の一覧の、今月・先月への限定と、表に出す項目だけの返却
