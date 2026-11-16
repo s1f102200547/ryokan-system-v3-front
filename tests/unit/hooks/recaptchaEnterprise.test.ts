@@ -6,7 +6,7 @@ import { MFA_RECAPTCHA_ACTION, RECAPTCHA_ENTERPRISE_SCRIPT_URL } from '@/constan
 // 本物の Google には繋がない。script の読み込みは、足された <script> の onload・onerror を手で呼んで作る
 
 type Enterprise = { ready(cb: () => void): void; execute(key: string, opts: { action: string }): Promise<string> }
-const SITE_KEY = '6Ldi8xwuAAAAAOPV8MlkljionzTDwYq2eke07CUF'
+const SITE_KEY = 'test-site-key-000000000000000000000000000'
 
 // モジュールの中の「読み込み中」を、テストごとに空にする
 async function load() {

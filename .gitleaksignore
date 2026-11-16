@@ -3,3 +3,10 @@
 
 # 以前の ci.yml の E2E 用のダミー値（dummy-api-key-for-e2e）。本物の API キーではない
 24c618be641b62e6f4e9e1a53888d7a53533e545:.github/workflows/ci.yml:generic-api-key:106
+
+# 履歴に残るテストのダミー値（2026-11-16 に置き換えた。今のコードにはない）。
+# identityToolkit.test.ts: URL エンコードを確かめるための値 key/with+chars。本物の API キーではない
+7aabe33d431a549aeec9e99b55af8b39d04a066e:tests/unit/infra/auth/identityToolkit.test.ts:generic-api-key:59
+7aabe33d431a549aeec9e99b55af8b39d04a066e:tests/unit/infra/auth/identityToolkit.test.ts:generic-api-key:62
+# recaptchaEnterprise.test.ts: reCAPTCHA のサイトキーの形のテスト用の値（サイトキーはページに埋め込まれて誰でも読める公開の値で、秘密ではない）
+4c077e713901db1cdd13725e9bf2f7884a654def:tests/unit/hooks/recaptchaEnterprise.test.ts:generic-api-key:9

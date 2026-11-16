@@ -56,10 +56,10 @@ describe('callIdentityToolkit の応答の分け方', () => {
 
 describe('送り先', () => {
   it('本番: identitytoolkit.googleapis.com に、API キーを URL エンコードして付ける', async () => {
-    vi.stubEnv('FIREBASE_AUTH_API_KEY', 'key/with+chars')
+    vi.stubEnv('FIREBASE_AUTH_API_KEY', 'aaaa/aaaa+aaaa')
     fetchMock.mockResolvedValue(new Response('{}', { status: 200 }))
     await call()
-    expect(fetchMock.mock.calls[0][0]).toBe('https://identitytoolkit.googleapis.com/v2/accounts/mfaSignIn:finalize?key=key%2Fwith%2Bchars')
+    expect(fetchMock.mock.calls[0][0]).toBe('https://identitytoolkit.googleapis.com/v2/accounts/mfaSignIn:finalize?key=aaaa%2Faaaa%2Baaaa')
   })
 
   it('Emulator: API キーがなくても、Emulator にダミーのキーで送る', async () => {
