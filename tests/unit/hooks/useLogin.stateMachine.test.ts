@@ -111,8 +111,34 @@ describe('useLogin の状態遷移', () => {
       const h = await atC()
       fetchMock.mockResolvedValueOnce(MFA())
       await act(async () => { await h.result.current.resend() })
-      expect(seen(h)).toMatchObject({ step: 'code', isPending: false, notice: 'コードを再送しました', error: null })
+      expect(seen(h)).toMatchObject({ step: 'code', isPending: false, notice: 'コードを再送しました。新しく届いた SMS のコードを入力してください（前のコードは使えません）', error: null })
       expect(h.result.current.resendWaitSeconds).toBe(30)
+    })
+
+    // [F-14] 再送すると前のコードは使えない。遅れて届いた1通目のコードを打った人に、最後のコードを打つよう添える
+    it('[F-14] 再送した後のコードの誤りには「最後に届いた SMS のコードを」と添える。再送していなければ添えない', async () => {
+      const h = await atC()
+      fetchMock.mockResolvedValueOnce(json({ error: 'invalid_code' }, 401))
+      await act(async () => { await h.result.current.verify('111111') })
+      expect(h.result.current.error).toBe('コードが正しくありません')
+
+      fetchMock.mockResolvedValueOnce(MFA())
+      await act(async () => { await h.result.current.resend() })
+      fetchMock.mockResolvedValueOnce(json({ error: 'invalid_code' }, 401))
+      await act(async () => { await h.result.current.verify('111111') })
+      expect(h.result.current.error).toBe('コードが正しくありません。再送した後は、最後に届いた SMS のコードを入力してください')
+    })
+
+    it('[F-14] 戻ってパスワードからやり直したら、添えない', async () => {
+      const h = await atC()
+      fetchMock.mockResolvedValueOnce(MFA())
+      await act(async () => { await h.result.current.resend() })
+      act(() => { h.result.current.back() })
+      fetchMock.mockResolvedValueOnce(MFA())
+      await act(async () => { await h.result.current.login(credentials) })
+      fetchMock.mockResolvedValueOnce(json({ error: 'invalid_code' }, 401))
+      await act(async () => { await h.result.current.verify('111111') })
+      expect(h.result.current.error).toBe('コードが正しくありません')
     })
 
     // 再送で断られても、コードの段のまま理由を出す（F-13: パスワードの誤り・電話の未登録でも、戻るしかできない）

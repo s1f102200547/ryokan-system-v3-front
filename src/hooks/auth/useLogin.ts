@@ -24,6 +24,9 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
   // 送信中か（1段目・2段目・再送で共通）。state の isPending は描画の後にしか変わらないので、同じ描画の中で2回呼ばれると
   // 2回送っていた（F-12・F-11）。ref はすぐ変わる。成功して画面が移るときは true のまま（hook ごと捨てられる）
   const inFlightRef = useRef(false)
+  // この画面で再送したか。再送すると前の SMS のコードは使えない（ブラウザの途中の状態の Cookie が新しいものに替わる。F-14）。
+  // 遅れて届いた1通目のコードを打った人に、最後に届いたコードを打つよう添える
+  const resentRef = useRef(false)
   // 失敗が続いて止められている（429 too_many_attempts）間は、画面のボタンを押せなくし、残りの時間を出す。
   // 時間が来たら自動で戻す。時間は PC の時計ではなく、受け取ってからの経過（performance.now）で数える（時計の巻き戻りに左右されない）。
   // 早く戻ってもサーバーがまだ止めていれば、また 429 になるだけ（止めている間の試行は数えないので、止める時間は延びない）
@@ -126,7 +129,8 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
         // SMS を送った。ここから再送を待たせる（送れなかったときは待たせない）
         setResendDeadline(performance.now() + MFA_RESEND_COOLDOWN_MS)
         setResendRemainingMs(MFA_RESEND_COOLDOWN_MS)
-        if (isResend) setNotice('コードを再送しました')
+        resentRef.current = isResend
+        if (isResend) setNotice(RESENT_NOTICE)
         return
       }
       if (response.status === 401 && body.error === 'login_failed') {
@@ -182,7 +186,7 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
         return false
       }
       if (response.status === 401) {
-        setError('コードが正しくありません')
+        setError(resentRef.current ? `コードが正しくありません。${LATEST_CODE_HINT}` : 'コードが正しくありません')
         return false
       }
       showCommonFailure(response, body)
@@ -224,6 +228,9 @@ export function formatWait(remainingMs: number): string {
   const seconds = Math.max(1, Math.ceil(remainingMs / 1000))
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 }
+
+const LATEST_CODE_HINT = '再送した後は、最後に届いた SMS のコードを入力してください'
+const RESENT_NOTICE = 'コードを再送しました。新しく届いた SMS のコードを入力してください（前のコードは使えません）'
 
 const LOCK_TICK_MS = 250
 const DEFAULT_LOCK_MS = 60_000

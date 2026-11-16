@@ -368,7 +368,7 @@ describe('useLogin', () => {
           body: JSON.stringify({ email: 'pc1@example.com', password: 'pw' }),
         }))
         expect(result.current.step).toBe('code')
-        expect(result.current.notice).toBe('コードを再送しました')
+        expect(result.current.notice).toBe('コードを再送しました。新しく届いた SMS のコードを入力してください（前のコードは使えません）')
         expect(result.current.error).toBeNull()
       })
 

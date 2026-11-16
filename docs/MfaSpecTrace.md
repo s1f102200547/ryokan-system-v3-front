@@ -83,7 +83,7 @@ EM = `tests/emulator/mfaLogin.test.ts`、UL = `tests/unit/hooks/useLogin.test.ts
 | C… | 401 `mfa_expired` / `login_failed` | P | 期限切れ / 「ログインできませんでした」 |
 | C… | 429 `too_many_attempts` | C🔒 | 「あと M:SS」 |
 | C… | 403 / 5xx / 通信エラー | C | 理由 |
-| C | resend（待ちが0のとき） | C… → C（また30秒待ち） | 「コードを再送しました」 |
+| C | resend（待ちが0のとき） | C… → C（また30秒待ち） | 「コードを再送しました。新しく届いた SMS のコードを入力してください（前のコードは使えません）」。この後のコードの誤りには「再送した後は、最後に届いた SMS のコードを入力してください」を添える（F-14） |
 | C… | 再送が 401・403・429 `sms_limit` | C | 理由（コードの段のまま。F-13） |
 | C🔒 | 時間が来る | C | — |
 | C / C🔒 | back | P / P🔒（止められている状態は残る） | エラーと知らせを消す |

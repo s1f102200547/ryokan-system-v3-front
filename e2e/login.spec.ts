@@ -152,7 +152,7 @@ test.describe('ログイン', () => {
       await page.clock.runFor(20_000)
       await expect(resend).toHaveText('コードを再送')
       await resend.click()
-      await expect(page.getByText('コードを再送しました')).toBeVisible()
+      await expect(page.getByText('コードを再送しました。新しく届いた SMS のコードを入力してください（前のコードは使えません）')).toBeVisible()
       expect(logins).toBe(2)
       await expect(resend).toBeDisabled() // 再送で SMS を送ったので、また30秒待つ
       await page.getByRole('button', { name: '戻る' }).click()
