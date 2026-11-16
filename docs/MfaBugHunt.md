@@ -38,6 +38,27 @@
 | S18 | アクセプタンス・パフォーマンスモニタ（開発者が実行） | 1, 2, 5, 10 | `enrolled_only` のまま、スタッフの PC を1台ずつ登録して確かめる。合格条件: 各 PC で成功、4〜5台の同時ログインで全台60秒以内、Wi-Fi の切り替え、コードを3回間違える、再送、日本語入力、22:58 のログイン。間の数日、Cloud Logging で `sms_throttled`・`recaptcha_rejected`・`ip_mismatch`・未知のコードの 503・`sms_limit` の件数と、`sms_tf_risk_scores` を見る（クエリは Claude Code が用意する） | チェックリスト、記録 |
 | S19 | トリアージ | — | 記録を全部見て、ID ごとに「直す / 直さない（理由）/ 仕様を決める」と、直し方・優先度・直すステップの分け方を決める。修正のステップは、この表の下に足す | 記録の「判断」欄 |
 
+## 修正のステップ（S19 の後）
+
+S19 の判断（[MfaBugHuntFindings.md](MfaBugHuntFindings.md) の「判断」欄）に従って直す。ブランチ `feature/mfa-bug-fix`、1ステップ = 1コミット。直したら、その ID の `it.fails` / `test.fail()` を外す。
+F-04 は却下。F-03・F-15・F-19 は S17・S18 の後に決める。F-09・F-13 は直さない。
+
+| # | ID | やること |
+|---|---|---|
+| R1 | F-21 | ログインの2つの API で `Content-Type: application/json` と `Sec-Fetch-Site: same-origin` を求める（合わなければ 403。Slack なし） |
+| R2 | F-20 | 止め始めた試行（パスワード・コードの誤り）の応答で、401 ではなく 429 と残りの時間を返す |
+| R3 | F-12・F-11 | `useLogin` の送信中を ref で持ち、`login`・`verify`・`resend` で二重に送らない |
+| R4 | F-05 | reCAPTCHA の `ready`・`execute` と、token の作成全体に期限を付ける |
+| R5 | F-14 | 再送の後に「新しく届いた SMS のコードを」と知らせる |
+| R6 | F-18 | `MFA_MODE=all` のとき、`verifySession` で2要素目のない Session Cookie を断る |
+| R7 | F-01 | 送れなかった SMS（reCAPTCHA で断られた・Firebase が止めた・送信の障害）を1日の通数に戻す |
+| R8 | F-10 | 22:55 以降はログインの1段目を断る（SMS を送らない） |
+| R9 | F-02 | コードを使い終わった後の 503 で途中の状態の Cookie を消し、画面をパスワードの段に戻す |
+| R10 | F-07 | 失敗の回数を0に戻すのは、Session Cookie を出せたときだけにする |
+| R11 | F-16 | `describeError` を NFKC にしてから伏せ、区切りに `.` `(` `)` を加える |
+| R12 | F-08 | ログイン API の 5xx の本文を `internal server error` にそろえる |
+| R13 | F-06・F-17 | ドキュメントを直す（回数を0に戻す例外、AGENTS.md の層の例外） |
+
 ## 対象（docs の対象番号）
 
 §3（コードの動き）: 1 朝の同時 SMS が止められる / 2 reCAPTCHA の点数・未知のコード / 3 拒否でも SMS の通数を消費 / 4 `enrolled_only` のまま放置 / 5 `ip_mismatch` / 6 IP 単位の回数を全 PC で共有 / 7 reCAPTCHA の読み込みが終わらない / 8 コードの成功後に 503 / 9 23:00 の境界 / 10 コードの入力欄（日本語入力）/ 11 再送 / 12 API の時間帯制限 / 13 依存の一括更新
