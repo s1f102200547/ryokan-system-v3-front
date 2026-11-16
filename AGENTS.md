@@ -68,7 +68,7 @@ Next.js 16.4（App Router）/ React 19.3 / MUI 9.5 + X Date Pickers 9.16 / Emoti
 | `src/constants/` | 定数（部屋、時刻の許容値、上限値、営業時間）。純粋 TS | — |
 | `src/types/` | 共有型。`Reservation`, `ReservationPatch`, `InfraError`, `Result` | — |
 
-既存の例外（真似してよい）: 単純な読み書き（`daily/*`、`reservations/[id]/a-tax`）は Route から infra を直接呼ぶ。ログイン API（`auth/login`・`auth/login/verify`）は `requireSession` を使わず（ログイン前）、`adminAuth` を直接使う（`lib/auth/loginSession.ts`）。
+既存の例外（真似してよい）: 単純な読み書き（`daily/*`、`reservations/[id]/a-tax`）は Route から infra を直接呼ぶ。ログイン API（`auth/login`・`auth/login/verify`）は `requireSession` を使わず（ログイン前）、`adminAuth` を直接使う（`lib/auth/loginSession.ts`）。ログインの回数・SMS の通数の infra（`firestoreLoginThrottleRepository`・`firestoreSmsQuotaRepository`）は、判定を Firestore のトランザクションの中で呼ぶため `domain/auth/loginThrottle`・`domain/auth/smsQuota` を import する。型だけの import（`import type`）は、どの層から `domain`・`domain/ports`・`application`・`types` に向けてもよい（実行時に残らない）。どれも `tests/unit/config/architecture.test.ts` が固定している
 
 ## 実装ルール
 
