@@ -40,17 +40,17 @@ unit だけの値: 分岐 85.6%（482/563）。Emulator だけの値: 61.7%（23
 | `src/app/api/auth/login/route.ts` | 34/35 → 35/35（S3） | ~~103: `enrolled_only` の SMS なしログインで、ID トークンの確認が障害（503）~~ S3 の表で通した | S3 |
 | `src/app/api/auth/login/verify/route.ts` | 29/32 → 32/32（S4） | ~~53: verify の 429 `attempt_in_progress` / 75・82: トークンに email がないときの Slack の宛先~~ S4 の表で通した | S4 |
 | `src/application/auth/verifyMfaCodeCommand.ts` | 11/14 → 14/14（S4） | ~~62: Firebase が止め、こちらも止め始めた / 71: 途中の状態を消せなかったとき~~ S4 の表で通した | S4 |
-| `src/application/auth/loginAttempt.ts` | 13/14 | 55: 回数の記録の失敗が InfraError でないとき | S9 |
+| `src/application/auth/loginAttempt.ts` | 13/14 → 14/14（S9） | ~~55: 回数の記録の失敗が InfraError でないとき~~ `tests/unit/application/loginAttempt.test.ts` | S9 |
 | `src/hooks/auth/recaptchaEnterprise.ts` | 0/4 → 4/4（S7） | すべて（unit なし。`e2e/prod/recaptcha.spec.ts` が読み込みの成功と失敗だけを通る）。読み込み済みの `grecaptcha` の再利用、`enterprise` がない、`ready`・`execute` が返らない（F-05） | S7、S14 |
 | `src/components/auth/LoginForm.tsx` | 0/26 | すべて（unit なし。E2E だけ） | S7、S14 |
 | `src/components/auth/MfaCodeInput.tsx` | 34/39 | 105: `onSelect` でカーソルを末尾に戻す（jsdom では起きない） | S14 |
 | `src/hooks/auth/useLogin.ts` | 91/93 → 93/93（S5） | ~~120: `phoneHint` が空・文字列でない / 251: 自動の送り直しで `retryAfterSeconds` がない~~ S5 で通した | S5 |
 | `src/hooks/auth/fetchWithSession.ts` | 13/14 | 10: サーバー側で呼ばれたとき | 対象外（使われ方の確認だけ S11） |
 | `src/infra/auth/firestoreLoginThrottleRepository.ts` | 21/24 | 70・78・98: key が0個 | 対象外（`throttleKeys` は必ず2個） |
-| `src/infra/auth/firestoreSmsQuotaRepository.ts` | 3/4 | 27: 形の崩れた `mfaSmsQuota` のドキュメント | S9 |
-| `src/infra/auth/identityToolkit.ts` | 16/18 | 35: エラーの文が空 / 47: 5桁以下の数字の並びを伏せずに残す | S10 |
-| `src/infra/auth/passwordSignIn.ts` | 15/16 | 54: `phoneInfo` のない MFA の応答 | S9 |
-| `src/domain/auth/loginThrottle.ts` | 51/52 | 89: `acquireAll` で一部の key だけ断られた（S9 で unit に足す） | S9 |
+| `src/infra/auth/firestoreSmsQuotaRepository.ts` | 3/4 → 4/4（S9） | ~~27: 形の崩れた `mfaSmsQuota` のドキュメント~~ `tests/emulator/mfaContracts.test.ts` | S9 |
+| `src/infra/auth/identityToolkit.ts` | 16/18 | 35: `split(...)[0] ?? ''` の右側（`split` は必ず1つ以上返すので**到達しない**。空のメッセージは S9 の `identityToolkit.test.ts` で通した）/ 47: 5桁以下の数字の並びを伏せずに残す | S10 |
+| `src/infra/auth/passwordSignIn.ts` | 15/16 | 54: `phone.phoneInfo ?? ''` の右側（`phoneInfo` があるものだけを選んでいるので**到達しない**） | 対象外 |
+| `src/domain/auth/loginThrottle.ts` | 51/52 | 89: `acquireAll` の成功のときの `r.success ? … : []` の右側（断る結果があれば先に返すので**到達しない**）。一部の key だけ断られたときの動きは、S9 の契約テスト「片方の key だけ埋まっていれば busy」で確かめた | 対象外 |
 | `src/lib/api/routeHelpers.ts` | 17/18 | 48: Error でない例外の記録 | S10 |
 | `src/lib/auth/loginNotice.ts` | 23/24 | 83: IP の制限の通知で、IP の形でない値 | S10 |
 | `src/lib/auth/verifySession.ts` | 16/17 | 18: オブジェクトでない例外 | S10 |
