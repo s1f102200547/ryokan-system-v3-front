@@ -297,6 +297,18 @@ describe('POST /api/auth/login', () => {
       expect(response.headers.get('set-cookie')).toBeNull()
     })
 
+    // [F-01] 数えるのは送れた SMS。送れなかった分を戻せなくても（Firestore の障害）、応答は変えない（1通多く数えるだけ）
+    it('[F-01] 送れなかった SMS の通数を戻せなくても、応答は同じ 429（503 にしない・ALERT を出さない）', async () => {
+      vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'throttled', code: 'QUOTA_EXCEEDED' } })
+      const refund = vi.spyOn(quota, 'refund').mockRejectedValueOnce(new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unreachable'))
+      const response = await POST(makeRequest())
+      expect(response.status).toBe(429)
+      expect(refund).toHaveBeenCalledTimes(1)
+      expect(quota.states.get(VALID.email)?.count).toBe(1)
+      expect(vi.mocked(notifySlackFireAndForget).mock.calls.some(([m]) => String(m).startsWith('[ALERT]'))).toBe(false)
+      refund.mockRestore()
+    })
+
     it.each([
       ['SMS の送信（reCAPTCHA を求められた、など）', () => vi.mocked(startPhoneMfa).mockRejectedValue(new InfraError('AUTH_UNAVAILABLE', 'MFA sign-in start failed: MISSING_RECAPTCHA_TOKEN (status 400)'))],
       ['途中の状態の保存', () => vi.spyOn(pendings, 'save').mockRejectedValueOnce(new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unreachable'))],

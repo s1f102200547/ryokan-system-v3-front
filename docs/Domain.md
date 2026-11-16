@@ -149,7 +149,7 @@
 
 ### `mfaSmsQuota/{SHA-256}` — 1日の SMS の数
 
-このアプリだけが使う。ID は `sha256("email:" + 小文字のメールアドレス)`。`{ date: YYYY-MM-DD（JST）, count, expireAt }`。送る前にトランザクションで1つ足し、今日の数が10（`MFA_SMS_DAILY_LIMIT`）に達していたら送らない。前の日の数は次に送るときに上書きする。`expireAt`（最後に書いてから2日）に TTL ポリシーを設定する。判定は `domain/auth/smsQuota.ts`。
+このアプリだけが使う。ID は `sha256("email:" + 小文字のメールアドレス)`。`{ date: YYYY-MM-DD（JST）, count, expireAt }`。送る前にトランザクションで1つ足し、今日の数が10（`MFA_SMS_DAILY_LIMIT`）に達していたら送らない。送れなかったとき（reCAPTCHA で断られた・Firebase が止めた・送信の障害）は1つ戻す（`refund`。数えるのは送れた SMS。戻せなくても応答は変えない）。前の日の数は次に送るときに上書きする。`expireAt`（最後に書いてから2日）に TTL ポリシーを設定する。判定は `domain/auth/smsQuota.ts`。
 
 `loginThrottle`・`mfaPending`・`mfaSmsQuota` は、匿名化（`npm run anonymize`）でもデータ投入（`npm run seed`）でも扱わない（本番から持ってこない）。
 
