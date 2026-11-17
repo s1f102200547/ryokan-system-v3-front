@@ -33,7 +33,10 @@ export type StartMfaFailure =
 export async function startMfaCommand(input: StartMfaInput): Promise<Result<{ pendingId: string; phoneHint: string }, StartMfaFailure>> {
   const { email, ip, forwardedFor, mfaPendingCredential, mfaEnrollmentId, phoneHint, recaptchaToken, nowMs } = input
 
-  // 送る前に数える（送ってから数えると、同時に送られたときに上限を超える）。送れなければ戻す（数えるのは送れた SMS。F-01）
+  // 送る前に数える（送ってから数えると、同時に送られたときに上限を超える）。
+  // 送っていないことが確かなとき（Firebase がエラーの応答を返した）だけ戻す（数えるのは送れた SMS。F-01）。
+  // 送れたかが分からないとき（応答がない・200 なのに sessionInfo がない。startPhoneMfa の例外）は戻さない。
+  // SMS は届いたのに戻すと、繰り返したときに1日の上限を超えて送ってしまう（上限は料金と悪用を抑えるためのもの）。数えすぎる側に倒す
   const today = getTodayJST()
   const quota = await firestoreSmsQuotaRepository.consume(email, today)
   if (!quota.allowed) {
@@ -42,21 +45,21 @@ export async function startMfaCommand(input: StartMfaInput): Promise<Result<{ pe
     return { success: false, error: { kind: 'sms_limit' } }
   }
 
-  let started: Awaited<ReturnType<typeof startPhoneMfa>>
-  try {
-    started = await startPhoneMfa(mfaPendingCredential, mfaEnrollmentId, recaptchaToken)
-  } catch (e) {
-    // 送信の障害（送れたかは分からないが、Firebase は失敗を返した）。戻してから元の障害を投げ直す
-    await refundQuietly(email, today)
-    throw e
-  }
-  if (!started.success) await refundQuietly(email, today)
-  if (!started.success && started.error.kind === 'recaptcha_rejected') {
-    logger.warn('ログイン: reCAPTCHA の token を断られた', { code: started.error.code, description: started.error.description })
-    return { success: false, error: { kind: 'recaptcha_rejected', code: started.error.code, description: started.error.description } }
-  }
+  // 例外（送れたかが分からない）は戻さずにそのまま投げる（Route が 503・Slack）
+  const started = await startPhoneMfa(mfaPendingCredential, mfaEnrollmentId, recaptchaToken)
   if (!started.success) {
-    logger.warn('ログイン: Firebase が SMS の送信を止めた', { code: started.error.code })
+    // Firebase がエラーの応答を返した = 送っていない。どの理由でも戻す
+    await refundQuietly(email, today)
+    const failure = started.error
+    if (failure.kind === 'failed') {
+      // 振り分けにないエラーの応答（設定の問題・Firebase の障害）。障害として投げる（503・Slack）
+      throw new InfraError('AUTH_UNAVAILABLE', `MFA sign-in start failed: ${failure.summary}`)
+    }
+    if (failure.kind === 'recaptcha_rejected') {
+      logger.warn('ログイン: reCAPTCHA の token を断られた', { code: failure.code, description: failure.description })
+      return { success: false, error: { kind: 'recaptcha_rejected', code: failure.code, description: failure.description } }
+    }
+    logger.warn('ログイン: Firebase が SMS の送信を止めた', { code: failure.code })
     return { success: false, error: { kind: 'sms_throttled', retryAfterMs: FIREBASE_THROTTLED_RETRY_MS } }
   }
 

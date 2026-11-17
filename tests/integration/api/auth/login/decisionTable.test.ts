@@ -50,7 +50,7 @@ const CHROME_LINUX = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML,
 const DECODED = { uid: 'uid-1', email: EMAIL, auth_time: 1_779_000_000, firebase: { sign_in_provider: 'password' } }
 
 type Password = 'MFA あり' | 'MFA なし' | '違う' | 'Firebase が止めた' | '障害'
-type Start = 'ok' | 'throttled' | 'recaptcha_rejected' | '障害'
+type Start = 'ok' | 'throttled' | 'recaptcha_rejected' | 'エラーの応答' | '応答なし'
 type Undecided = '未定'
 type Row = {
   mode: string | undefined                       // MFA_MODE（undefined は未設定）
@@ -109,9 +109,12 @@ const ROWS: [string, Row][] = [
   ['all: reCAPTCHA の token を断られた → 403、通数は戻す', { mode: 'all', password: 'MFA あり', start: 'recaptcha_rejected', token: true,
     expected: { status: 403, body: { error: 'recaptcha_failed' }, mfaCookie: 'なし', sessionCookie: false, smsSent: true, smsCount: 0, failures: 1, slack: ['ログイン拒否'] },
     note: 'F-01' }],
-  ['all: SMS の送信の障害 → 503、通数は戻す', { mode: 'all', password: 'MFA あり', start: '障害',
+  ['all: SMS の送信で振り分けにないエラーの応答 → 503、通数は戻す（送っていない）', { mode: 'all', password: 'MFA あり', start: 'エラーの応答',
     expected: { status: 503, body: { error: 'internal server error' }, mfaCookie: 'なし', sessionCookie: false, smsSent: true, smsCount: 0, failures: 1, slack: ['ALERT'] },
     note: 'F-01' }],
+  ['all: SMS の送信の応答がない（タイムアウト）→ 503、通数は戻さない（届いたかもしれない）', { mode: 'all', password: 'MFA あり', start: '応答なし',
+    expected: { status: 503, body: { error: 'internal server error' }, mfaCookie: 'なし', sessionCookie: false, smsSent: true, smsCount: 1, failures: 1, slack: ['ALERT'] },
+    note: 'F-01（送れたかが分からなければ数えすぎる側に倒す）' }],
   ['all: 今日の SMS が上限 → 429 sms_limit、送らない', { mode: 'all', pre: 'SMS 上限', password: 'MFA あり',
     expected: { status: 429, body: { error: 'sms_limit' }, mfaCookie: 'なし', sessionCookie: false, smsSent: false, smsCount: MFA_SMS_DAILY_LIMIT + 1, failures: 1, slack: ['SMS 上限'] } }],
   ['all: 止まっている → 429、パスワードを確かめない', { mode: 'all', pre: '止まっている', password: 'MFA あり',
@@ -170,7 +173,8 @@ async function arrange(row: Row) {
   if (start === 'ok') vi.mocked(startPhoneMfa).mockResolvedValue({ success: true, value: { sessionInfo: 'session-info' } })
   if (start === 'throttled') vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'throttled', code: 'QUOTA_EXCEEDED' } })
   if (start === 'recaptcha_rejected') vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'recaptcha_rejected', code: 'INVALID_RECAPTCHA_TOKEN', description: '' } })
-  if (start === '障害') vi.mocked(startPhoneMfa).mockRejectedValue(new InfraError('AUTH_UNAVAILABLE', 'MFA sign-in start failed: INTERNAL_ERROR (status 500)'))
+  if (start === 'エラーの応答') vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'failed', summary: 'INTERNAL_ERROR (status 500)' } })
+  if (start === '応答なし') vi.mocked(startPhoneMfa).mockRejectedValue(new InfraError('AUTH_UNAVAILABLE', 'MFA sign-in start request failed'))
 
   const idToken = row.idToken ?? 'ok'
   if (idToken === 'ok') vi.mocked(adminAuth.verifyIdToken).mockResolvedValue(DECODED as never)

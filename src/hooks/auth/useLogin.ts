@@ -249,6 +249,9 @@ const FORBIDDEN_MESSAGES: Record<string, string> = {
   mfa_not_enrolled: 'このアカウントは SMS の確認が設定されていません。管理者に連絡してください',
   no_second_factor: 'このアカウントは SMS の確認が設定されていません。管理者に連絡してください',
   recaptcha_failed: 'ブラウザの確認（reCAPTCHA）で止められました。ページを読み込み直して、もう一度お試しください',
+  // 送り元の確認（Content-Type・Sec-Fetch-Site。src/lib/auth/loginRequestGuard.ts）で断られた。
+  // 時間内でも、拡張機能やプロキシがヘッダーを変えると起きる。時間外の文言にすると原因を取り違える
+  forbidden_request: 'ログインの要求を受け付けられませんでした。ページを読み込み直して、もう一度お試しください。続く場合は管理者に連絡してください',
 }
 
 function lockMessage(remainingMs: number): string {

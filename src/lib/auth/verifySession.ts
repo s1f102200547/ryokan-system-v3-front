@@ -39,7 +39,9 @@ export async function verifySession(
   try {
     const decoded = await adminAuth.verifySessionCookie(cookieValue, true)
     // MFA_MODE=all なら、2要素目（SMS）を通った Cookie だけ。enrolled_only の間にパスワードだけで受け取った Cookie を、
-    // all に戻した後に期限（当日 23:00）まで使わせない（F-18）。Firebase に問い合わせる前に断る
+    // all に戻した後に期限（当日 23:00）まで使わせない（F-18）。
+    // 判定は失効の確認（verifySessionCookie の checkRevoked。Firebase に1回問い合わせる）の後、ユーザーのクレームの読み取り（getUser）の前。
+    // 失効の確認の前に断るには失効を見ないデコードがもう1つ要るが、こうした Cookie は enrolled_only の間に出たものだけなので、1回多く問い合わせても困らない
     if (currentMfaMode() === 'all' && !hasPhoneSecondFactor(decoded)) return null
     // 1アカウント1セッション。ログイン API がユーザーのクレームに、最後のログインの時刻（auth_time）を書いている。
     // 新しいログインがあると時刻が変わるので、前のセッションの Cookie は合わなくなる。クレームがなければ閉じる側に倒す

@@ -310,7 +310,8 @@ describe('POST /api/auth/login', () => {
     })
 
     it.each([
-      ['SMS の送信（reCAPTCHA を求められた、など）', () => vi.mocked(startPhoneMfa).mockRejectedValue(new InfraError('AUTH_UNAVAILABLE', 'MFA sign-in start failed: MISSING_RECAPTCHA_TOKEN (status 400)'))],
+      ['SMS の送信（reCAPTCHA を求められた、など）', () => vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'failed', summary: 'MISSING_RECAPTCHA_TOKEN (status 400)' } })],
+      ['SMS の送信（応答がない）', () => vi.mocked(startPhoneMfa).mockRejectedValue(new InfraError('AUTH_UNAVAILABLE', 'MFA sign-in start request failed'))],
       ['途中の状態の保存', () => vi.spyOn(pendings, 'save').mockRejectedValueOnce(new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unreachable'))],
       ['通数の記録', () => vi.spyOn(quota, 'consume').mockRejectedValueOnce(new InfraError('FIRESTORE_UNAVAILABLE', 'Firestore unreachable'))],
     ])('%s の障害は 503 と Slack の ALERT。Cookie なし', async (_label, fail) => {

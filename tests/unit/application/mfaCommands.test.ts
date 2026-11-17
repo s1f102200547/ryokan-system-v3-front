@@ -102,9 +102,31 @@ describe('startMfaCommand', () => {
     expect(pendings.items.size).toBe(0)
   })
 
-  it('Firebase の障害はそのまま投げる（Route が 503・Slack）', async () => {
-    vi.mocked(startPhoneMfa).mockRejectedValue(new InfraError('AUTH_UNAVAILABLE', 'down'))
+  // 送っていないことが確かなとき（Firebase がエラーの応答を返した）だけ、1日の通数を戻す
+  it.each<[string, Awaited<ReturnType<typeof startPhoneMfa>>]>([
+    ['Firebase が送信を止めた', { success: false, error: { kind: 'throttled', code: 'QUOTA_EXCEEDED' } }],
+    ['reCAPTCHA の token を断られた', { success: false, error: { kind: 'recaptcha_rejected', code: 'INVALID_RECAPTCHA_TOKEN', description: '' } }],
+  ])('%s → 通数を戻す', async (_label, result) => {
+    vi.mocked(startPhoneMfa).mockResolvedValue(result)
+    await start()
+    expect(quota.states.get(EMAIL)?.count).toBe(0)
+  })
+
+  it('振り分けにないエラーの応答（failed）は、通数を戻してから AUTH_UNAVAILABLE を投げる（Route が 503・Slack）', async () => {
+    vi.mocked(startPhoneMfa).mockResolvedValue({ success: false, error: { kind: 'failed', summary: 'MISSING_RECAPTCHA_TOKEN (status 400)' } })
+    const e: unknown = await start().then(() => null, (err: unknown) => err)
+    expect(e).toBeInstanceOf(InfraError)
+    expect((e as InfraError).code).toBe('AUTH_UNAVAILABLE')
+    expect((e as InfraError).message).toBe('MFA sign-in start failed: MISSING_RECAPTCHA_TOKEN (status 400)')
+    expect(quota.states.get(EMAIL)?.count).toBe(0)
+    expect(pendings.items.size).toBe(0)
+  })
+
+  // 応答がない（タイムアウト）・200 なのに sessionInfo がない: SMS は届いたかもしれない。戻すと、繰り返したときに上限を超えて送る
+  it('送れたかが分からない（startPhoneMfa の例外）は、通数を戻さずにそのまま投げる', async () => {
+    vi.mocked(startPhoneMfa).mockRejectedValue(new InfraError('AUTH_UNAVAILABLE', 'MFA sign-in start request failed'))
     await expect(start()).rejects.toThrow(InfraError)
+    expect(quota.states.get(EMAIL)?.count).toBe(1)
     expect(pendings.items.size).toBe(0)
   })
 })
