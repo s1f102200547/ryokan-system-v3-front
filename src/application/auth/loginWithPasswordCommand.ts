@@ -1,10 +1,13 @@
 import { isPasswordSignInConfigured, signInWithPassword, type PasswordSignInSuccess } from '@/infra/auth/passwordSignIn'
-import { beginAttempt, finishAttempt, throttleKeys, type ThrottleRejection } from '@/application/auth/loginAttempt'
+import { beginAttempt, finishAttempt, throttleKeys, type LoginAttemptHandle, type ThrottleRejection } from '@/application/auth/loginAttempt'
 import { logger } from '@/lib/logger'
 import { InfraError } from '@/types/errors'
 import type { Result } from '@/types/result'
 
 export type LoginFailure = { kind: 'invalid_credentials' } | ThrottleRejection
+// attempt: パスワードだけでログインを終えるとき（passwordOnlyAllowed で、電話を登録していない）だけ。
+// 札を外さずに返すので、Route が Session Cookie を出せたかで finishLoginAttempt を呼ぶ。ほかは null（ここで札を外した）
+export type LoginSuccess = PasswordSignInSuccess & { attempt: LoginAttemptHandle | null }
 
 type LoginInput = {
   email: string
@@ -22,9 +25,9 @@ export const FIREBASE_THROTTLED_RETRY_MS = 60_000
 // 存在しないメールアドレスも、間違ったパスワードと同じに数える（どのアドレスが本物かを探らせない）。
 // 確かめる前に「試行中の札」を出し、確かめ終わったら外して結果を確定させる（application/auth/loginAttempt.ts）。
 // パスワードが合っても失敗の回数は 0 に戻さない。戻すのは SMS のコードが合ったとき（verifyMfaCodeCommand）。
-// ただし、パスワードだけでログインを終えてよいアカウント（passwordOnlyAllowed で、電話を登録していない）は、ここで 0 に戻す
-// （2要素目がないので、ここがログインの成功。戻さないと、スタッフの打ち間違いが1日たまって止められる）
-export async function loginWithPasswordCommand(input: LoginInput): Promise<Result<PasswordSignInSuccess, LoginFailure>> {
+// ただし、パスワードだけでログインを終えてよいアカウント（passwordOnlyAllowed で、電話を登録していない）は、Session Cookie を出せたら
+// 0 に戻す（2要素目がないので、それがログインの成功。戻さないと、スタッフの打ち間違いが1日たまって止められる）。戻すのは Route（attempt）
+export async function loginWithPasswordCommand(input: LoginInput): Promise<Result<LoginSuccess, LoginFailure>> {
   const { email, password, ip, nowMs, passwordOnlyAllowed } = input
   // パスワードを確かめられない（API キーの設定忘れ）なら、回数を読む前に障害として断る（503・Slack）
   if (!isPasswordSignInConfigured()) throw new InfraError('AUTH_UNAVAILABLE', 'FIREBASE_AUTH_API_KEY is not set')
@@ -46,8 +49,9 @@ export async function loginWithPasswordCommand(input: LoginInput): Promise<Resul
   if (signIn.success) {
     // 2要素目が残っていれば、札を外すだけ（数えない）。2要素目のないアカウントは、許されていればここで成功、いなければ Route が断る
     const completed = signIn.value.kind === 'signed_in' && passwordOnlyAllowed
-    await finishAttempt(keys, attemptId, completed ? 'success' : 'void', nowMs)
-    return signIn
+    if (completed) return { success: true, value: { ...signIn.value, attempt: { keys, attemptId, nowMs } } }
+    await finishAttempt(keys, attemptId, 'void', nowMs)
+    return { success: true, value: { ...signIn.value, attempt: null } }
   }
 
   logger.warn('ログイン失敗: パスワードの確認', { code: signIn.error.code })
@@ -55,5 +59,7 @@ export async function loginWithPasswordCommand(input: LoginInput): Promise<Resul
   if (signIn.error.kind === 'firebase_throttled') {
     return { success: false, error: { kind: 'rate_limited', retryAfterMs: lockMs > 0 ? lockMs : FIREBASE_THROTTLED_RETRY_MS } }
   }
+  // この失敗で止め始めたなら、その場で伝える（F-20）。401 を返すと、次の試行が正しくても 429 で断られ、スタッフには理由が分からない
+  if (lockMs > 0) return { success: false, error: { kind: 'rate_limited', retryAfterMs: lockMs } }
   return { success: false, error: { kind: 'invalid_credentials' } }
 }

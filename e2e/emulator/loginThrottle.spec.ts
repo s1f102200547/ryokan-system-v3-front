@@ -30,7 +30,8 @@ async function submit(page: Page, email: string, password: string) {
   await page.getByRole('button', { name: 'ログイン' }).click()
 }
 
-test('3回間違えると止まり、正しいパスワードでも「あと M:SS」と出てログインできない', async ({ browser }) => {
+// [F-20] 止め始めた3回目の応答で「あと M:SS」を出す（前は4回目の正しいパスワードで初めて出ていた）
+test('3回目の間違いで止まり、その場で「あと M:SS」と出て、ログインのボタンを押せない', async ({ browser }) => {
   const email = `${RUN_ID}@example.com`
   createdUids.push(await createMfaUser(adminAuth, email, PASSWORD))
   // このテストだけの接続元（IP の回数をほかのテストと分ける）
@@ -38,20 +39,22 @@ test('3回間違えると止まり、正しいパスワードでも「あと M:S
   const page = await context.newPage()
   await page.goto(`${APP}/login`)
 
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 2; i++) {
     await submit(page, email, 'wrong-password')
     await expect(page.getByText('メールアドレスまたはパスワードが正しくありません')).toBeVisible()
     await expect(page.getByRole('button', { name: 'ログイン' })).toBeEnabled()
   }
 
-  await submit(page, email, PASSWORD)
+  await submit(page, email, 'wrong-password')
   await expect(page.getByText(/ログインの失敗が続いたため、あと [01]:\d\d はログインできません/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'ログイン' })).toBeDisabled()
   expect(page.url()).toContain('/login')
   expect((await context.cookies(APP)).find((c) => c.name === 'session')).toBeUndefined()
   await context.close()
 })
 
-test('SMS のコードを3回間違えると止まり、正しいコードでも入れない。止まる前なら正しいコードで入れる', async ({ browser }) => {
+// [F-20] 3回目の誤りの応答で止まったことを伝える（「コードが正しくありません」だけで、4回目の正しいコードが断られていた）
+test('SMS のコードを3回間違えると、その場で「あと M:SS」と出て、正しいコードでも入れない', async ({ browser }) => {
   const email = `${RUN_ID}-code@example.com`
   createdUids.push(await createMfaUser(adminAuth, email, PASSWORD))
   const context = await browser.newContext({ extraHTTPHeaders: { 'x-forwarded-for': '198.51.100.251' } })
@@ -63,14 +66,15 @@ test('SMS のコードを3回間違えると止まり、正しいコードでも
   const wrong = code === '000000' ? '111111' : '000000'
 
   // 6桁入れると画面がボタンなしで送る。違えばマスを空にして打ち直せる状態に戻る
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 2; i++) {
     await page.getByLabel('確認コード').fill(wrong)
     await expect(page.getByText('コードが正しくありません')).toBeVisible()
     await expect(page.getByLabel('確認コード')).toHaveValue('')
     await expect(page.getByLabel('確認コード')).toBeEditable()
   }
-  await page.getByLabel('確認コード').fill(code)
+  await page.getByLabel('確認コード').fill(wrong)
   await expect(page.getByText(/ログインの失敗が続いたため、あと [01]:\d\d はログインできません/)).toBeVisible()
+  await expect(page.getByText('コードが正しくありません')).toBeHidden()
   expect((await context.cookies(APP)).find((c) => c.name === 'session')).toBeUndefined()
   await context.close()
 })

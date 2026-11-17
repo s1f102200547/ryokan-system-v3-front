@@ -8,9 +8,13 @@ import { verifySession } from '@/lib/auth/verifySession'
 
 // auth/ で始まるコードをすべて「未ログイン」にしていた。
 // Auth の内部障害でもログイン画面に戻され、通知されなかった。メッセージは firebase-admin 14.5 が実際に返すもの
+// SMS の2要素目を通った Session Cookie（Firebase は firebase.sign_in_second_factor に 'phone' を入れる）
+const MFA_SESSION = { uid: 'u1', auth_time: 100, firebase: { sign_in_second_factor: 'phone' } }
+
 describe('verifySession', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.unstubAllEnvs()
     // 1アカウント1セッション: 最後のログインの時刻（クレーム）と Cookie の auth_time が一致する、が既定
     vi.mocked(adminAuth.getUser).mockResolvedValue({ customClaims: { sessionAuthTime: 100 } } as never)
   })
@@ -20,13 +24,13 @@ describe('verifySession', () => {
   })
 
   it('有効な Cookie なら uid', async () => {
-    vi.mocked(adminAuth.verifySessionCookie).mockResolvedValue({ uid: 'u1', auth_time: 100 } as never)
+    vi.mocked(adminAuth.verifySessionCookie).mockResolvedValue(MFA_SESSION as never)
     expect(await verifySession('cookie')).toEqual({ uid: 'u1' })
   })
 
   // 第2引数（checkRevoked）がないと、失効させた Cookie や無効化・削除したユーザーの Cookie が期限まで通る
   it('失効の確認つきで検証する', async () => {
-    vi.mocked(adminAuth.verifySessionCookie).mockResolvedValue({ uid: 'u1', auth_time: 100 } as never)
+    vi.mocked(adminAuth.verifySessionCookie).mockResolvedValue(MFA_SESSION as never)
     await verifySession('cookie')
     expect(adminAuth.verifySessionCookie).toHaveBeenCalledWith('cookie', true)
   })
@@ -58,7 +62,7 @@ describe('verifySession', () => {
   // 新しいログインがあると、ログイン API がクレームを新しい時刻に書き換える。前のセッションの Cookie は時刻が合わなくなる
   describe('1アカウント1セッション', () => {
     beforeEach(() => {
-      vi.mocked(adminAuth.verifySessionCookie).mockResolvedValue({ uid: 'u1', auth_time: 100 } as never)
+      vi.mocked(adminAuth.verifySessionCookie).mockResolvedValue(MFA_SESSION as never)
     })
 
     it('Cookie のログインの時刻とクレームが一致すれば uid（クレームはその uid のユーザーから読む）', async () => {
@@ -85,5 +89,37 @@ describe('verifySession', () => {
       vi.mocked(adminAuth.getUser).mockRejectedValue({ code: 'app/network-error', message: 'connect ECONNREFUSED' })
       await expect(verifySession('cookie')).rejects.toMatchObject({ code: 'AUTH_UNAVAILABLE' })
     })
+  })
+})
+
+// [F-18] MFA_MODE=all なら、2要素目を通っていない Session Cookie（enrolled_only の間にパスワードだけで受け取ったもの）は未ログイン
+describe('verifySession: 2要素目', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.unstubAllEnvs()
+    vi.mocked(adminAuth.getUser).mockResolvedValue({ customClaims: { sessionAuthTime: 100 } } as never)
+  })
+
+  it.each<[string, string | undefined, object, boolean]>([
+    ['all・SMS を通った', 'all', { firebase: { sign_in_second_factor: 'phone' } }, true],
+    ['all・SMS なし', 'all', { firebase: {} }, false],
+    ['all・firebase のクレームなし', 'all', {}, false],
+    ['all・別の2要素目', 'all', { firebase: { sign_in_second_factor: 'totp' } }, false],
+    ['未設定（all と同じ）・SMS なし', undefined, { firebase: {} }, false],
+    ['想定外の値（all と同じ）・SMS なし', 'none', { firebase: {} }, false],
+    ['enrolled_only・SMS なし', 'enrolled_only', { firebase: {} }, true],
+    ['enrolled_only・SMS を通った', 'enrolled_only', { firebase: { sign_in_second_factor: 'phone' } }, true],
+  ])('%s', async (_label, mode, claims, allowed) => {
+    if (mode !== undefined) vi.stubEnv('MFA_MODE', mode)
+    else vi.stubEnv('MFA_MODE', undefined)
+    vi.mocked(adminAuth.verifySessionCookie).mockResolvedValue({ uid: 'u1', auth_time: 100, ...claims } as never)
+    expect(await verifySession('cookie')).toEqual(allowed ? { uid: 'u1' } : null)
+  })
+
+  it('2要素目で断るときは、ユーザーを読みに行かない', async () => {
+    vi.stubEnv('MFA_MODE', 'all')
+    vi.mocked(adminAuth.verifySessionCookie).mockResolvedValue({ uid: 'u1', auth_time: 100, firebase: {} } as never)
+    await verifySession('cookie')
+    expect(adminAuth.getUser).not.toHaveBeenCalled()
   })
 })

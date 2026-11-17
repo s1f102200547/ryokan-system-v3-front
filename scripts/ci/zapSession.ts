@@ -25,7 +25,7 @@ async function main(): Promise<void> {
   const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
   const login = await fetch(`${APP}/api/auth/login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'user-agent': userAgent },
+    headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': userAgent },
     body: JSON.stringify({ email: DEV_USER_EMAIL, password: DEV_USER_PASSWORD }),
   })
   const pending = login.headers.get('set-cookie')?.match(/(?:^|;\s*|,\s*)mfa_pending=([^;]+)/)?.[1]
@@ -35,7 +35,7 @@ async function main(): Promise<void> {
   if (code === null) throw new Error('Auth Emulator に SMS のコードがない')
   const verify = await fetch(`${APP}/api/auth/login/verify`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'user-agent': userAgent, cookie: `mfa_pending=${pending}` },
+    headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', 'user-agent': userAgent, cookie: `mfa_pending=${pending}` },
     body: JSON.stringify({ code }),
   })
   const cookie = verify.headers.get('set-cookie')?.match(/(?:^|;\s*|,\s*)session=([^;]+)/)?.[1]

@@ -5,6 +5,7 @@ import { firestoreSmsQuotaRepository } from '@/infra/auth/firestoreSmsQuotaRepos
 import { buildSmsLimitNotice } from '@/lib/auth/loginNotice'
 import { getTodayJST } from '@/lib/dateUtils'
 import { logger } from '@/lib/logger'
+import { InfraError } from '@/types/errors'
 import { notifySlackFireAndForget } from '@/lib/slack'
 import { MFA_PENDING_TTL_MS, MFA_SMS_DAILY_LIMIT } from '@/constants/auth'
 import { FIREBASE_THROTTLED_RETRY_MS } from '@/application/auth/loginWithPasswordCommand'
@@ -32,15 +33,24 @@ export type StartMfaFailure =
 export async function startMfaCommand(input: StartMfaInput): Promise<Result<{ pendingId: string; phoneHint: string }, StartMfaFailure>> {
   const { email, ip, forwardedFor, mfaPendingCredential, mfaEnrollmentId, phoneHint, recaptchaToken, nowMs } = input
 
-  // 送る前に数える（送ってから数えると、同時に送られたときに上限を超える）
-  const quota = await firestoreSmsQuotaRepository.consume(email, getTodayJST())
+  // 送る前に数える（送ってから数えると、同時に送られたときに上限を超える）。送れなければ戻す（数えるのは送れた SMS。F-01）
+  const today = getTodayJST()
+  const quota = await firestoreSmsQuotaRepository.consume(email, today)
   if (!quota.allowed) {
     logger.warn('ログイン: SMS の上限', { firstRejection: quota.firstRejection })
     if (quota.firstRejection) notifySlackFireAndForget(buildSmsLimitNotice({ account: email, limit: MFA_SMS_DAILY_LIMIT, forwardedFor, nowMs }))
     return { success: false, error: { kind: 'sms_limit' } }
   }
 
-  const started = await startPhoneMfa(mfaPendingCredential, mfaEnrollmentId, recaptchaToken)
+  let started: Awaited<ReturnType<typeof startPhoneMfa>>
+  try {
+    started = await startPhoneMfa(mfaPendingCredential, mfaEnrollmentId, recaptchaToken)
+  } catch (e) {
+    // 送信の障害（送れたかは分からないが、Firebase は失敗を返した）。戻してから元の障害を投げ直す
+    await refundQuietly(email, today)
+    throw e
+  }
+  if (!started.success) await refundQuietly(email, today)
   if (!started.success && started.error.kind === 'recaptcha_rejected') {
     logger.warn('ログイン: reCAPTCHA の token を断られた', { code: started.error.code, description: started.error.description })
     return { success: false, error: { kind: 'recaptcha_rejected', code: started.error.code, description: started.error.description } }
@@ -55,4 +65,13 @@ export async function startMfaCommand(input: StartMfaInput): Promise<Result<{ pe
     email, ip, mfaPendingCredential, sessionInfo: started.value.sessionInfo, phoneHint, expiresAtMs: nowMs + MFA_PENDING_TTL_MS,
   })
   return { success: true, value: { pendingId, phoneHint } }
+}
+
+// 戻せなくても応答は変えない（1通多く数えるだけ。日が替われば0から）
+async function refundQuietly(email: string, today: string): Promise<void> {
+  try {
+    await firestoreSmsQuotaRepository.refund(email, today)
+  } catch (e) {
+    logger.warn('ログイン: SMS の通数を戻せなかった', { infraErrorCode: e instanceof InfraError ? e.code : 'UNKNOWN' })
+  }
 }

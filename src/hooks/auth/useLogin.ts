@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { MFA_RESEND_COOLDOWN_MS } from '@/constants/auth'
+import { MFA_RESEND_COOLDOWN_MS, RECAPTCHA_TOKEN_TIMEOUT_MS } from '@/constants/auth'
 
 type Credentials = { email: string; password: string }
 
@@ -21,6 +21,12 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
   const [notice, setNotice] = useState<string | null>(null) // 「コードを再送しました」など、エラーでない知らせ
   // 再送のために、1段目で送ったメールアドレスとパスワードを持っておく（画面の入力欄にも残っている。サーバーには送り直すだけ）
   const credentialsRef = useRef<Credentials | null>(null)
+  // 送信中か（1段目・2段目・再送で共通）。state の isPending は描画の後にしか変わらないので、同じ描画の中で2回呼ばれると
+  // 2回送っていた（F-12・F-11）。ref はすぐ変わる。成功して画面が移るときは true のまま（hook ごと捨てられる）
+  const inFlightRef = useRef(false)
+  // この画面で再送したか。再送すると前の SMS のコードは使えない（ブラウザの途中の状態の Cookie が新しいものに替わる。F-14）。
+  // 遅れて届いた1通目のコードを打った人に、最後に届いたコードを打つよう添える
+  const resentRef = useRef(false)
   // 失敗が続いて止められている（429 too_many_attempts）間は、画面のボタンを押せなくし、残りの時間を出す。
   // 時間が来たら自動で戻す。時間は PC の時計ではなく、受け取ってからの経過（performance.now）で数える（時計の巻き戻りに左右されない）。
   // 早く戻ってもサーバーがまだ止めていれば、また 429 になるだけ（止めている間の試行は数えないので、止める時間は延びない）
@@ -89,7 +95,8 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
 
   // 1段目。再送（resend）も同じ手順で送り直す
   const sendCredentials = async (credentials: Credentials, { isResend }: { isResend: boolean }) => {
-    if (isLocked) return
+    if (isLocked || inFlightRef.current) return
+    inFlightRef.current = true
     setIsPending(true)
     setError(null)
     setNotice(null)
@@ -98,9 +105,9 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
       let recaptchaToken: string | undefined
       if (getRecaptchaToken) {
         try {
-          recaptchaToken = await getRecaptchaToken()
+          recaptchaToken = await withTimeout(getRecaptchaToken(), RECAPTCHA_TOKEN_TIMEOUT_MS)
         } catch {
-          // Google の reCAPTCHA を読み込めない（回線・拡張機能が止めている）。パスワードはまだ送っていない
+          // Google の reCAPTCHA を読み込めない（回線・拡張機能が止めている）・返ってこない。パスワードはまだ送っていない
           setError('ブラウザの確認（reCAPTCHA）を読み込めませんでした。ページを読み込み直して、もう一度お試しください')
           return
         }
@@ -122,7 +129,8 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
         // SMS を送った。ここから再送を待たせる（送れなかったときは待たせない）
         setResendDeadline(performance.now() + MFA_RESEND_COOLDOWN_MS)
         setResendRemainingMs(MFA_RESEND_COOLDOWN_MS)
-        if (isResend) setNotice('コードを再送しました')
+        resentRef.current = isResend
+        if (isResend) setNotice(RESENT_NOTICE)
         return
       }
       if (response.status === 401 && body.error === 'login_failed') {
@@ -138,7 +146,10 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
     } catch {
       setError('通信エラーが発生しました。ネットワーク接続を確認してください')
     } finally {
-      if (!succeeded) setIsPending(false)
+      if (!succeeded) {
+        inFlightRef.current = false
+        setIsPending(false)
+      }
     }
   }
 
@@ -148,7 +159,8 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
   // 移り終わるまで isPending のままにし、ボタンを押せない「確認中…」にしておく（画面が移ればこの hook ごと捨てられる）。
   // 返り値: 合っていたか（画面は、合わなければ入力欄を空にして打ち直させる）。確認中・止められている間は送らずに false
   const verify = async (code: string): Promise<boolean> => {
-    if (isLocked || isPending) return false
+    if (isLocked || inFlightRef.current) return false
+    inFlightRef.current = true
     setIsPending(true)
     setError(null)
     setNotice(null)
@@ -173,15 +185,24 @@ export function useLogin({ getRecaptchaToken }: { getRecaptchaToken?: () => Prom
         setError('ログインできませんでした。もう一度ログインしてください')
         return false
       }
+      if (response.status === 503 && body.error === 'mfa_restart') {
+        // コードは合ったが、その後の障害でログインを終えられなかった。途中の状態はもう使えないので、パスワードからやり直す（F-02）
+        setStep('credentials')
+        setError('サービスが一時的に利用できません。しばらくしてから、もう一度ログインしてください')
+        return false
+      }
       if (response.status === 401) {
-        setError('コードが正しくありません')
+        setError(resentRef.current ? `コードが正しくありません。${LATEST_CODE_HINT}` : 'コードが正しくありません')
         return false
       }
       showCommonFailure(response, body)
     } catch {
       setError('通信エラーが発生しました。ネットワーク接続を確認してください')
     } finally {
-      if (!succeeded) setIsPending(false)
+      if (!succeeded) {
+        inFlightRef.current = false
+        setIsPending(false)
+      }
     }
     return false
   }
@@ -214,12 +235,16 @@ export function formatWait(remainingMs: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 }
 
+const LATEST_CODE_HINT = '再送した後は、最後に届いた SMS のコードを入力してください'
+const RESENT_NOTICE = 'コードを再送しました。新しく届いた SMS のコードを入力してください（前のコードは使えません）'
+
 const LOCK_TICK_MS = 250
 const DEFAULT_LOCK_MS = 60_000
 
 // 403 の理由。本文が読めなければ時間外として扱う（今までの表示）
 const FORBIDDEN_MESSAGES: Record<string, string> = {
   outside_business_hours: '利用時間外です（6:00〜23:00）',
+  closing_soon: '23:00 が近いため、今日はもうログインできません（ログインは 22:55 まで）',
   client_not_allowed: 'この PC もしくはブラウザからはログインできません。',
   mfa_not_enrolled: 'このアカウントは SMS の確認が設定されていません。管理者に連絡してください',
   no_second_factor: 'このアカウントは SMS の確認が設定されていません。管理者に連絡してください',
@@ -250,6 +275,14 @@ async function postWithBusyRetry(url: string, payload: object): Promise<Response
 function busyWaitMs(retryAfterSeconds: unknown): number {
   if (typeof retryAfterSeconds !== 'number' || !(retryAfterSeconds > 0)) return 1000
   return Math.min(retryAfterSeconds * 1000, MAX_BUSY_WAIT_MS)
+}
+
+// 期限までに終わらなければ reject（token を待ち続けて、ボタンが「ログイン中…」のまま戻らないのを防ぐ。F-05）
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout')), ms)
+    promise.then((v) => { clearTimeout(timer); resolve(v) }, (e: unknown) => { clearTimeout(timer); reject(e) })
+  })
 }
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))

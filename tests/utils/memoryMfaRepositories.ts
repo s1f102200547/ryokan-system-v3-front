@@ -1,4 +1,4 @@
-import { consumeSms, type SmsQuotaState } from '@/domain/auth/smsQuota'
+import { consumeSms, refundSms, type SmsQuotaState } from '@/domain/auth/smsQuota'
 import type { MfaPending } from '@/domain/auth/mfaPending'
 import type { MfaPendingRepository } from '@/domain/ports/mfaPendingRepository'
 import type { SmsQuotaRepository } from '@/domain/ports/smsQuotaRepository'
@@ -26,6 +26,11 @@ export function createMemorySmsQuotaRepository(): SmsQuotaRepository & { states:
       const decision = consumeSms(states.get(key) ?? null, today)
       states.set(key, decision.next)
       return decision
+    },
+    async refund(email, today) {
+      const key = email.trim().toLowerCase()
+      const next = refundSms(states.get(key) ?? null, today)
+      if (next !== null) states.set(key, next)
     },
   }
 }

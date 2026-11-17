@@ -167,7 +167,7 @@ describe('describeError', () => {
 
   it('電話番号・SMS のコード（6桁以上の数字）と、token・キー（32文字以上）は伏せる', () => {
     expect(describeError('X : phone +81 90-1234-5678 code 913274 ok')).toBe('phone […] code […] ok')
-    expect(describeError(`X : token ${'a'.repeat(40)} key 6Ldi8xwuAAAAAOPV8MlkljionzTDwYq2eke07CUF`)).toBe('token […] key […]')
+    expect(describeError(`X : token ${'a'.repeat(40)} key test-site-key-000000000000000000000000000`)).toBe('token […] key […]')
     expect(describeError('X : 5 attempts in 300 seconds')).toBe('5 attempts in 300 seconds') // 短い数字は残す
   })
 

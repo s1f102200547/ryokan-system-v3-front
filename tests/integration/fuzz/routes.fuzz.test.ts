@@ -170,7 +170,7 @@ async function send(r: RouteCase, input: Input): Promise<Response> {
   for (const [k, v] of Object.entries(input.query ?? {})) if (v !== undefined) url.searchParams.set(k, v)
   const request = new Request(url, {
     method: r.method,
-    headers: { 'Content-Type': 'application/json', cookie: 'session=valid; mfa_pending=pending-id' },
+    headers: { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin', cookie: 'session=valid; mfa_pending=pending-id' },
     body: r.method === 'GET' ? undefined : (input.rawBody ?? ''),
   })
   const params = r.param ? { [r.param.key]: input.param ?? '' } : {}

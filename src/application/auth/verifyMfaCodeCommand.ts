@@ -1,7 +1,7 @@
 import { checkMfaPending } from '@/domain/auth/mfaPending'
 import { finalizePhoneMfa } from '@/infra/auth/mfaSignIn'
 import { firestoreMfaPendingRepository } from '@/infra/auth/firestoreMfaPendingRepository'
-import { beginAttempt, finishAttempt, throttleKeys, type ThrottleRejection } from '@/application/auth/loginAttempt'
+import { beginAttempt, finishAttempt, throttleKeys, type LoginAttemptHandle, type ThrottleRejection } from '@/application/auth/loginAttempt'
 import { FIREBASE_THROTTLED_RETRY_MS } from '@/application/auth/loginWithPasswordCommand'
 import { logger } from '@/lib/logger'
 import { InfraError } from '@/types/errors'
@@ -19,8 +19,9 @@ type VerifyInput = {
 export type VerifyMfaFailure = { kind: 'invalid_code' | 'expired' | 'ip_mismatch' } | ThrottleRejection
 
 // SMS のコードを確かめ、2要素目を通った ID トークンを返す。
-// コードの誤りは、パスワードの誤りと同じ key・同じ表で数える。コードが合ったら失敗の回数を 0 に戻す（ログインが最後まで通った）
-export async function verifyMfaCodeCommand(input: VerifyInput): Promise<Result<{ idToken: string; email: string }, VerifyMfaFailure>> {
+// コードの誤りは、パスワードの誤りと同じ key・同じ表で数える。コードが合ったら、札を外さずに attempt を返す。
+// Route が Session Cookie を出せたかで finishLoginAttempt を呼び、出せたら失敗の回数を 0 に戻す（F-07）
+export async function verifyMfaCodeCommand(input: VerifyInput): Promise<Result<{ idToken: string; email: string; attempt: LoginAttemptHandle }, VerifyMfaFailure>> {
   const { pendingId, code, ip, nowMs } = input
 
   const checked = checkMfaPending(await firestoreMfaPendingRepository.get(pendingId), ip, nowMs)
@@ -44,10 +45,9 @@ export async function verifyMfaCodeCommand(input: VerifyInput): Promise<Result<{
   }
 
   if (finalized.success) {
-    await finishAttempt(keys, attemptId, 'success', nowMs)
     // 一度使った途中の状態は使えない（Firebase 側でも使い終わっている）。消せなくても期限で消える
     await deleteQuietly(pendingId)
-    return { success: true, value: { idToken: finalized.value.idToken, email: pending.email } }
+    return { success: true, value: { idToken: finalized.value.idToken, email: pending.email, attempt: { keys, attemptId, nowMs } } }
   }
 
   logger.warn('ログイン失敗: SMS のコードの確認', { code: finalized.error.code })
@@ -61,6 +61,8 @@ export async function verifyMfaCodeCommand(input: VerifyInput): Promise<Result<{
   if (finalized.error.kind === 'throttled') {
     return { success: false, error: { kind: 'rate_limited', retryAfterMs: lockMs > 0 ? lockMs : FIREBASE_THROTTLED_RETRY_MS } }
   }
+  // この誤りで止め始めたなら、その場で伝える（F-20）。401 のままだと、4回目の正しいコードが 429 で断られて見える
+  if (lockMs > 0) return { success: false, error: { kind: 'rate_limited', retryAfterMs: lockMs } }
   return { success: false, error: { kind: 'invalid_code' } }
 }
 

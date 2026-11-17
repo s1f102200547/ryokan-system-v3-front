@@ -440,7 +440,11 @@ test.describe('ヘッダーが付く範囲', () => {
       ['/api/auth/login', outside(23 * 60) ? 403 : 400],
       ['/api/auth', 404],
     ] as const) {
-      const response = path === '/api/auth/login' ? await request.post(path, { data: {} }) : await request.get(path)
+      // ログイン API は同じサイトのページからの要求だけを受け付ける（F-21）。Playwright の request は Sec-Fetch-Site を付けないので、
+      // ログイン画面からの要求と同じ値を付けて、本文の検証（400）まで進める
+      const response = path === '/api/auth/login'
+        ? await request.post(path, { data: {}, headers: { 'sec-fetch-site': 'same-origin' } })
+        : await request.get(path)
       expect(response.status(), path).toBe(status)
       const headers = response.headers()
       expect(headers['x-content-type-options'], path).toBe('nosniff')
