@@ -1,8 +1,9 @@
 import { MFA_SMS_DAILY_LIMIT } from '@/constants/auth'
 
 // 1アカウントが1日（JST）に送れる SMS の数の判定（純粋）。保存は infra/auth/firestoreSmsQuotaRepository.ts。
-// 送る前に数え（送ってから数えると、同時に送られたときに上限を超える）、送れなかった分（reCAPTCHA で断られた・Firebase が止めた・
-// 送信の障害）は refundSms で戻す。数えるのは送れた SMS（F-01）
+// 送る前に数え（送ってから数えると、同時に送られたときに上限を超える）、送っていないことが確かな分（Firebase がエラーの応答を返した:
+// reCAPTCHA で断られた・Firebase が止めた・振り分けにないエラー）は refundSms で戻す。数えるのは送れた SMS（F-01）。
+// 送れたかが分からない（応答がない・200 なのに sessionInfo がない）分は戻さない（application/auth/startMfaCommand.ts）
 export type SmsQuotaState = { date: string; count: number } // date は YYYY-MM-DD（JST）
 
 export type SmsQuotaDecision = {

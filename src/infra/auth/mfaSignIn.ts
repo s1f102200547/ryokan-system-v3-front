@@ -13,12 +13,18 @@ const FinalizeSchema = z.object({ idToken: z.string().min(1) })
 // throttled: Firebase 自身が SMS の送信やコードの確認を止めた（同じ電話への送りすぎなど）/
 // recaptcha_rejected: ブラウザが作った reCAPTCHA の token を断った（期限切れ・使い回し・別のサイトで作った token・点数が低い）
 // description: Google の説明の文（伏せたもの。src/infra/auth/identityToolkit.ts）。reCAPTCHA の原因（ドメイン・キー）を一度で見分ける
-export type StartPhoneMfaFailure = { kind: 'throttled'; code: string } | { kind: 'recaptcha_rejected'; code: string; description: string }
+// failed: 振り分けにないエラーの応答（設定の問題・Firebase の障害）。呼び出し側が障害（503・Slack）にする。summary はその例外のメッセージに使う
+// どれも Firebase がエラーの応答を返した = SMS は送っていない（呼び出し側は1日の通数を戻してよい）
+export type StartPhoneMfaFailure =
+  | { kind: 'throttled'; code: string }
+  | { kind: 'recaptcha_rejected'; code: string; description: string }
+  | { kind: 'failed'; summary: string }
 
 // SMS を送る。返す sessionInfo を finalize に渡す。
 // 本番の Identity Platform は reCAPTCHA Enterprise の token を求める（recaptchaToken。ブラウザが作る）。Emulator は見ない。
 // token を求められたのに渡していないとき（MISSING_RECAPTCHA_TOKEN・MISSING_CLIENT_IDENTIFIER: サイトキーの設定忘れ）は、
-// 設定の問題なので障害（503・Slack）
+// 設定の問題なので failed（呼び出し側が 503・Slack）。
+// 例外（AUTH_UNAVAILABLE）は、SMS を送れたかが分からないときだけ: 応答がない（タイムアウト・通信の失敗）か、200 なのに sessionInfo がない
 export async function startPhoneMfa(
   mfaPendingCredential: string,
   mfaEnrollmentId: string,
@@ -42,7 +48,7 @@ export async function startPhoneMfa(
   if (recaptchaToken !== null && RECAPTCHA_REJECTED_ERRORS.has(res.code)) {
     return { success: false, error: { kind: 'recaptcha_rejected', code: res.code, description: res.description } }
   }
-  throw new InfraError('AUTH_UNAVAILABLE', `MFA sign-in start failed: ${failureSummary(res)}`)
+  return { success: false, error: { kind: 'failed', summary: failureSummary(res) } }
 }
 
 // reCAPTCHA の確認で断られた。INVALID_RECAPTCHA_TOKEN: token が使えない（期限切れ・使い回し・localhost）/
@@ -74,7 +80,7 @@ export async function finalizePhoneMfa(
   throw new InfraError('AUTH_UNAVAILABLE', `MFA sign-in finalize failed: ${failureSummary(res)}`)
 }
 
-// 振り分けにないコード（503・[ALERT]）。本番で初めて見るコードの意味が分かるよう、説明の文も付ける
+// 振り分けにないコード（start は failed の summary、finalize は例外のメッセージ。どちらも 503・[ALERT]）。本番で初めて見るコードの意味が分かるよう、説明の文も付ける
 function failureSummary(res: Extract<IdentityToolkitResponse, { ok: false }>): string {
   return `${res.code} (status ${res.status})${res.description ? ` - ${res.description}` : ''}`
 }
