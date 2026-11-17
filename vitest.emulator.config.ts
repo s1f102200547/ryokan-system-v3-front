@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config'
 import path from 'path'
+import { AUTH_COVERAGE_TARGETS } from './vitest.coverageTargets'
 
 // Firestore Emulator に実際に書いて読む往復検査（tests/emulator/）。
 // `npm run test:emulator` が firebase emulators:exec で専用の Emulator を起動してから実行する。
@@ -15,6 +16,13 @@ export default defineConfig({
       FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
       FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
       FIREBASE_PROJECT_ID: 'demo-ryokan',
+    },
+    // --coverage のときだけ（npm run coverage:auth:emulator）
+    coverage: {
+      provider: 'v8',
+      include: AUTH_COVERAGE_TARGETS,
+      reporter: ['text', 'json'],
+      reportsDirectory: 'coverage/emulator',
     },
   },
   resolve: {

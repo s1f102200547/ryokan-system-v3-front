@@ -61,17 +61,17 @@ describe('startPhoneMfa', () => {
     expect(await startWithToken()).toEqual({ success: false, error: { kind: 'recaptcha_rejected', code: 'CAPTCHA_CHECK_FAILED', description: '' } })
   })
 
-  it('token を渡していないのに断られたら、設定の問題として AUTH_UNAVAILABLE（サイトキーの設定忘れ）', async () => {
+  it('token を渡していないのに断られたら、設定の問題として failed（サイトキーの設定忘れ。呼び出し側が 503）', async () => {
     for (const message of ['INVALID_RECAPTCHA_TOKEN', 'CAPTCHA_CHECK_FAILED', 'MISSING_CLIENT_IDENTIFIER']) {
       fetchMock.mockResolvedValueOnce(errorResponse(400, message))
-      await expectUnavailable(start)
+      expect(await start()).toEqual({ success: false, error: { kind: 'failed', summary: `${message} (status 400)` } })
     }
   })
 
-  it('token は例外のメッセージにも入らない', async () => {
+  it('token・秘密の値は failed の summary にも入らない', async () => {
     fetchMock.mockResolvedValue(errorResponse(500, 'INTERNAL_ERROR'))
-    const e = await expectUnavailable(startWithToken)
-    expect(`${e.message} ${String(e.cause)}`).not.toContain(TOKEN)
+    const text = JSON.stringify(await startWithToken())
+    for (const secret of [TOKEN, PENDING, SESSION]) expect(text).not.toContain(secret)
   })
 
   it('v2 の mfaSignIn:start に、サーバーの API キーで送り、sessionInfo を返す', async () => {
@@ -100,18 +100,20 @@ describe('startPhoneMfa', () => {
     ['reCAPTCHA の token がない', 400, 'MISSING_RECAPTCHA_TOKEN'],
     ['アプリの確認に失敗', 400, 'INVALID_APP_CREDENTIAL'],
     ['Firebase の障害', 503, 'UNAVAILABLE'],
-  ])('%s は AUTH_UNAVAILABLE', async (_label, status, message) => {
+  ])('%s は failed（エラーの応答 = SMS は送っていない。呼び出し側が通数を戻して 503）', async (_label, status, message) => {
     fetchMock.mockResolvedValue(errorResponse(status, message))
-    expect((await expectUnavailable(start)).message).toBe(`MFA sign-in start failed: ${message} (status ${status})`)
+    expect(await start()).toEqual({ success: false, error: { kind: 'failed', summary: `${message} (status ${status})` } })
   })
 
-  it('振り分けにないコードは、例外のメッセージ（[ALERT]）に説明の文も付ける', async () => {
+  it('振り分けにないコードは、summary（[ALERT] に載る）に説明の文も付ける', async () => {
     fetchMock.mockResolvedValue(errorResponse(400, 'OPERATION_NOT_ALLOWED : SMS unable to be sent until this region enabled'))
-    expect((await expectUnavailable(start)).message)
-      .toBe('MFA sign-in start failed: OPERATION_NOT_ALLOWED (status 400) - SMS unable to be sent until this region enabled')
+    expect(await start()).toEqual({
+      success: false, error: { kind: 'failed', summary: 'OPERATION_NOT_ALLOWED (status 400) - SMS unable to be sent until this region enabled' },
+    })
   })
 
-  it('sessionInfo のない成功・通信の失敗は AUTH_UNAVAILABLE', async () => {
+  // 送れたかが分からない（SMS は届いたかもしれない）ときだけ例外。呼び出し側は通数を戻さない
+  it('sessionInfo のない成功・通信の失敗（タイムアウト）は AUTH_UNAVAILABLE を投げる', async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200 }))
     await expectUnavailable(start)
     fetchMock.mockRejectedValueOnce(new DOMException('The operation was aborted due to timeout', 'TimeoutError'))
@@ -167,7 +169,7 @@ describe('describeError', () => {
 
   it('電話番号・SMS のコード（6桁以上の数字）と、token・キー（32文字以上）は伏せる', () => {
     expect(describeError('X : phone +81 90-1234-5678 code 913274 ok')).toBe('phone […] code […] ok')
-    expect(describeError(`X : token ${'a'.repeat(40)} key 6Ldi8xwuAAAAAOPV8MlkljionzTDwYq2eke07CUF`)).toBe('token […] key […]')
+    expect(describeError(`X : token ${'a'.repeat(40)} key test-site-key-000000000000000000000000000`)).toBe('token […] key […]')
     expect(describeError('X : 5 attempts in 300 seconds')).toBe('5 attempts in 300 seconds') // 短い数字は残す
   })
 

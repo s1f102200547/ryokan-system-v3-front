@@ -50,7 +50,7 @@ const DECODED = { uid: 'uid-1', email: 'pc1@example.com', auth_time: AUTH_TIME, 
 
 type RequestOptions = { body?: unknown; userAgent?: string | null; cookie?: string | null; forwardedFor?: string | null }
 function makeRequest({ body = { code: CODE }, userAgent = CHROME_WIN, cookie = `mfa_pending=${PENDING_ID}`, forwardedFor = IP }: RequestOptions = {}) {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'sec-fetch-site': 'same-origin' }
   if (userAgent !== null) headers['user-agent'] = userAgent
   if (cookie !== null) headers.cookie = cookie
   if (forwardedFor !== null) headers['x-forwarded-for'] = forwardedFor
@@ -119,6 +119,26 @@ describe('POST /api/auth/login/verify', () => {
     vi.stubEnv('NODE_ENV', 'production')
     expect((await POST(makeRequest())).status).toBe(403)
     expect(mockFinalize).not.toHaveBeenCalled()
+  })
+
+  // [F-21] 他のサイトから送らせない。途中の状態を読まず、コードを確かめず、数えない
+  it.each<[string, Record<string, string>]>([
+    ['Content-Type: text/plain', { 'Content-Type': 'text/plain', 'sec-fetch-site': 'same-origin' }],
+    ['Sec-Fetch-Site: cross-site', { 'Content-Type': 'application/json', 'sec-fetch-site': 'cross-site' }],
+    ['Sec-Fetch-Site なし', { 'Content-Type': 'application/json' }],
+  ])('[F-21] %s は 403（コードを確かめず、Slack にも出さない）', async (_label, headers) => {
+    await seedPending()
+    const response = await POST(new Request('http://localhost/api/auth/login/verify', {
+      method: 'POST',
+      headers: { ...headers, 'user-agent': CHROME_WIN, cookie: `mfa_pending=${PENDING_ID}`, 'x-forwarded-for': IP },
+      body: JSON.stringify({ code: CODE }),
+    }))
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({ error: 'forbidden_request' })
+    expect(mockFinalize).not.toHaveBeenCalled()
+    expect(throttle.states.size).toBe(0)
+    expect(await pendings.get(PENDING_ID)).not.toBeNull() // 途中の状態はそのまま（本物のブラウザからなら続けられる）
+    expect(notifySlackFireAndForget).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -201,9 +221,13 @@ describe('POST /api/auth/login/verify', () => {
       expect((await POST(makeRequest())).status).toBe(200)
     })
 
-    it('3回目の誤りで、メールアドレスと IP を1分止め、Slack に知らせる。止めている間は Firebase に送らず 429', async () => {
+    // [F-20] 止め始めた3回目の応答で 429（401 のままだと、4回目の正しいコードが断られて見える）
+    it('3回目の誤りで、メールアドレスと IP を1分止め、Slack に知らせ、その応答で 429。止めている間は Firebase に送らず 429', async () => {
       wrongCode()
-      for (let i = 0; i < 3; i++) expect((await POST(makeRequest())).status).toBe(401)
+      for (let i = 0; i < 2; i++) expect((await POST(makeRequest())).status).toBe(401)
+      const third = await POST(makeRequest())
+      expect(third.status).toBe(429)
+      expect(await third.json()).toEqual({ error: 'too_many_attempts', retryAfterSeconds: 60 })
       expect(slackMessages()).toEqual([
         '[ログイン制限] アカウント pc1@example.com / 3回続けて失敗 / 1分止める',
         '[ログイン制限] IP 203.0.113.5 / 3回続けて失敗 / 1分止める',
@@ -295,7 +319,9 @@ describe('POST /api/auth/login/verify', () => {
       mockVerifyIdToken.mockRejectedValue({ code: 'auth/internal-error', message: 'Firebase down' })
       const response = await POST(makeRequest())
       expect(response.status).toBe(503)
-      expect(await response.json()).toEqual({ error: 'server error' })
+      // コードはもう使い終わっているので、途中の状態の Cookie を消してパスワードからやり直させる（F-02）
+      expect(await response.json()).toEqual({ error: 'mfa_restart' })
+      expect(response.cookies.get('mfa_pending')?.value).toBe('')
     })
   })
 
@@ -364,11 +390,13 @@ describe('POST /api/auth/login/verify', () => {
     it.each([
       ['ユーザーが読めない', () => mockGetUser.mockRejectedValue(new Error('Auth down'))],
       ['クレームが書けない', () => mockSetCustomUserClaims.mockRejectedValue(new Error('Auth down'))],
-    ])('%s なら 503 で Cookie を返さない（Slack に通知）', async (_label, fail) => {
+    ])('%s なら 503 mfa_restart で Session Cookie を返さず、途中の状態の Cookie を消す（Slack に通知）', async (_label, fail) => {
       fail()
       const response = await POST(makeRequest())
       expect(response.status).toBe(503)
-      expect(response.headers.get('set-cookie')).toBeNull()
+      expect(await response.json()).toEqual({ error: 'mfa_restart' })
+      expect(response.cookies.get('session')).toBeUndefined()
+      expect(response.cookies.get('mfa_pending')?.value).toBe('')
       expect(mockCreateSessionCookie).not.toHaveBeenCalled()
       expect(slackMessages()[0]).toMatch(/^\[ALERT\]/)
     })

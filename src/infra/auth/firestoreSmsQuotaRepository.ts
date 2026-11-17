@@ -3,7 +3,7 @@ import { Timestamp } from 'firebase-admin/firestore'
 import { z } from 'zod'
 import { adminDb } from '@/lib/firebase/admin'
 import { withFirestoreError } from '@/infra/firestoreError'
-import { consumeSms, type SmsQuotaState } from '@/domain/auth/smsQuota'
+import { consumeSms, refundSms, type SmsQuotaState } from '@/domain/auth/smsQuota'
 import type { SmsQuotaRepository } from '@/domain/ports/smsQuotaRepository'
 
 // 1アカウントが1日に送った SMS の数。gmail-listener は使わないコレクション。
@@ -35,6 +35,14 @@ export const firestoreSmsQuotaRepository: SmsQuotaRepository = {
       const decision = consumeSms(snap.exists ? toState(snap.data()) : null, today)
       tx.set(ref, { ...decision.next, expireAt: Timestamp.fromMillis(Date.now() + EXPIRE_AFTER_MS) })
       return decision
+    }))
+  },
+  async refund(email, today) {
+    await withFirestoreError(() => adminDb.runTransaction(async (tx) => {
+      const ref = adminDb.collection(COLLECTION).doc(smsQuotaDocId(email))
+      const snap = await tx.get(ref)
+      const next = refundSms(snap.exists ? toState(snap.data()) : null, today)
+      if (next !== null) tx.update(ref, { count: next.count })
     }))
   },
 }

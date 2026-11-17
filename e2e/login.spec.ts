@@ -138,6 +138,16 @@ test.describe('ログイン', () => {
       await expect(page.getByLabel('パスワード')).toHaveValue('password')
     })
 
+    // [F-02] コードが合った後の障害（Session Cookie を作れない など）。コードはもう使えないので、パスワードの画面に戻す
+    test('[F-02] コードが合った後の障害（503 mfa_restart）なら、パスワードの画面に戻して理由を出す', async ({ page }) => {
+      await mockLogin(page, (route) => route.fulfill({ status: 503, json: { error: 'mfa_restart' } }))
+      await submit(page, 'test@example.com', 'password')
+      await page.getByLabel('確認コード').fill('123456')
+      await expect(page.getByText('サービスが一時的に利用できません。しばらくしてから、もう一度ログインしてください')).toBeVisible()
+      await expect(page.getByLabel('確認コード')).toHaveCount(0)
+      await expect(page.getByLabel('パスワード')).toHaveValue('password')
+    })
+
     // SMS を送ってから30秒は再送を押せない（src/constants/auth.ts の MFA_RESEND_COOLDOWN_MS。画面だけで数える）
     test('再送は30秒たつまで押せず、残りの秒を出す。過ぎたら1段目を送り直し、知らせを出す。戻るでパスワードの画面へ', async ({ page }) => {
       await page.clock.install()
@@ -152,7 +162,7 @@ test.describe('ログイン', () => {
       await page.clock.runFor(20_000)
       await expect(resend).toHaveText('コードを再送')
       await resend.click()
-      await expect(page.getByText('コードを再送しました')).toBeVisible()
+      await expect(page.getByText('コードを再送しました。新しく届いた SMS のコードを入力してください（前のコードは使えません）')).toBeVisible()
       expect(logins).toBe(2)
       await expect(resend).toBeDisabled() // 再送で SMS を送ったので、また30秒待つ
       await page.getByRole('button', { name: '戻る' }).click()

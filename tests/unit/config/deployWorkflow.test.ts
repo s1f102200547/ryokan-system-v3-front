@@ -42,7 +42,7 @@ function check(value: string | undefined) {
   return spawnSync('bash', ['-c', runScript()], { env, encoding: 'utf8' })
 }
 
-const VALID = '6Ldi8xwuAAAAAOPV8MlkljionzTDwYq2eke07CUF'
+const VALID = 'test-site-key-000000000000000000000000000'
 
 describe('deploy.yml の RECAPTCHA_SITE_KEY の確認', () => {
   it('GCP への認証・ビルドより前（最初のステップ）にある', () => {

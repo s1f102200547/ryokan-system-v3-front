@@ -56,6 +56,8 @@ export type MfaMode = (typeof MFA_MODES)[number]
 // 断られる。2026-11-12 のスパイク）。ログイン画面だけが読み込み、CSP も /login だけ広げる（src/lib/csp.ts）。
 // サイトキーは Cloud Run の環境変数 RECAPTCHA_SITE_KEY（公開の値）。設定がなければ（開発・Emulator）reCAPTCHA を使わない
 export const RECAPTCHA_ENTERPRISE_SCRIPT_URL = 'https://www.google.com/recaptcha/enterprise.js'
+// ログイン画面が token を待つ最長の時間（読み込み 10秒 + ready・execute 10秒 + 余裕）。過ぎたら理由を出してボタンを戻す（F-05）
+export const RECAPTCHA_TOKEN_TIMEOUT_MS = 25_000
 // reCAPTCHA が作る iframe と、それが呼ぶ先（CSP の frame-src・connect-src に足す）
 export const RECAPTCHA_FRAME_SOURCES = ['https://www.google.com/recaptcha/', 'https://recaptcha.google.com/recaptcha/'] as const
 export const RECAPTCHA_CONNECT_SOURCES = ['https://www.google.com/recaptcha/'] as const
